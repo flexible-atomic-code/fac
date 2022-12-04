@@ -79,7 +79,8 @@ static struct {
 		RECNMAX, RECLMAX, RECLMAX,
 		0, 0, {0, RECLMAX}};
 
-static double ai_cut = AICUT;
+static double _ai_cut = AICUT;
+static double _rr_cut = RRCUT;
 static int _progress_report = -1;
 
 static REC_COMPLEX rec_complex[MAX_COMPLEX];
@@ -150,7 +151,7 @@ static void FreeRecPkData(void *p) {
 }
 
 int SetAICut(double c) {
-  ai_cut = c;
+  _ai_cut = c;
   return 0;
 }
 
@@ -705,22 +706,23 @@ int RRRadialMultipoleTable(double *qr, int k0, int k1, int m) {
 }
 
 void TopUpRRRadialQk(double *qr, int k0, int kp, int mx) {
-  int ite, ie, k, m, m2p;
-  double r, rp, b[25];
+  int ite, ie, k, mx1;
+  double r, rp, b;
 
   if (mx <= 1) return;
-  if (mx > 10) mx = 10;
-  m = 1 + (mx-1)/2;
-  m = 2*m + 1;
-  m2p = 2*m + 1;
+  if (mx > 100) mx = 100;
 
   k = 0;
   for (ite = 0; ite < n_tegrid; ite++) {
     for (ie = 0; ie < n_egrid; ie++) {
-      r = AsymmetryPI(k0, egrid[ie], tegrid[ite], 0, 0, mx, m, b);
+      mx1 = mx;
+      r = AsymmetryPI(k0, egrid[ie], tegrid[ite], 0, 0, &mx1,
+		      0, &b, NULL, NULL);
       if (r > 0) {
 	if (kp != k0) {
-	  rp = AsymmetryPI(kp, egrid[ie], tegrid[ite], 0, 0, mx, m, b);
+	  mx1 = mx;
+	  rp = AsymmetryPI(kp, egrid[ie], tegrid[ite], 0, 0, &mx1,
+			   0, &b, NULL, NULL);
 	  if (rp > 0) {
 	    r = sqrt(r*rp);
 	  }
@@ -750,7 +752,7 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m0) {
   if (m0 > 100) {
     m = -1;
     mx = m0-100;
-    if (mx == 1) mx = 4;
+    if (mx == 1) mx = 50;
   } else {
     m = m0;
     mx = 0;
@@ -859,7 +861,7 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m0) {
 	    } else {
 	      r1 = MultipoleRadialFR(aw, m, k1, kf, gauge);
 	    }
-	  }	  
+	  }	 
 	  tq[ie] += r0*r1;
 	}  
       }
@@ -2188,7 +2190,7 @@ void ProcessAICache(int msub, int iuta, TFILE *f) {
       }
       if (k < 0) continue;
       if (!msub) {
-	if (s[0] <= ai_cut) continue;
+	if (s[0] <= _ai_cut) continue;
 	r.b = ilow;
 	r.f = iup;
 	r.rate = s[0];
@@ -2200,7 +2202,7 @@ void ProcessAICache(int msub, int iuta, TFILE *f) {
 	  r1.rate[t] = s[t];
 	  s1 += s[t];
 	}
-	if (s1 <= ai_cut) continue;
+	if (s1 <= _ai_cut) continue;
 	r1.b = ilow;
 	r1.f = iup;
 	r1.nsub = k;
@@ -2993,7 +2995,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
 	    k = AutoionizeRate(&s, &e, low[i], up[j], msub);
 	  }
 	  if (k < 0) continue;
-	  if (s < ai_cut) continue;
+	  if (s < _ai_cut) continue;
 	  r.b = low[i];
 	  r.f = up[j];
 	  r.rate = s;
@@ -3007,7 +3009,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
 	    r1.rate[t] = s1[t];
 	    s += s1[t];
 	  }
-	  if (s < ai_cut) continue;
+	  if (s < _ai_cut) continue;
 	  r1.b = low[i];
 	  r1.f = up[j];
 	  r1.nsub = k;
@@ -3095,13 +3097,15 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
 }
 
 double AsymmetryPI(int k0, double e, double te,
-		   int mp, int mx0, int mx, int m, double *b) {
+		   int mp, int mx0, int *mx1,
+		   int m, double *b, double *pqa, double *pqa2) {
   ORBITAL *orb0;
   double **ak;
-  int *nak, **kak, gauge;
-  int L, L2, i, p, q, j0, j1, j2, kl0, kl1, kl2;
+  int *nak, **kak, gauge, ip0, ip1, im, mm;
+  int L, L2, i, p, q, j0, j1, j2, kl0, kl1, kl2, mx;
   int jmin, jmax, se, kappa, k, Lp, Lp2, ip, pp, q2;
-  double aw, aw0, ph1, ph2, c, d, b1, w3j1, w3j2;
+  double aw, aw0, ph1, ph2, c, d, b0, b1, w3j1, w3j2;
+  double bm, bp, bmc, bpc, bmp, bmi, bpi, bmt, bpt;
 
   orb0 = GetOrbital(k0);
   GetJLFromKappa(orb0->kappa, &j0, &kl0);
@@ -3112,6 +3116,7 @@ double AsymmetryPI(int k0, double e, double te,
   aw0 = FINE_STRUCTURE_CONST*(e + te);
   gauge = GetTransitionGauge();
   
+  mx = *mx1;
   nak = malloc(sizeof(int)*mx);
   ak = malloc(sizeof(double *)*mx);
   kak = malloc(sizeof(int *)*mx);
@@ -3119,22 +3124,30 @@ double AsymmetryPI(int k0, double e, double te,
     b[i] = 0.0;
   }
   b1 = 0.0;
-  for (i = mx0; i < mx; i++) {
-    L = i/2 + 1;
+  bm = 0.0;
+  bmp = 0.0;
+  bmt = 0.0;
+  bpt = 0.0;
+  for (im = mx0; im < mx; im++) {
+    L = im/2 + 1;
     L2 = 2*L;
     jmin = abs(j0-L2);
     jmax = j0 + L2;
-    nak[i] = 1 + ((jmax - jmin)/2);
-    ak[i] = malloc(sizeof(double)*nak[i]);
-    kak[i] = malloc(sizeof(int)*nak[i]);
+    nak[im] = 1 + ((jmax - jmin)/2);
+    ak[im] = malloc(sizeof(double)*nak[im]);
+    kak[im] = malloc(sizeof(int)*nak[im]);
     j1 = jmin;
-    if (IsEven(i)) {
+    if (IsEven(im)) {
+      if (im > mx0+2) {
+	bmp = bm;
+      }
+      bm = 0.0;
       se = IsEven(L+kl0/2);
     } else {
       se = IsOdd(L+kl0/2);
     }
     c = sqrt((2.0/(L2+1.0))*pow(aw0, L2-1));
-    for (p = 0; p < nak[i]; p++) {
+    for (p = 0; p < nak[im]; p++) {
       kl1 = j1 - 1;
       if (se) {
 	if (IsOdd(kl1/2)) kl1 += 2;
@@ -3142,82 +3155,135 @@ double AsymmetryPI(int k0, double e, double te,
 	if (IsEven(kl1/2)) kl1 += 2;
       }
       kappa = GetKappaFromJL(j1, kl1);
-      kak[i][p] = kappa;
+      kak[im][p] = kappa;
       k = OrbitalIndex(0, kappa, e);
-      if (IsEven(i)) {
+      if (IsEven(im)) {
 	if (mp <= 0) {
-	  ak[i][p] = MultipoleRadialFR(aw, -L, k0, k, gauge);
+	  ak[im][p] = MultipoleRadialFR(aw, -L, k0, k, gauge);
 	  if (IsOdd((j0+j1)/2+(L2+kl0-kl1)/4)) {
-	    ak[i][p] = -ak[i][p];
+	    ak[im][p] = -ak[im][p];
 	  }
 	} else {
-	  ak[i][p] = 0.0;
+	  ak[im][p] = 0.0;
 	}
       } else {
 	if (mp >= 0) {
-	  ak[i][p] = MultipoleRadialFR(aw, L, k0, k, gauge);
+	  ak[im][p] = MultipoleRadialFR(aw, L, k0, k, gauge);
 	  if (IsOdd((j0+j1)/2+(L2+2+kl0-kl1)/4)) {
-	    ak[i][p] = -ak[i][p];
+	    ak[im][p] = -ak[im][p];
 	  }
 	} else {
-	  ak[i][p] = 0.0;
+	  ak[im][p] = 0.0;
 	}
       }
-      ak[i][p] *= c;
-      double b0 = ak[i][p]*ak[i][p];
+      ak[im][p] *= c;
+      b0 = ak[im][p]*ak[im][p];
       b[0] += b0;
-      if (i == mx0) {
+      bm += b0;
+      if (im == mx0) {
 	b1 += b0;
       }
       j1 += 2;
     }
-  }
-
-  for (i = mx0; i < mx; i++) {
-    L = i/2 + 1;
-    L2 = 2*L;
-    for (p = 0; p < nak[i]; p++) {
-      GetJLFromKappa(kak[i][p], &j1, &kl1);
-      k = OrbitalIndex(0, kak[i][p], e);
-      ph1 = GetPhaseShift(k)-(PI/4)*kl1;
-      for (ip = mx0; ip < mx; ip++) {
-	Lp = ip/2 + 1;
-	Lp2 = 2*Lp;
-	for (pp = 0; pp < nak[ip]; pp++) {
-	  GetJLFromKappa(kak[ip][pp], &j2, &kl2);
-	  k = OrbitalIndex(0, kak[ip][pp], e);
-	  ph2 = GetPhaseShift(k)-(PI/4)*kl2;
-	  c = sqrt((j1+1.0)*(j2+1.0)*(kl1+1.0)*(kl2+1.0)*(L2+1.0)*(Lp2+1.0));
-	  c *= ak[i][p]*ak[ip][pp];
-	  if (ph1 != ph2) c *= cos(ph1-ph2);
-	  if (IsOdd((L2-Lp2+j1-j2+j0+1)/2)) c = -c;
-	  for (q = 0; q < m; q++) {
-	    q2 = 2*q;
-	    d = c*(q2 + 1.0);
-	    d *= W3j(kl1, kl2, q2, 0, 0, 0);
-	    d *= W6j(kl1, kl2, q2, j2, j1, 1);
-	    d *= W6j(j1, j2, q2, Lp2, L2, j0);
-	    w3j1 = W3j(q2, Lp2, L2, 0, 2, -2);
-	    w3j2 = 0.0;
-	    b[q+1] += d*w3j1;
-	    if (q >= 2) {
-	      if (IsOdd((kl2-Lp2-kl0)/2)) d = -d;
-	      d *= exp(0.5*(ln_factorial[q-2]-ln_factorial[q+2]));
-	      d *= q*(q-1.0);
-	      w3j2 = W3j(q2, Lp2, L2, 4, -2, -2);
-	      b[q+1+m] += d*w3j2;
+    if (m == 0) {
+      if (_rr_cut > 0 && IsOdd(im) && bmp > 0) {
+	c = bm/bmp;
+	if (c < 1) {
+	  c = bm/(1-c);
+	  if (c < _rr_cut*b[0]) {
+	    mx = im+1;
+	    break;
+	  }
+	}
+      }
+    } else {
+      for (i = mx0; i <= im; i++) {
+	L = i/2 + 1;
+	L2 = 2*L;
+	if (i < im) {
+	  ip0 = im;
+	  ip1 = im;
+	} else {
+	  ip0 = mx0;
+	  ip1 = im;
+	}
+	for (p = 0; p < nak[i]; p++) {
+	  GetJLFromKappa(kak[i][p], &j1, &kl1);
+	  k = OrbitalIndex(0, kak[i][p], e);
+	  ph1 = GetPhaseShift(k)-(PI/4)*kl1;
+	  for (ip = ip0; ip <= ip1; ip++) {
+	    Lp = ip/2 + 1;
+	    Lp2 = 2*Lp;
+	    for (pp = 0; pp < nak[ip]; pp++) {
+	      GetJLFromKappa(kak[ip][pp], &j2, &kl2);
+	      k = OrbitalIndex(0, kak[ip][pp], e);
+	      ph2 = GetPhaseShift(k)-(PI/4)*kl2;
+	      c = (j1+1.0)*(j2+1.0)*(kl1+1.0)*(kl2+1.0)*(L2+1.0)*(Lp2+1.0);
+	      c = sqrt(c)*ak[i][p]*ak[ip][pp];
+	      if (ph1 != ph2) c *= cos(ph1-ph2);
+	      if (IsOdd((L2-Lp2+j1-j2+j0+1)/2)) c = -c;
+	      for (q = 0; q < m; q++) {
+		q2 = 2*q;
+		d = c*(q2 + 1.0);
+		d *= W3j(kl1, kl2, q2, 0, 0, 0);
+		d *= W6j(kl1, kl2, q2, j2, j1, 1);
+		d *= W6j(j1, j2, q2, Lp2, L2, j0);
+		w3j1 = W3j(q2, Lp2, L2, 0, 2, -2);
+		w3j2 = 0.0;
+		b[q+1] += d*w3j1;
+		if (q >= 2) {
+		  if (IsOdd((kl2-Lp2-kl0)/2)) d = -d;
+		  d *= exp(0.5*(ln_factorial[q-2]-ln_factorial[q+2]));
+		  d *= q*(q-1.0);
+		  w3j2 = W3j(q2, Lp2, L2, 4, -2, -2);
+		  b[q+1+m] += d*w3j2;
+		}
+	      }	  
 	    }
-	  }	  
+	  }
+	}
+      }
+      if (_rr_cut > 0 && IsOdd(im)) {
+	mm = 2*(1+(im-1)/2)+1;
+	bmc = 0.0;
+	for (q = 0; q < mm; q += 2) {
+	  bmc += b[q+1]*pqa[q];
+	}
+	bmi = bmc - bmt;
+	bmt = bmc;
+	bpc = 0.0;
+	for (q = 2; q < mm; q += 2) {
+	  bpc += pqa2[q-2]*b[q+m+1]/(q*(q-1.0));
+	}
+	bpi = bpc - bpt;
+	bpt = bpc;	
+	if (bmp > 0) {
+	  c = bm/bmp;
+	  //printf("im: %d %g %g %g %g %g %g %g %g %g %g %g\n", im, c, bmp, bm, bm/(1-c), b[0], bmt, bmi, bmi/(1-c), bpt, bpi, bpi/(1-c));
+	  if (c < 1) {
+	    c = 1-c;
+	    ph1 = bm/c;
+	    d = fabs(bpi)/c;
+	    c = fabs(bmi)/c;
+	    if (ph1 < _rr_cut*b[0] &&
+		c < _rr_cut*fabs(bmt) &&
+		d <= _rr_cut*fabs(bpt)) {
+	      mx = im+1;
+	      break;
+	    }
+	  }
+	}
+	if (im > mx0+2) {
+	  bmp = bmi;
 	}
       }
     }
-  }    
+  }
   
   for (i = 1; i < 2*m+1; i++) {
     b[i] /= b[0];
-  }
-  //c = FINE_STRUCTURE_CONST2*e;
-  //c = (1.0+c)/(1.0+0.5*c);
+  }  
+  
   double rb = b1/b[0];
   c = 2.0*PI/(j0+1.0);
   b[0] *= c;
@@ -3228,7 +3294,8 @@ double AsymmetryPI(int k0, double e, double te,
   free(nak);
   free(ak);
   free(kak);
-
+  
+  *mx1 = mx;
   return rb;
 }
 
@@ -3237,7 +3304,7 @@ int SaveAsymmetry(char *fn, char *s, int mx, double te) {
   CONFIG *cfg;
   char *p, sp[16], js;
   int k, ns, i, j, q, ncfg, m, mlam, mxi, mx0, mp;
-  int kappa, n, jj, kl, k0;
+  int kappa, n, jj, kl, k0, mx1[MAXNUSR], mm, mt;
   double **b, **bi, e0, e, emin, emax, a, phi;
   double phi90, phi1, phi2, bphi, rp;
   double *pqa, *pqa2, nu1, theta;
@@ -3346,15 +3413,20 @@ int SaveAsymmetry(char *fn, char *s, int mx, double te) {
 	  }
 	}
 	double et0 = e0;
+	mt = 0;
+	for (i = 0; i < n_usr; i++) {
+	  e = usr_egrid[i];
+	  mx1[i] = mx;
+	  b[i][m2p] = AsymmetryPI(k0, e, et0, mp, mx0, &mx1[i],
+				  m, b[i], pqa, pqa2);
+	  if (mx1[i] > mt) mt = mx1[i];
+	}
+	mm = 2*(1 + (mt-1)/2)+1;
 	e0 *= HARTREE_EV;
 	fprintf(f, "#  %2s  %2d %2d\n", 
 		GetAtomicSymbol(), (int)GetAtomicNumber(), (int)GetResidualZ());
-	fprintf(f, "#  %d%s%c %d %d %d %12.5E  %d %d\n",
-		n, sp, js, n, kl, jj, e0, n_usr, mxi);
-	for (i = 0; i < n_usr; i++) {
-	  e = usr_egrid[i];
-	  b[i][m2p] = AsymmetryPI(k0, e, et0, mp, mx0, mx, m, b[i]);
-	}
+	fprintf(f, "#  %d%s%c %d %d %d %12.5E  %d %d %d\n",
+		n, sp, js, n, kl, jj, e0, n_usr, mxi, mt);
 	
 	for (i = 0; i < n_usr; i++) {
 	  e = usr_egrid[i]*HARTREE_EV;
@@ -3362,12 +3434,12 @@ int SaveAsymmetry(char *fn, char *s, int mx, double te) {
 	  a = a*a;
 	  phi = b[i][0]*AREA_AU20;
 	  phi90 = 0.0;
-	  for (q = 0; q < m; q += 2) {
+	  for (q = 0; q < mm; q += 2) {
 	    phi90 += b[i][q+1]*pqa[q];
 	  }
 	  phi1 = phi90;
 	  phi2 = phi90;
-	  for (q = 2; q < m; q += 2) {
+	  for (q = 2; q < mm; q += 2) {
 	    bphi = pqa2[q-2]*b[i][q+m+1]/(q*(q-1.0));
 	    phi1 -= bphi; /* parallel, Phi=0 */
 	    phi2 += bphi; /* perpendicular Phi=90 */
@@ -3375,10 +3447,10 @@ int SaveAsymmetry(char *fn, char *s, int mx, double te) {
 	  phi90 *= phi/(4.0*PI);
 	  if (phi1) rp = phi2/phi1;
 	  else rp = phi2>0?1e30:-1e30;
-	  fprintf(f, "%12.5E %12.5E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
-		  e, e+e0, phi, phi90, a*phi, a*phi90, rp, b[i][m2p]);
+	  fprintf(f, "%12.5E %12.5E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %d\n",
+		  e, e+e0, phi, phi90, a*phi, a*phi90, rp, b[i][m2p], mx1[i]/2);
 	}      
-	for (q = 0; q < m; q++) {
+	for (q = 0; q < mm; q++) {
 	  for (i = 0; i < n_usr; i++) {
 	    e = usr_egrid[i]*HARTREE_EV;
 	    fprintf(f, "%12.5E %12.5E %12.5E\n",
@@ -3418,12 +3490,12 @@ int SaveAsymmetry(char *fn, char *s, int mx, double te) {
 		a = a*a;
 		phi = b[i][0]*AREA_AU20;
 		phi90 = 0.0;
-		for (q = 0; q < m; q += 2) {
+		for (q = 0; q < mm; q += 2) {
 		  phi90 += b[i][q+1]*pqa[q];
 		}
 		phi1 = phi90;
 		phi2 = phi90;
-		for (q = 2; q < m; q += 2) {
+		for (q = 2; q < mm; q += 2) {
 		  bphi = pqa2[q-2]*b[i][q+m+1]/(q*(q-1.0));
 		  phi1 -= bphi; /* parallel, Phi=0 */
 		  phi2 += bphi; /* perpendicular Phi=90 */
@@ -3431,11 +3503,11 @@ int SaveAsymmetry(char *fn, char *s, int mx, double te) {
 		phi90 *= phi/(4.0*PI);
 		if (phi1) rp = phi2/phi1;
 		else rp = phi2>0?1e30:-1e30;
-		fprintf(f, "%12.5E %12.5E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+		fprintf(f, "%12.5E %12.5E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %d\n",
 			e, e+e0, phi/wb, phi90/wb,
-			a*phi/wf, a*phi90/wf, rp, b[i][m2p]);
+			a*phi/wf, a*phi90/wf, rp, b[i][m2p], mx1[i]/2);
 	      }      
-	      for (q = 0; q < m; q++) {
+	      for (q = 0; q < mm; q++) {
 		for (i = 0; i < n_usr; i++) {
 		  e = usr_egrid[i]*HARTREE_EV;
 		  fprintf(f, "%12.5E %12.5E %12.5E\n",
@@ -3475,8 +3547,8 @@ int SaveAsymmetry(char *fn, char *s, int mx, double te) {
 	    }
 	    fprintf(f, "#  %2s  %2d %2d\n", 
 		    GetAtomicSymbol(), (int)GetAtomicNumber(), (int)GetResidualZ());
-	    fprintf(f, "#  %6d %6d %12.5E  %d %d\n",
-		    r.b, r.f, e0, n_usr, mxi);
+	    fprintf(f, "#  %6d %6d %12.5E  %d %d %d\n",
+		    r.b, r.f, e0, n_usr, mxi, mt);
 	    b0 = r.b;
 	    f0 = r.f;
 	  }
@@ -3490,14 +3562,19 @@ int SaveAsymmetry(char *fn, char *s, int mx, double te) {
 	  }
 	  k0 = OrbitalIndex(vn, GetKappaFromJL(j, vl), 0);
 	  double nq = r.nq[ip]*r.nq[ip];
+	  mt = 0;
 	  for (i = 0; i < n_usr; i++) {
 	    e = usr_egrid[i];
-	    bi[i][m2p] = AsymmetryPI(k0, e, te, mp, mx0, mx, m, bi[i]);
+	    mx1[i] = mx;
+	    bi[i][m2p] = AsymmetryPI(k0, e, te, mp, mx0, &mx1[i],
+				     m, bi[i], pqa, pqa2);
 	    b[i][0] += bi[i][0]*nq;
+	    if (mx1[i] > mt) mt = mx1[i];
 	    for (q = 1; q <= m2p; q++) {
 	      b[i][q] += bi[i][q]*bi[i][0]*nq;
 	    }
-	  }	  
+	  }
+	  mm = 2*(1 + (mt-1)/2)+1;
 	}
       }
       if (b0 >= 0 && f0 >= 0) {
@@ -3515,12 +3592,12 @@ int SaveAsymmetry(char *fn, char *s, int mx, double te) {
 	  a = a*a;
 	  phi = b[i][0]*AREA_AU20;
 	  phi90 = 0.0;
-	  for (q = 0; q < m; q += 2) {
+	  for (q = 0; q < mm; q += 2) {
 	    phi90 += b[i][q+1]*pqa[q];
 	  }
 	  phi1 = phi90;
 	  phi2 = phi90;
-	  for (q = 2; q < m; q += 2) {
+	  for (q = 2; q < mm; q += 2) {
 	    bphi = pqa2[q-2]*b[i][q+m+1]/(q*(q-1.0));
 	    phi1 -= bphi; /* parallel, Phi=0 */
 	    phi2 += bphi; /* perpendicular Phi=90 */
@@ -3528,11 +3605,11 @@ int SaveAsymmetry(char *fn, char *s, int mx, double te) {
 	  phi90 *= phi/(4.0*PI);
 	  if (phi1) rp = phi2/phi1;
 	  else rp = phi2>0?1e30:-1e30;	
-	  fprintf(f, "%12.5E %12.5E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+	  fprintf(f, "%12.5E %12.5E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %d\n",
 		  e, e+e0, phi/wb, phi90/wb,
-		  a*phi/wf, a*phi90/wf, rp, b[i][m2p]);
+		  a*phi/wf, a*phi90/wf, rp, b[i][m2p], mx1[i]/2);
 	}      
-	for (q = 0; q < m; q++) {
+	for (q = 0; q < mm; q++) {
 	  for (i = 0; i < n_usr; i++) {
 	    e = usr_egrid[i]*HARTREE_EV;
 	    fprintf(f, "%12.5E %12.5E %12.5E\n",
@@ -3697,7 +3774,11 @@ void SetOptionRecombination(char *s, char *sp, int ip, double dp) {
     return;
   }
   if (0 == strcmp(s, "recombination:ai_cut")) {
-    ai_cut = dp;
+    _ai_cut = dp;
+    return;
+  }
+  if (0 == strcmp(s, "recombination:rr_cut")) {
+    _rr_cut = dp;
     return;
   }
   if (0 == strcmp(s, "recombination:maxkl")) {

@@ -1737,7 +1737,7 @@ static int PRRTable(int argc, char *argv[], int argt[],
 		    ARRAY *variables) {
   int nlow, *low, nup, *up, m;
   
-  m = -1;
+  m = 101;
   if (argc != 3 && argc != 4) return -1;
   if (argt[0] != STRING) return -1;
 

@@ -141,6 +141,8 @@ static double _gridqr = GRIDQR;
 static double _gridasymp = GRIDASYMP;
 static double _gridratio = GRIDRATIO;
 static double _gridrmin = GRIDRMIN;
+static double _gridrmax = 0.0;
+static double _gridemax = 0.0;
 static int _maxrp = DMAXRP;
 
 static struct {
@@ -2624,6 +2626,10 @@ int GetPotential(char *s, int m) {
   fprintf(f, "#     rb = %15.8E\n", rb);
   fprintf(f, "#    rb0 = %15.8E\n", rb0);
   fprintf(f, "#    rb1 = %15.8E\n", rb1);
+  fprintf(f, "#   rmin = %15.8E\n", potential->rad[0]);
+  fprintf(f, "#   rmax = %15.8E\n", potential->rad[potential->maxrp-1]);
+  fprintf(f, "#  ratio = %15.8E\n", potential->ratio);
+  fprintf(f, "#  asymp = %15.8E\n", potential->asymp);
   fprintf(f, "#    bqp = %15.8E\n", potential->bqp);
   fprintf(f, "#     nb = %d\n", potential->nb);
   fprintf(f, "#  miter = %d\n", potential->miter);
@@ -3583,7 +3589,8 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
 
 int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
   AVERAGE_CONFIG *acfg;
-  double a, b, c, z, *r, *x, emin, smin, hxs[NXS2], ehx[NXS2], mse;
+  double a, b, c, z, z0, rn;
+  double *r, *x, emin, smin, hxs[NXS2], ehx[NXS2], mse;
   int iter, i, j, i0, i1, k;
   
   if (potential->atom->atomic_number < EPS10) {
@@ -3638,6 +3645,52 @@ int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
 
   /* setup the radial grid if not yet */
   if (potential->flag == 0) {
+    if (_gridemax > 0) {
+      z0 = GetAtomicNumber();
+      z = z0 - potential->N1;
+      if (z < 1) z = 1.0;
+      a = 10*sqrt(2*_gridemax*(1+0.5*FINE_STRUCTURE_CONST2*_gridemax)/z);
+      potential->asymp = ceil(a);
+      if (potential->asymp < GRIDASYMP) potential->asymp = GRIDASYMP;
+    }
+    if (_gridrmax > 0 || _gridrmax < -0.1) {
+      if (potential->asymp > 0 && potential->ratio > 0) {
+	z0 = GetAtomicNumber();
+	rn = GetAtomicR();
+	z = z0 - potential->N1;
+	if (z < 1) z = 1.0;
+	b = _gridrmax;
+	if (b < 0) {
+	  k = (int)ceil(-b);
+	  b = 20*b*b/z;
+	  for (i = 0; i < 100; i++) {
+	    RadialDiracCoulomb(1, &a, &c, &b, z, k, -1);
+	    a = sqrt(a*a+c*c);
+	    if (a < EPS5) break;
+	    b *= 1.25;
+	  }
+	}
+	smin = potential->rmin/z0;
+	if (rn > 0) {
+	  a = rn*GRIDRMINN0;
+	  if (smin < a) smin = a;
+	  a = rn*GRIDRMINN1;
+	  if (smin > a) smin = a;
+	}
+	a = potential->asymp*sqrt(2.0*z)/PI;
+	c = 1./log(potential->ratio);
+	k = (int)(a*(pow(b,potential->qr)-pow(smin,potential->qr)));
+	k += (int)ceil(c*log(b/smin));
+	k += 10;
+	if (IsOdd(k)) k++;
+	if (k > MMAXRP) {
+	  printf("maxrp exceeded 50000: %d %g %g %g\n",
+		 k, b, potential->ratio, potential->asymp);
+	  k = MMAXRP;
+	}
+	AllocWorkSpace(k);
+      }
+    }
     SetOrbitalRGrid(potential);
   }
 
@@ -12224,6 +12277,14 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   if (0 == strcmp(s, "radial:gridrmin")) {
     _gridrmin = dp;
     potential->rmin = _gridrmin;
+    return;
+  }
+  if (0 == strcmp(s, "radial:gridrmax")) {
+    _gridrmax = dp;
+    return;
+  }
+  if (0 == strcmp(s, "radial:gridemax")) {
+    _gridemax = dp/HARTREE_EV;
     return;
   }
   if (0 == strcmp(s, "radial:gridqr")) {
