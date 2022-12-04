@@ -3179,9 +3179,7 @@ remaining arguments are identical to those in \key{RRTable}
 Calculate the bound-free differetial oscillator strengths between the bound
 configuration groups \var{b} and free groups \var{f}, which are related to
 radiative recombination and photoionization cross sections. The optional
-multipole type \var{m} is set to -1 (E1) by default. In almost all cases, no
-other multipole types should be important. The results are saved in file
-\var{fn}.
+multipole type \var{m} is the maximum multipole type to be included in the bound-free oscillator strength. e.g., 1 means including only E1, 2 means including E1 and M1, 3 for E1+M1+E2, 4 for E1+M1+E2+M2, etc. Default is 100 which should be enough for convergence in any cases. The results are saved in file \var{fn}.
 \end{fundesc}
 
 \begin{fundesc}{SavePotential}{fn}
