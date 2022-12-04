@@ -2602,7 +2602,7 @@ static int PSetHydrogenicNL(int argc, char *argv[], int argt[],
 
 static int PSetPEGrid(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) { int n, ng, i, err;
-  double xg[MAXNE];
+  double *xg;
   double emin, emax, eth;
   char *vg[MAXNARGS];
   int ig[MAXNARGS];
@@ -2616,12 +2616,14 @@ static int PSetPEGrid(int argc, char *argv[], int argt[],
       err = SetPEGrid(ng, -1.0, -1.0, 0.0);
     } else if (argt[0] == LIST || argt[0] == TUPLE) {
       ng = DecodeArgs(argv[0], vg, ig, variables);
+      xg = malloc(sizeof(double)*ng);
       for (i = 0; i < ng; i++) {
 	xg[i] = atof(vg[i]);
 	xg[i] /= HARTREE_EV;
 	free(vg[i]);
       }
       err = SetPEGridDetail(ng, xg);
+      free(xg);
     } else {
       return -1;
     }
