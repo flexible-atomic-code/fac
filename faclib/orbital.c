@@ -3396,25 +3396,58 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
   return 0;
 }
 
-double GetRFromRho(double rho, double a, double b, double q, double r0) {
-  double e, d1;
+double GetRFromRho(double rho, double a, double b, double q, double r) {
+  double x, r0, r1;
   int i;
 
-  e = 1.0;
-  i = 0;
-  while (fabs(e) > 1E-10) {
-    if (i > 100) {
-      printf("Newton iteration failed to converge in GetRFromRho\n");
-      exit(1);
+  x = a*pow(r, q) + b*log(r);
+  if (x > rho) {
+    r1 = r;
+    r /= 2;
+    for (i = 0; i < 128; i++) {
+      x = a*pow(r, q) + b*log(r);
+      if (x < rho) break;
+      r /= 2;
     }
-    d1 = pow(r0, q)*a;
-    e = d1 + b*log(r0) - rho;
-    e /= (q*d1 + b);
-    r0 *= (1.0 - e);
-    i++;
+    if (i == 128) {
+      printf("maxiter reached in GetRFromRho0: %g %g %g\n", r, x, rho);
+      Abort(1);
+    }
+    r0 = r;
+  } else if (x < rho) {
+    r0 = r;
+    r *= 2;
+    for (i = 0; i < 128; i++) {
+      x = a*pow(r, q) + b*log(r);
+      if (x > rho) break;
+      r *= 2;
+    }
+    if (i == 128) {
+      printf("maxiter reached in GetRFromRho1: %g %g %g\n", r, x, rho);
+      Abort(1);
+    }
+    r1 = r;
+  } else {
+    return r;
   }
-
-  return r0;
+  for (i = 0; i < 256; i++) {
+    r = 0.5*(r0+r1);
+    x = a*pow(r, q) + b*log(r);
+    if (x < rho-EPS10) {
+      r0 = r;
+    } else if (x > rho+EPS10) {
+      r1 = r;
+    } else {
+      break;
+    }    
+    if (r1-r0 < EPS6*Min(r,EPS6)) break;
+  }
+  if (i == 256) {
+    printf("maxiter reached in GetRFromRho: %g %g %g %g %g %g %g\n",
+	   r0, r1, r, x, rho, r1-r0, x-rho);
+    Abort(1);
+  }
+  return r;
 }
 
 void FitDiff(double *y0, double *y1, double *y2, int i1, int i2,

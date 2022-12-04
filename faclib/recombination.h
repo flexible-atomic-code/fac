@@ -98,7 +98,8 @@ int SaveRecRR(int nlow, int *low, int nup, int *up, char *fn, int m);
 int SaveAI(int nlow, int *low, int nup, int *up, char *fn, 
 	   double eref, int msub);
 double AsymmetryPI(int k0, double e, double te,
-		   int mp, int mx0, int mx1, int m, double *b);
+		   int mp, int mx0, int *mx1,
+		   int m, double *b, double *pqa, double *pqa2);
 int SaveAsymmetry(char *fn, char *s, int mx, double te);
 int AIRadial1E(double *pk, int kb, int kappaf);
 int AIRadialPk(double **pk, int k0, int k1, int kb, int kappaf,

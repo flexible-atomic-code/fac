@@ -13,7 +13,7 @@ check: $(RESULTS)
 
 ref:
 	make
-	@for i in $(RESULTS); do mv $$i ref/ || exit 1; done;
+	@for i in $(RESULTS); do cp $$i ref/ || exit 1; done;
 
 
 clean:

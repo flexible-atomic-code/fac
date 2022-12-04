@@ -3493,7 +3493,7 @@ static PyObject *PRRTable(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  m = -1;
+  m = 101;
   if (!PyArg_ParseTuple(args, "sOO|i", &s, &p, &q, &m)) {
     printf("Unrecognized parameters in RRTable\n");
     return NULL;

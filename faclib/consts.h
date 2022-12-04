@@ -82,10 +82,18 @@
 ** NOTE:        
 */
 #define EPS30 1E-30
+#define EPS18 1E-18
+#define EPS17 1E-17
 #define EPS16 1E-16
+#define EPS15 1E-15
+#define EPS14 1E-14
+#define EPS13 1E-13
 #define EPS12 1E-12
+#define EPS11 1E-11
 #define EPS10 1E-10
+#define EPS9  1E-09
 #define EPS8  1E-08
+#define EPS7  1E-07
 #define EPS6  1E-06
 #define EPS5  1E-05
 #define EPS4  1E-04
@@ -228,8 +236,9 @@ extern double AMU;
 #define ARYCTH 0.05
 
 /* orbital */
+#define MMAXRP     50000
 #define DMAXRP     1500  /* default radial mesh points */
-#define GRIDASYMP  36    /* no. points in one wavelength near infinity */
+#define GRIDASYMP  50    /* no. points in one wavelength near infinity */
 #define GRIDRATIO  1.1   /* ratio of successive mesh near origin */
 #define GRIDRMIN   1E-6  /* starting point of the mesh is GRIDRMIN/Z */
 #define GRIDRMINN0 1E-4  /* starting point relative to nucleus radius */
@@ -355,6 +364,7 @@ extern double AMU;
 #define RECNFROZEN         8
 #define RECLMAX            12
 #define AICUT              0.0
+#define RRCUT              1E-3
 #define MAXAICACHE         1000000
 
 /* polarization */

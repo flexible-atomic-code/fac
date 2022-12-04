@@ -869,31 +869,29 @@ def read_rra(fn):
             if a == '':
                 a = x[1]
             else:
-                if len(x) == 8:
+                if len(x) == 9:
                     s = x[1]
                     nt = int(x[6])
-                    nq = int(x[7])
+                    nq = int(x[8])
                 else:
                     s = x[1]+'_'+x[2]
                     nt = int(x[4])
-                    nq = int(x[5])
-                if (nq > 1000):
-                    nq = nq%1000
+                    nq = int(x[6])
                 if (1 == nq%2):
                     nq = nq+1
                 nq = nq+1
                 sk = a+':'+s
                 a = ''
                 p = 0
-                d = np.zeros((nq*2+8,nt))
+                d = np.zeros((nq*2+9,nt))
                 r[sk] = d
         else:
             if p < nt:
-                for j in range(8):
+                for j in range(9):
                     d[j,p] = float(x[j])                
             else:
                 k = p%nt
-                q = int(p/nt)+7
+                q = int(p/nt)+8
                 d[q,k] = float(x[1])
                 d[q+nq,k] = float(x[2])                
             p = p+1
@@ -904,29 +902,29 @@ def interp_rra(d, ea, aa=None):
         x = np.log(ea)
         x0 = np.log(d[0])
         if (len(x0) < 1):
-            r = np.zeros((9,1))
-            r[:8] = d.copy()
-            r[8] = (1-r[6])/(1+r[6])
+            r = np.zeros((10,1))
+            r[:9] = d.copy()
+            r[9] = (1-r[6])/(1+r[6])
         else:
-            r = np.zeros((9,len(x)))
+            r = np.zeros((10,len(x)))
             r[0] = ea.copy()
             r[1] = r[0]+d[1][0]-d[0][0]
-            for i in range(2,8):
+            for i in range(3,9):
                 r[i] = np.exp(np.interp(x, x0, np.log(d[i])))
-                r[8] = (1-r[6])/(1+r[6])
+            r[9] = (1-r[6])/(1+r[6])
         return r
     x0 = np.log(d[0])
     nq = int((d.shape[0]-8)/2)
     if len(x0) == 1:
-        b = d[8:nq+8,0]
-        bp = d[nq+8:,0]
+        b = d[9:nq+9,0]
+        bp = d[nq+9:,0]
     else:
         x = np.log(ea)
         b = np.zeros(nq)
         bp = np.zeros(nq)
         for q in range(nq):
-            b[q] = np.interp(x, x0, d[8+q])
-            bp[q] = np.interp(x, x0, d[8+nq+q])
+            b[q] = np.interp(x, x0, d[9+q])
+            bp[q] = np.interp(x, x0, d[9+nq+q])
     na =len(aa)
     r = np.zeros((5,na))
     r[0] = aa.copy()
