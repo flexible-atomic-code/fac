@@ -333,6 +333,8 @@ extern double AMU;
 #define MAXKL              512
 #define MAXNUSR            32
 #define MAXNE              32
+#define MAXRRNUSR          64
+#define MAXRRNE            64
 #define MAXNTE             6
 #define MAXNTHETA          30
 #define MAXNPHI            60
@@ -364,7 +366,7 @@ extern double AMU;
 #define RECNFROZEN         8
 #define RECLMAX            12
 #define AICUT              0.0
-#define RRCUT              1E-3
+#define RRCUT              1E-4
 #define MAXAICACHE         1000000
 
 /* polarization */

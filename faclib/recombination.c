@@ -33,17 +33,17 @@ static int egrid_type = -1;
 static int usr_egrid_type = -1;
 
 static int n_egrid = 0;
-static double egrid[MAXNE];
-static double log_egrid[MAXNE];
+static double egrid[MAXRRNE];
+static double log_egrid[MAXRRNE];
 static double egrid_min;
 static double egrid_max;
 static int egrid_limits_type = 0;
 
 static int n_usr = 0;
-static double usr_egrid[MAXNUSR];
-static double log_usr[MAXNUSR];
-static double xusr[MAXNUSR];
-static double log_xusr[MAXNUSR];
+static double usr_egrid[MAXRRNUSR];
+static double log_usr[MAXRRNUSR];
+static double xusr[MAXRRNUSR];
+static double log_xusr[MAXRRNUSR];
 
 static int n_tegrid = 0;
 static double tegrid[MAXNTE];
@@ -190,7 +190,7 @@ int SetPEGrid(int n, double emin, double emax, double eth) {
 }
 
 int SetUsrPEGridDetail(int n, double *xg) {
-  if (n > MAXNUSR) {
+  if (n > MAXRRNUSR) {
     printf("Max # of grid points reached \n");
     return -1;
   }
@@ -199,7 +199,7 @@ int SetUsrPEGridDetail(int n, double *xg) {
 }
   						      
 int SetUsrPEGrid(int n, double emin, double emax, double eth) {
-  if (n > MAXNUSR) {
+  if (n > MAXRRNUSR) {
     printf("Max # of grid points reached \n");
     return -1;
   }
@@ -736,8 +736,8 @@ void TopUpRRRadialQk(double *qr, int k0, int kp, int mx) {
 
 int RRRadialQkTable(double *qr, int k0, int k1, int m0) {
   int index[3], k, nqk;
-  double **p, *qk, tq[MAXNE];
-  double r0, r1, tq0[MAXNE];
+  double **p, *qk, tq[MAXRRNE];
+  double r0, r1, tq0[MAXRRNE];
   ORBITAL *orb;
   int kappa0, jb0, klb02, klb0;
   int kappaf, jf, klf, kf;
@@ -747,7 +747,7 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m0) {
   int gauge;
   int nh, klh;
   double hparams[NPARAMS];
-  double xegrid[MAXNE], log_xegrid[MAXNE];
+  double xegrid[MAXRRNE], log_xegrid[MAXRRNE];
  
   orb = GetOrbital(k0);
   kappa0 = orb->kappa;
@@ -859,7 +859,7 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m0) {
 int RRRadialMultipole(double *rqc, double te, int k0, int k1, int m) {
   int i, j, np, nd, k;
   double rq[MAXNTE];
-  double x0, rqe[MAXNTE*MAXNE];
+  double x0, rqe[MAXNTE*MAXRRNE];
 
   i = RRRadialMultipoleTable(rqe, k0, k1, m);
   if (i < 0) return -1;
@@ -887,7 +887,7 @@ int RRRadialMultipole(double *rqc, double te, int k0, int k1, int m) {
 int RRRadialQk(double *rqc, double te, int k0, int k1, int m) {
   int i, j, np, nd, k;
   double rq[MAXNTE];
-  double x0, rqe[MAXNTE*MAXNE];
+  double x0, rqe[MAXNTE*MAXRRNE];
 
   i = RRRadialQkTable(rqe, k0, k1, m);
   if (i < 0) return -1;
@@ -918,7 +918,7 @@ int BoundFreeMultipole(FILE *fp, int rec, int f, int m) {
   ORBITAL *orb;
   int i, nz, ie, k, kb, j1, j2, n, p1, p2;
   int jmin, jmax, jt, jfmin, jfmax, jf, klf, kf, jb, klb;
-  double rq[MAXNE], rqu[MAXNE], eb, a;
+  double rq[MAXRRNE], rqu[MAXRRNE], eb, a;
 
   lev1 = GetLevel(rec);
   lev2 = GetLevel(f);
@@ -994,8 +994,8 @@ int BoundFreeOSUTA1(double *rqu, double *rqc, double *eb,
   int j1, ns, q1, ie;
   ORBITAL *orb;
   double a, b, d, eb0, z;
-  double rq[MAXNE], tq[MAXNE];
-  double xegrid[MAXNE], log_xegrid[MAXNE];
+  double rq[MAXRRNE], tq[MAXRRNE];
+  double xegrid[MAXRRNE], log_xegrid[MAXRRNE];
   int nkl, nq, k;
   int klb, jb, kb;
   
@@ -1106,8 +1106,8 @@ void BoundFreeOSFit(double *rqu, double *rqc,
 		    double eb, double eb0) {
   int ie;
   double a, b, d, z;
-  double rq0[MAXNE];
-  double xegrid[MAXNE], log_xegrid[MAXNE];
+  double rq0[MAXRRNE];
+  double xegrid[MAXRRNE], log_xegrid[MAXRRNE];
   
   z = GetResidualZ();
   RRRadialQkHydrogenicParams(NPARAMS, rqc, z, nq, nkl);
@@ -1178,8 +1178,8 @@ int BoundFreeOSUTA(double *rqu, double *rqc, double *eb,
   int k1, q1, ns, ie;
   ORBITAL *orb;
   double a, eb0, wb, wm;
-  double rq[MAXNE], tq[MAXNE];
-  double xegrid[MAXNE], log_xegrid[MAXNE];
+  double rq[MAXRRNE], tq[MAXRRNE];
+  double xegrid[MAXRRNE], log_xegrid[MAXRRNE];
   int nkl, nq, k, r;
   int klb, jb, kb, qb;
   
@@ -1417,8 +1417,8 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
   ORBITAL *orb;
   int nz, ie, k;
   double a, amax, eb0;
-  double rq0[MAXNE], rq[MAXNE], tq[MAXNE];
-  double xegrid[MAXNE], log_xegrid[MAXNE];
+  double rq0[MAXRRNE], rq[MAXRRNE], tq[MAXRRNE];
+  double xegrid[MAXRRNE], log_xegrid[MAXRRNE];
   int i, j;
   int nkl, nq;
   int kb, kbp, jb, klb, jbp;
@@ -1754,7 +1754,7 @@ int AutoionizeRate(double *rate, double *e, int rec, int f, int msub) {
   int k, nz, nzfb, ik, i, j1, j2, ij, kappaf, ip;
   int jf, k0, k1, kb, njf, nkappaf, klf, jmin, jmax;
   double *p, r, s, log_e, a;
-  double *ai_pk, ai_pk0[MAXNE];
+  double *ai_pk, ai_pk0[MAXRRNE];
   int np, nt, m1, m2, m;
   int kappafp, jfp, klfp, dkl;
 
@@ -2519,7 +2519,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
 	      char *fn, int m0) {
   int i, j, k, ie, ip;
   TFILE *f;
-  double rqu[MAXNUSR], qc[NPARAMS+1];
+  double rqu[MAXRRNUSR], qc[NPARAMS+1];
   double eb;
   LEVEL *lev1, *lev2;
   RR_RECORD r;
@@ -3068,7 +3068,7 @@ double AsymmetryPI(int k0, int k0p, double e, double te,
     j1 = jmin;
     if (IsEven(im)) {
       if (im > mx0+2) {
-	bmp = bm;
+	bmp = fabs(bm);
       }
       bm = 0.0;
       se = IsEven(L+kl0/2);
@@ -3126,11 +3126,11 @@ double AsymmetryPI(int k0, int k0p, double e, double te,
       j1 += 2;
     }
     if (m == 0) {
-      if (_rr_cut > 0 && IsOdd(im) && bmp > 0) {
-	c = bm/bmp;
+      if (_rr_cut > 0 && IsOdd(im) && bmp > 0) {	
+	c = fabs(bm)/bmp;
 	if (c < 1) {
-	  c = bm/(1-c);
-	  if (c < _rr_cut*b[0]) {
+	  c = fabs(bm)/(1-c);
+	  if (c < _rr_cut*fabs(b[0])) {
 	    mx = im+1;
 	    break;
 	  }
@@ -3198,23 +3198,20 @@ double AsymmetryPI(int k0, int k0p, double e, double te,
 	bpi = bpc - bpt;
 	bpt = bpc;	
 	if (bmp > 0) {
-	  c = bm/bmp;
+	  c = fabs(bm)/bmp;
 	  //printf("im: %d %g %g %g %g %g %g %g %g %g %g %g\n", im, c, bmp, bm, bm/(1-c), b[0], bmt, bmi, bmi/(1-c), bpt, bpi, bpi/(1-c));
 	  if (c < 1) {
 	    c = 1-c;
-	    ph1 = bm/c;
+	    ph1 = fabs(bm)/c;
 	    d = fabs(bpi)/c;
 	    c = fabs(bmi)/c;
-	    if (ph1 < _rr_cut*b[0] &&
+	    if (ph1 < _rr_cut*fabs(b[0]) &&
 		c < _rr_cut*fabs(bmt) &&
 		d <= _rr_cut*fabs(bpt)) {
 	      mx = im+1;
 	      break;
 	    }
 	  }
-	}
-	if (im > mx0+2) {
-	  bmp = bmi;
 	}
       }
     }
@@ -3246,7 +3243,7 @@ int SaveAsymmetry(char *fn, char *s, int mx, double te) {
   CONFIG *cfg;
   char *p, sp[16], js;
   int k, ns, i, j, q, ncfg, m, mlam, mxi, mx0, mp;
-  int kappa, n, jj, kl, k0, mx1[MAXNUSR], mm, mt;
+  int kappa, n, jj, kl, k0, mx1[MAXRRNUSR], mm, mt;
   double **b, **bi, e0, e, emin, emax, a, phi;
   double phi90, phi1, phi2, bphi, rp;
   double *pqa, *pqa2, nu1, theta;

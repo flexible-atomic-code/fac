@@ -3662,7 +3662,7 @@ static PyObject *PSetPEGridLimits(PyObject *self, PyObject *args) {
 
 static PyObject *PSetPEGrid(PyObject *self, PyObject *args) {  
   int n;
-  double xg[MAXNE];
+  double *xg;
   int ng;
   double emin, emax, eth;
   PyObject *p, *pi;
@@ -3682,13 +3682,15 @@ static PyObject *PSetPEGrid(PyObject *self, PyObject *args) {
       ng = PyLong_AsLong(p);
       err = SetPEGrid(ng, -1.0, -1.0, 0.0);
     } else if (PyList_Check(p) || PyTuple_Check(p)) {
-      ng = PySequence_Length(p);      
+      ng = PySequence_Length(p);
+      xg = malloc(sizeof(double)*ng);
       for (i = 0; i < ng; i++) {
 	pi = PySequence_GetItem(p, i);
 	xg[i] = PyFloat_AsDouble(pi)/HARTREE_EV;
 	Py_DECREF(pi);
       }
       err = SetPEGridDetail(ng, xg);
+      free(xg);
     } else {
       return NULL;
     }
