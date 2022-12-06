@@ -81,6 +81,7 @@ static struct {
 
 static double _ai_cut = AICUT;
 static double _rr_cut = RRCUT;
+static int _asym_ci = 0;
 static int _progress_report = -1;
 
 static REC_COMPLEX rec_complex[MAX_COMPLEX];
@@ -3243,7 +3244,7 @@ int SaveAsymmetry(char *fn, char *s, int mx, double te) {
   CONFIG *cfg;
   char *p, sp[16], js;
   int k, ns, i, j, q, ncfg, m, mlam, mxi, mx0, mp;
-  int kappa, n, jj, kl, k0, mx1[MAXRRNUSR], mm, mt;
+  int kappa, n, jj, kl, k0, k1, mx1[MAXRRNUSR], mm, mt;
   double **b, **bi, e0, e, emin, emax, a, phi;
   double phi90, phi1, phi2, bphi, rp;
   double *pqa, *pqa2, nu1, theta;
@@ -3402,97 +3403,47 @@ int SaveAsymmetry(char *fn, char *s, int mx, double te) {
       p++;
     }
   } else {
-    int nb;
+    int nb, ir, nr, ip, iq, iq0, vn, vl, vnq, vlq, jq;
+    LEVEL *lev0=NULL, *lev1=NULL;
     for (nb = 0; nb < fh.nblocks; nb++) {
-      int nr = ReadROHeader(fr, &h, swp);
-      int ir, b0, f0;
-      LEVEL *lev0=NULL, *lev1=NULL;
-      b0 = -1;
-      f0 = -1;
+      nr = ReadROHeader(fr, &h, swp);
       for (ir = 0; ir < h.ntransitions; ir++) {
-	nr = ReadRORecord(fr, &r, swp);
-	int ip;
-	for (ip = 0; ip < r.n; ip++) {
-	  if (r.f != f0 || r.b != b0) {
-	    if (b0 >= 0 && f0 >= 0) {
-	      int pb, pf, jb, jf;
-	      DecodePJ(lev0->pj, &pb, &jb);
-	      DecodePJ(lev1->pj, &pf, &jf);
-	      double wb = 1.0+jb;
-	      double wf = 1.0+jf;
-	      for (i = 0; i < n_usr; i++) {
-		for (q = 1; q <= m2p; q++) {
-		  b[i][q] /= b[i][0];
-		}
-		e = usr_egrid[i]*HARTREE_EV;
-		a = (e+e0)/xusr[i];
-		a = a*a;
-		phi = b[i][0]*AREA_AU20;
-		phi90 = 0.0;
-		for (q = 0; q < mm; q += 2) {
-		  phi90 += b[i][q+1]*pqa[q];
-		}
-		phi1 = phi90;
-		phi2 = phi90;
-		for (q = 2; q < mm; q += 2) {
-		  bphi = pqa2[q-2]*b[i][q+m+1]/(q*(q-1.0));
-		  phi1 -= bphi; /* parallel, Phi=0 */
-		  phi2 += bphi; /* perpendicular Phi=90 */
-		}
-		phi90 *= phi/(4.0*PI);
-		if (phi1) rp = phi2/phi1;
-		else rp = phi2>0?1e30:-1e30;
-		fprintf(f, "%12.5E %12.5E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %d\n",
-			e, e+e0, phi/wb, phi90/wb,
-			a*phi/wf, a*phi90/wf, rp, b[i][m2p], mx1[i]/2);
-	      }      
-	      for (q = 0; q < mm; q++) {
-		for (i = 0; i < n_usr; i++) {
-		  e = usr_egrid[i]*HARTREE_EV;
-		  fprintf(f, "%12.5E %12.5E %12.5E\n",
-			  e, b[i][q+1], b[i][q+1+m]);
-		}
-	      }
-	    }	       	    
-	    for (i = 0; i < n_usr; i++) {
-	      for (q = 0; q <= m2p; q++) {
-		b[i][q] = 0.0;
-	      }
-	    }
-	    lev0 = GetLevel(r.b);
-	    lev1 = GetLevel(r.f);
-	    te = lev1->energy - lev0->energy;
-	    e0 = te*HARTREE_EV;
-	    SetAWGrid(1, te*FINE_STRUCTURE_CONST, te);
-	    if (!uset) {
-	      if (eset) {
-		SetUsrPEGridDetail(n_egrid, egrid);
-	      } else {
-		if (egrid_limits_type == 0) {
-		  emin = egrid_min*te;
-		  emax = egrid_max*te;
-		} else {
-		  emin = egrid_min;
-		  emax = egrid_max;
-		}
-		SetUsrPEGrid(n_usr, emin, emax, te);
-	      }
-	    }
-	    for (i = 0; i < n_usr; i++) {
-	      xusr[i] = 2.0*usr_egrid[i];
-	      xusr[i] *= (1.0+0.5*FINE_STRUCTURE_CONST2*usr_egrid[i]);
-	      xusr[i] = sqrt(xusr[i])/FINE_STRUCTURE_CONST;
-	      xusr[i] *= HARTREE_EV;
-	    }
-	    fprintf(f, "#  %2s  %2d %2d\n", 
-		    GetAtomicSymbol(), (int)GetAtomicNumber(), (int)GetResidualZ());
-	    fprintf(f, "#  %6d %6d %12.5E  %d %d %d\n",
-		    r.b, r.f, e0, n_usr, mxi, mt);
-	    b0 = r.b;
-	    f0 = r.f;
+	nr = ReadRORecord(fr, &r, swp);	       	    
+	for (i = 0; i < n_usr; i++) {
+	  for (q = 0; q <= m2p; q++) {
+	    b[i][q] = 0.0;
 	  }
-	  int vn = abs(r.nk[ip]);
-	  int vl = 2*(vn%100);
+	}
+	lev0 = GetLevel(r.b);
+	lev1 = GetLevel(r.f);
+	te = lev1->energy - lev0->energy;
+	e0 = te*HARTREE_EV;
+	SetAWGrid(1, te*FINE_STRUCTURE_CONST, te);
+	if (!uset) {
+	  if (eset) {
+	    SetUsrPEGridDetail(n_egrid, egrid);
+	  } else {
+	    if (egrid_limits_type == 0) {
+	      emin = egrid_min*te;
+	      emax = egrid_max*te;
+	    } else {
+	      emin = egrid_min;
+	      emax = egrid_max;
+	    }
+	    SetUsrPEGrid(n_usr, emin, emax, te);
+	  }
+	}
+	for (i = 0; i < n_usr; i++) {
+	  xusr[i] = 2.0*usr_egrid[i];
+	  xusr[i] *= (1.0+0.5*FINE_STRUCTURE_CONST2*usr_egrid[i]);
+	  xusr[i] = sqrt(xusr[i])/FINE_STRUCTURE_CONST;
+	  xusr[i] *= HARTREE_EV;
+	}
+	fprintf(f, "#  %2s  %2d %2d\n", 
+		GetAtomicSymbol(), (int)GetAtomicNumber(), (int)GetResidualZ());
+	for (ip = 0; ip < r.n; ip++) {
+	  vn = abs(r.nk[ip]);
+	  vl = 2*(vn%100);
 	  vn = vn/100;
 	  if (r.nk[ip] < 0) {
 	    j = vl-1;
@@ -3500,23 +3451,42 @@ int SaveAsymmetry(char *fn, char *s, int mx, double te) {
 	    j = vl+1;
 	  }
 	  k0 = OrbitalIndex(vn, GetKappaFromJL(j, vl), 0);
-	  double nq = r.nq[ip]*r.nq[ip];
-	  mt = 0;
-	  for (i = 0; i < n_usr; i++) {
-	    e = usr_egrid[i];
-	    mx1[i] = mx;
-	    bi[i][m2p] = AsymmetryPI(k0, k0, e, te, mp, mx0, &mx1[i],
-				     m, bi[i], pqa, pqa2);
-	    b[i][0] += bi[i][0]*nq;
-	    if (mx1[i] > mt) mt = mx1[i];
-	    for (q = 1; q <= m2p; q++) {
-	      b[i][q] += bi[i][q]*bi[i][0]*nq;
+	  if (_asym_ci > 0) iq0 = 0;
+	  else iq0 = ip;
+	  for (iq = iq0; iq <= ip; iq++) {
+	    if (iq == ip) {
+	      k1 = k0;
+	    } else {
+	      vnq = abs(r.nk[iq]);
+	      vlq = 2*(vnq%100);
+	      vnq = vnq/100;
+	      if (r.nk[iq] < 0) {
+		jq = vlq-1;
+	      } else {
+		jq = vlq+1;
+	      }
+	      if (jq != j) continue;
+	      k1 = OrbitalIndex(vnq, GetKappaFromJL(jq, vlq), 0);
+	    }	      
+	    double nq = r.nq[ip]*r.nq[iq];
+	    if (ip != iq) nq = 2*nq;
+	    mt = 0;
+	    for (i = 0; i < n_usr; i++) {
+	      e = usr_egrid[i];
+	      mx1[i] = mx;
+	      bi[i][m2p] = AsymmetryPI(k0, k1, e, te, mp, mx0, &mx1[i],
+				       m, bi[i], pqa, pqa2);
+	      b[i][0] += bi[i][0]*nq;
+	      if (mx1[i] > mt) mt = mx1[i];
+	      for (q = 1; q <= m2p; q++) {
+		b[i][q] += bi[i][q]*bi[i][0]*nq;
+	      }
 	    }
+	    mm = 2*(1 + (mt-1)/2)+1;
 	  }
-	  mm = 2*(1 + (mt-1)/2)+1;
 	}
-      }
-      if (b0 >= 0 && f0 >= 0) {
+	fprintf(f, "#  %6d %6d %12.5E  %d %d %d\n",
+		r.b, r.f, e0, n_usr, mxi, mt);
 	int pb, pf, jb, jf;
 	DecodePJ(lev0->pj, &pb, &jb);
 	DecodePJ(lev1->pj, &pf, &jf);
@@ -3555,7 +3525,7 @@ int SaveAsymmetry(char *fn, char *s, int mx, double te) {
 		    e, b[i][q+1], b[i][q+1+m]);
 	  }
 	}
-      }	       	    
+      }      	    
     }
   }
   
@@ -3725,6 +3695,10 @@ void SetOptionRecombination(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "recombination:interpkl")) {
     pw_scratch.kl_interp = ip;
+    return;
+  }
+  if (0 == strcmp(s, "recombination:asym_ci")) {
+    _asym_ci = ip;
     return;
   }
 }

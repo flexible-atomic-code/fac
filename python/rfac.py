@@ -869,14 +869,17 @@ def read_rra(fn):
             if a == '':
                 a = x[1]
             else:
-                if len(x) == 9:
+                if len(x) == 8 or len(x) == 9:
                     s = x[1]
                     nt = int(x[6])
-                    nq = int(x[8])
+                    nq = int(x[-1])
                 else:
                     s = x[1]+'_'+x[2]
                     nt = int(x[4])
-                    nq = int(x[6])
+                    nq = int(x[-1])
+                if len(x) == 6 or len(x) == 8:
+                    if (nq > 1000):
+                        nq = nq%1000
                 if (1 == nq%2):
                     nq = nq+1
                 nq = nq+1
@@ -909,7 +912,7 @@ def interp_rra(d, ea, aa=None):
             r = np.zeros((10,len(x)))
             r[0] = ea.copy()
             r[1] = r[0]+d[1][0]-d[0][0]
-            for i in range(3,9):
+            for i in range(2,9):
                 r[i] = np.exp(np.interp(x, x0, np.log(d[i])))
             r[9] = (1-r[6])/(1+r[6])
         return r
