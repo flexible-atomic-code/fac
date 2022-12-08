@@ -890,7 +890,7 @@ def read_rra(fn):
                 r[sk] = d
         else:
             if p < nt:
-                for j in range(9):
+                for j in range(len(x)):
                     d[j,p] = float(x[j])                
             else:
                 k = p%nt
