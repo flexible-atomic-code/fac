@@ -81,7 +81,7 @@ static struct {
 
 static double _ai_cut = AICUT;
 static double _rr_cut = RRCUT;
-static int _asym_ci = 0;
+static int _asym_ci = 1;
 static int _progress_report = -1;
 
 static REC_COMPLEX rec_complex[MAX_COMPLEX];
