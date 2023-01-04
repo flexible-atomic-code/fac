@@ -939,12 +939,18 @@ def interp_rra(d, ea, aa=None):
         b0 = 0.0
         b1 = 0.0
         for q in range(nq):
-            y0 = fac.Legendre(abs(x), q, 0)[0]
+            if abs(x) > 0.99999:
+                y0 = 1.0
+            else:
+                y0 = fac.Legendre(abs(x), q, 0)[0]
             if (q%2 == 1 and x < 0):
                 y0 = -y0
             b0 = b0 + b[q]*y0
             if q >= 2:
-                y1 = fac.Legendre(abs(x), q, 2)[0]
+                if abs(x) > 0.99999:
+                    y1 = 0.0
+                else:
+                    y1 = fac.Legendre(abs(x), q, 2)[0]
                 if (q%2 == 1 and x < 0):
                     y1 = -y1
                 b1 = b1 + bp[q]*y1/(q*(q-1))

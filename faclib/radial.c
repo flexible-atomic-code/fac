@@ -3684,9 +3684,8 @@ int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
 	k += 10;
 	if (IsOdd(k)) k++;
 	if (k > MMAXRP) {
-	  printf("maxrp exceeded 50000: %d %g %g %g\n",
+	  printf("maxrp exceeded %d: %d %g %g %g\n", MMAXRP,
 		 k, b, potential->ratio, potential->asymp);
-	  k = MMAXRP;
 	}
 	AllocWorkSpace(k);
       }
@@ -6906,6 +6905,10 @@ double MultipoleRadialNR(int m, int k1, int k2, int gauge) {
   return r;
 }
 
+/* 
+** for |m|>=MMFR, the relativistic multipole moments are 
+** multiplied by a^|m| to avoid under/overflow
+*/
 int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
   double q, ip, ipm, im, imm;
   int kappa1, kappa2;
@@ -7015,7 +7018,7 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
 	  Integrate(_yk, orb1, orb2, 4, &r, 0);
 	  r *= t;
 	  r *= (2*m + 1.0)/sqrt(m*(m+1.0));
-	  r /= pow(a, m);
+	  if (m < MMFR) r /= pow(a, m);
 	  pt[i] = r*rcl;
 	}
       } else {
@@ -7042,7 +7045,13 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
 	    rp = (am + 1.0)*im*q + am*imm/q;
 	  }
 	  r += rp;
-	  if (am > 1) r /= pow(a, am-1);
+	  if (am > 1) {
+	    if (am < MMFR) {
+	      r /= pow(a, am-1);
+	    } else {
+	      r *= a;
+	    }
+	  }
 	  pt[i] = r*rcl;
 	} else if (gauge == G_BABUSHKIN) {
 	  t = kappa1 - kappa2;
@@ -7065,7 +7074,7 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
 	  Integrate(_zk, orb1, orb2, 1, &imm, 0);
 	  rp = (am + 1.0) * (imm + im);
 	  q = (2*am + 1.0)/sqrt(am*(am+1.0));
-	  q /= pow(a, am);
+	  if (am < MMFR) q /= pow(a, am);
 	  r *= q;
 	  rp *= q;
 	  pt[i] = (r+rp)*rcl;

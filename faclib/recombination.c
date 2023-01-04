@@ -3076,7 +3076,8 @@ double AsymmetryPI(int k0, int k0p, double e, double te,
     } else {
       se = IsOdd(L+kl0/2);
     }
-    c = sqrt((2.0/(L2+1.0))*pow(aw0, L2-1));
+    c = sqrt((2.0/(L2+1.0))/aw0);
+    if (L < MMFR) c *= pow(aw0, L);
     for (p = 0; p < nak[im]; p++) {
       kl1 = j1 - 1;
       if (se) {
@@ -3116,8 +3117,10 @@ double AsymmetryPI(int k0, int k0p, double e, double te,
 	  if (k0p != k0) akp[im][p] = 0.0;
 	}
       }
-      ak[im][p] *= c;
-      if (k0p != k0) akp[im][p] *= c;
+      ak[im][p] *= c;      
+      if (k0p != k0) {
+	akp[im][p] *= c;
+      }
       b0 = ak[im][p]*akp[im][p];
       b[0] += b0;
       bm += b0;
@@ -3393,7 +3396,7 @@ int SaveAsymmetry(char *fn, char *s, int mx, double te) {
 	for (q = 0; q < mm; q++) {
 	  for (i = 0; i < n_usr; i++) {
 	    e = usr_egrid[i]*HARTREE_EV;
-	    fprintf(f, "%12.5E %12.5E %12.5E\n",
+	    fprintf(f, "%12.5E %15.8E %15.8E\n",
 		    e, b[i][q+1], b[i][q+1+m]);
 	  }
 	}
@@ -3521,7 +3524,7 @@ int SaveAsymmetry(char *fn, char *s, int mx, double te) {
 	for (q = 0; q < mm; q++) {
 	  for (i = 0; i < n_usr; i++) {
 	    e = usr_egrid[i]*HARTREE_EV;
-	    fprintf(f, "%12.5E %12.5E %12.5E\n",
+	    fprintf(f, "%12.5E %15.8E %15.8E\n",
 		    e, b[i][q+1], b[i][q+1+m]);
 	  }
 	}
