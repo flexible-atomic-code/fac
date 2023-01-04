@@ -236,7 +236,7 @@ extern double AMU;
 #define ARYCTH 0.05
 
 /* orbital */
-#define MMAXRP     50000
+#define MMAXRP     100000
 #define DMAXRP     1500  /* default radial mesh points */
 #define GRIDASYMP  50    /* no. points in one wavelength near infinity */
 #define GRIDRATIO  1.1   /* ratio of successive mesh near origin */
@@ -307,6 +307,7 @@ extern double AMU;
 #define G_TWOPHOTON        10
 #define M_FR               0
 #define M_NR               1
+#define MMFR               25
 #define DGAUGE             G_BABUSHKIN
 #define DMODE              M_NR
 #define ERANK              4

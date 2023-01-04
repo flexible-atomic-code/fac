@@ -1027,7 +1027,7 @@ c
 
       function r1mach(i)
       implicit real*8 (a-h,o-z)
-      real rmach(5)
+c      real rmach(5)
 
 c  single-precision machine constants
 c
@@ -1048,15 +1048,16 @@ c
 c for  HP 730
 c
 
-      DATA RMACH(1) / Z'00800000' /
-      DATA RMACH(2) / Z'7F7FFFFF' /
-      DATA RMACH(3) / Z'33800000' /
-      DATA RMACH(4) / Z'34000000' /
-      DATA RMACH(5) / Z'3E9A209B' /
+c      DATA RMACH(1) / Z'00800000' /
+c      DATA RMACH(2) / Z'7F7FFFFF' /
+c      DATA RMACH(3) / Z'33800000' /
+c      DATA RMACH(4) / Z'34000000' /
+c      DATA RMACH(5) / Z'3E9A209B' /
  
 
-      r1mach = rmach(i)
+c      r1mach = rmach(i)
 
+      r1mach = D1MACH(i)
       return
       end
 
