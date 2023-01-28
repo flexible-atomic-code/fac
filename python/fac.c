@@ -4306,7 +4306,13 @@ static PyObject *PAdjustEnergy(PyObject *self, PyObject *args) {
   }
 
   n = PyTuple_Size(args);
-  if (n == 5) {
+  if (n == 2) {
+    if (!PyArg_ParseTuple(args, "sd", &s, &e)) return NULL;
+    e /= HARTREE_EV;
+    ShiftDiagEnergy(s, e);    
+    Py_INCREF(Py_None);
+    return Py_None;
+  } else if (n == 5) {
     if (!PyArg_ParseTuple(args, "sssss", &s, &efn0, &efn1, &afn0, &afn1)) {
       return NULL;
     }
@@ -4363,7 +4369,6 @@ static PyObject *PAdjustEnergy(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
-
   
 static PyObject *PCorrectEnergy(PyObject *self, PyObject *args) {
   char *s;

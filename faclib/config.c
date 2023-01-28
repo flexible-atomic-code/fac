@@ -169,6 +169,9 @@ static void InitConfigData(void *p, int n) {
     d[i].csfs = NULL;
     d[i].igroup = -1;
     d[i].icfg = -1;
+    d[i].energy = 0.0;
+    d[i].delta = 0.0;
+    d[i].shift = 0.0;
     d[i].sth = 0;
     d[i].cth = 0;
     d[i].mde = 1e31;
@@ -2273,6 +2276,7 @@ int AddConfigToList(int k, CONFIG *cfg) {
 
   cfg->energy = 0.0;
   cfg->delta = 0.0;
+  cfg->shift = 0.0;
 
   n0 = 0;
   kl0 = -1;

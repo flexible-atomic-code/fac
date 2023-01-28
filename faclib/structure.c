@@ -1784,7 +1784,7 @@ void HamiltonElement1E2E(int isym, int isi, int isj, double *x1, double *x2) {
   *x2 /= x;
 
   if (isi == isj) {
-    *x1 += ci->delta;
+    *x1 += ci->delta+ci->shift;
   }
   free(sbra);
   free(sket);
@@ -3215,6 +3215,20 @@ int SortMixing(int start, int n, LEVEL *lev, SYMMETRY *sym) {
     }
   }
   return 0;
+}
+
+void ShiftDiagEnergy(char *g, double de) {
+  int k, i;
+  CONFIG_GROUP *cg;
+  CONFIG *c;
+  
+  k = GroupExists(g);
+  if (k < 0) return;
+  cg = GetGroup(k);
+  for (i = 0; i < cg->n_cfgs; i++) {
+    c = GetConfigFromGroup(k, i);
+    c->shift = de;
+  }
 }
 
 int AddECorrection(int iref, int ilev, double e, int nmin) {
