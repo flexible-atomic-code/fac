@@ -1011,7 +1011,14 @@ static int PAdjustEnergy(int argc, char *argv[], int argt[],
 
   ii = 0; 
   ie = 0;
-  if (argc == 5) {
+  if (argc == 2) {
+    if (argt[0] != STRING) return -1;
+    if (argt[1] != NUMBER) return -1;
+    e = atof(argv[1]);
+    e /= HARTREE_EV;
+    ShiftDiagEnergy(argv[0], e);
+    return 0;
+  } else if (argc == 5) {
     if (argt[0] != STRING) {
       return -1;
     }

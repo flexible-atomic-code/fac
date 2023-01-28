@@ -288,6 +288,7 @@ int SetFrozenTargets(int nt, int *kt, int nc, int *kc,
 int IdxGroundIon(int k);
 double EGroundIon(int k);
 LEVEL *LevGroundIon(int k);
+void ShiftDiagEnergy(char *g, double de);
 
 #endif
 
