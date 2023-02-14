@@ -6415,6 +6415,24 @@ static PyObject *PLoadSCPot(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
+
+static PyObject *PSetSlaterScale(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("SetSlaterScale", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  int m;
+  char *s0, *s1;
+  double x;
+
+  if (!PyArg_ParseTuple(args, "issd", &m, &s0, &s1, &x)) return NULL;
+  SetSlaterScale(m, s0, s1, x);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
   
 static PyObject *PFermiRMS(PyObject *self, PyObject *args) {
   double r, c, a;
@@ -6753,6 +6771,7 @@ static struct PyMethodDef fac_methods[] = {
   {"SetLepton", PSetLepton, METH_VARARGS},
   {"SaveSCPot", PSaveSCPot, METH_VARARGS},
   {"LoadSCPot", PLoadSCPot, METH_VARARGS},
+  {"SetSlaterScale", PSetSlaterScale, METH_VARARGS},
   {"FermiRMS", PFermiRMS, METH_VARARGS},
   {"FermiParamC", PFermiParamC, METH_VARARGS},
   {"Legendre", PLegendre, METH_VARARGS},
