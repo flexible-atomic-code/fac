@@ -218,6 +218,10 @@ static MULTI *moments_array;
 static MULTI *gos_array;
 static MULTI *yk_array;
 
+#define MAXKSSC 16
+#define MAXNSSC 64
+static float _slater_scale[MAXKSSC][MAXNSSC][MAXNSSC];
+
 #define MAXNAW 128
 static int n_awgrid = 0;
 static double awgrid[MAXNAW];
@@ -253,7 +257,6 @@ static double _sc_charge = -1.;
 static double _sc_tol = 1e-3;
 static double _sc_fmrp = 3.0;
 
-#define NUF
 static double PhaseRDependent(double x, double eta, double b);
 
 #ifdef PERFORM_STATISTICS
@@ -7529,7 +7532,7 @@ double InterpolateMultipole(double aw, int n, double *x, double *y) {
 int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
   int t, kk, tt, maxn, minn;
   int tmin, tmax;
-  double e, a, d, a1, a2, am, *v1, *v2;
+  double e, a, d, a1, a2, am, *v1, *v2, xd, xe;
   int err;
   int kl0, kl1, kl2, kl3;
   int k0, k1, k2, k3;
@@ -7600,6 +7603,17 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
     }
   }
 
+  xd = 1.0;
+  xe = 1.0;
+  if (maxn > 0 && k0 == k2 && k1 == k3 &&
+      k0 < MAXNSSC && k1 < MAXNSSC) {
+    if (k < MAXKSSC) {
+      xd = _slater_scale[k][k0][k1];
+    }
+    if (k+1 < MAXKSSC) {
+      xe = _slater_scale[k+1][k0][k1];
+    }
+  }
   if (orb0->wfun == NULL || orb1->wfun == NULL ||
       orb2->wfun == NULL || orb3->wfun == NULL) {
     if (sd) *sd = 0.0;
@@ -7710,7 +7724,7 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 	if (k0 == k1 && k2 == k3) d *= 0.5;
       }
     }
-    *sd = d;
+    *sd = d*xd;
   }
   
   if (!se) goto EXIT;
@@ -7793,7 +7807,7 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 	}
       }
       if (e) {
-	e *= a * (k + 1.0) * a1 * a2;
+	e *= a * (k + 1.0) * a1 * a2 * xe;
 	if (IsOdd(t/2 + kk)) e = -e;
 	*se += e;
       }
@@ -10875,11 +10889,53 @@ void SetRadialCleanFlags(void) {
   ReportMultiStats();
 }
 
+void SetSlaterScale(int m, char *s0, char *s1, double x) {
+  int i0, i1, k0, k1, n0, n1, t;
+  char sc0[128], sc1[128];
+  SHELL *ss0, *ss1;
+  double q0, q1;
+
+  if (m < 0) {
+    for (k0 = 0; k0 < MAXNSSC; k0++) {
+      for (k1 = 0; k1 < MAXNSSC; k1++) {
+	for (t = 0; t < MAXKSSC; t++) {
+	  _slater_scale[t][k0][k1] = 1.0;
+	}
+      }
+    }
+    return;
+  }
+  strncpy(sc0, s0, 128);
+  strncpy(sc1, s1, 128);
+  n0 = ShellsFromString(sc0, &q0, &ss0);
+  n1 = ShellsFromString(sc1, &q1, &ss1);
+  for (i0 = 0; i0 < n0; i0++) {
+    k0 = OrbitalIndex(ss0[i0].n, ss0[i0].kappa, 0);
+    if (k0 >= MAXNSSC || k0 < 0) continue;
+    for (i1 = 0; i1 < n1; i1++) {
+      k1 = OrbitalIndex(ss1[i1].n, ss1[i1].kappa, 0);
+      if (k1 >= MAXNSSC || k1 < 0) continue;
+      _slater_scale[m][k0][k1] = (float)x;
+      _slater_scale[m][k1][k0] = (float)x;
+    }
+  }
+  if (n0) free(ss0);
+  if (n1) free(ss1);
+}
+
 int ReinitRadial(int m) {
   if (m < 0) return 0;
 #pragma omp barrier
 #pragma omp master
   {
+  int i, j, k;
+  for (i = 0; i < MAXKSSC; i++) {
+    for (j = 0; j < MAXNSSC; j++) {
+      for (k = 0; k < MAXNSSC; k++) {
+	_slater_scale[i][j][k] = 1.0;
+      }
+    }
+  }
   SetSlaterCut(-1, -1);
   ClearOrbitalTable(m);
   FreeSimpleArray(slater_array);

@@ -5305,6 +5305,18 @@ static int PLoadSCPot(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PSetSlaterScale(int argc, char *argv[], int argt[], 
+			   ARRAY *variables) {
+  int m;
+  double x;
+
+  if (argc != 4) return -1;
+  m = atoi(argv[0]);
+  x = atof(argv[3]);
+  SetSlaterScale(m, argv[1], argv[2], x);
+  return 0;
+}
+
 static METHOD methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -5528,6 +5540,7 @@ static METHOD methods[] = {
   {"SetLepton", PSetLepton, METH_VARARGS},
   {"SaveSCPot", PSaveSCPot, METH_VARARGS},
   {"LoadSCPot", PLoadSCPot, METH_VARARGS},
+  {"SetSlaterScale", PSetSlaterScale, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
  

@@ -6797,6 +6797,7 @@ int ClearLevelTable(void) {
       cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
       cfg->energy = 0.0;
       cfg->delta = 0.0;
+      cfg->shift = 0.0;
     }
   }
 
