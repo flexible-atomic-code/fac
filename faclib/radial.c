@@ -10870,6 +10870,7 @@ int InitRadial(void) {
   
   SetRadialGrid(-1, -1.0, -1.0, -1.0, -1.0);
   SetSlaterCut(-1, -1);
+  SetSlaterScale(-1, NULL, NULL, 1.0);
 
   SetOrbMap(0, 0, 0, 0);
 
@@ -10928,14 +10929,7 @@ int ReinitRadial(int m) {
 #pragma omp barrier
 #pragma omp master
   {
-  int i, j, k;
-  for (i = 0; i < MAXKSSC; i++) {
-    for (j = 0; j < MAXNSSC; j++) {
-      for (k = 0; k < MAXNSSC; k++) {
-	_slater_scale[i][j][k] = 1.0;
-      }
-    }
-  }
+  SetSlaterScale(-1, NULL, NULL, 1.0);
   SetSlaterCut(-1, -1);
   ClearOrbitalTable(m);
   FreeSimpleArray(slater_array);

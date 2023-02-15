@@ -2093,90 +2093,6 @@ double Hamilton1E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
   return r0;
 }
 
-double Hamilton2E2(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
-		   INTERACT_SHELL *s0) {
-  int nk0, nk, *kk, k, *kk0, i;
-  double *ang;
-  double sd, x;
-  double z0, *y;
-  INTERACT_SHELL s1, s[4];
-  int ks[4], js[4];
-
-  js[0] = 0;
-  js[1] = 0;
-  js[2] = 0;
-  js[3] = 0;
-  memcpy(s, s0, sizeof(INTERACT_SHELL)*4);
-  ks[0] = OrbitalIndex(s[0].n, s[0].kappa, 0.0);
-  ks[1] = OrbitalIndex(s[2].n, s[2].kappa, 0.0);
-  ks[2] = OrbitalIndex(s[1].n, s[1].kappa, 0.0);
-  ks[3] = OrbitalIndex(s[3].n, s[3].kappa, 0.0);
-
-  x = 0.0;
-
-  nk0 = 0;
-  z0 = 0.0;
-  if (ks[1] == ks[2]) {
-    z0 = 0.0;
-    nk0 = 1;
-    k = 0;
-    kk0 = &k;
-    y = &z0;
-    nk0 = AngularZ(&y, &kk0, nk0, n_shells, sbra, sket, s, s+3);
-    if (nk0 > 0) {
-      z0 /= sqrt(s[0].j + 1.0);
-      if (IsOdd((s[0].j - s[2].j)/2)) z0 = -z0;
-    }
-  }
-  nk = AngularZxZ0(&ang, &kk, 0, n_shells, sbra, sket, s);
-  for (i = 0; i < nk; i++) {
-    sd = 0;
-    if (fabs(ang[i]) > EPS30 || nk0 > 0) {
-      SlaterTotal(&sd, NULL, js, ks, kk[i], 0);
-      x += (ang[i]-z0)*sd;
-    }
-  }
-  if (nk > 0) {
-    free(ang);
-    free(kk);
-  }
-  if (ks[0] != ks[1] && ks[2] != ks[3]) {
-    k = ks[2];
-    ks[2] = ks[3];
-    ks[3] = k;
-    memcpy(&s1, s+1, sizeof(INTERACT_SHELL));
-    memcpy(s+1, s+3, sizeof(INTERACT_SHELL));
-    memcpy(s+3, &s1, sizeof(INTERACT_SHELL));
-    nk0 = 0;
-    z0 = 0.0;
-    if (ks[1] == ks[2]) {
-      nk0 = 1;
-      k = 0;
-      kk0 = &k;
-      y = &z0;
-      nk0 = AngularZ(&y, &kk0, nk0, n_shells, sbra, sket, s, s+3);
-      if (nk0 > 0) {
-	z0 /= sqrt(s[0].j + 1.0);
-	if (IsOdd((s[0].j - s[2].j)/2)) z0 = -z0;
-      }
-    }
-    nk = AngularZxZ0(&ang, &kk, 0, n_shells, sbra, sket, s);
-    for (i = 0; i < nk; i++) {
-      sd = 0;
-      if (fabs(ang[i]) > EPS30 || nk0 > 0) {
-	SlaterTotal(&sd, NULL, js, ks, kk[i], 0);
-	x += (ang[i]-z0)*sd;
-      }
-    }
-    if (nk > 0) {
-      free(ang);
-      free(kk);
-    }
-  }
-
-  return x;
-}
-
 double Hamilton2E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
 		  INTERACT_SHELL *s) {
   int nk0, nk, *kk, k, *kk0, i;
@@ -2227,6 +2143,7 @@ double Hamilton2E(int n_shells, SHELL_STATE *sbra, SHELL_STATE *sket,
     free(ang);
     free(kk);
   }
+
   return x;
 }
 
