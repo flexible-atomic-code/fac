@@ -252,8 +252,9 @@ extern double AMU;
 #define MCHSHELL           2048
 #define MAX_SPEC_SYMBOLS   21
 #define LEVEL_NAME_LEN     1024
-#define GROUP_NAME_LEN     64
+#define GROUP_NAME_LEN     17
 #define MAX_GROUPS         1024
+#define MAX_OPTGRPS        1024
 #define MAX_SYMMETRIES     512
 #define CONFIGS_BLOCK      1024
 #define STATES_BLOCK       2048

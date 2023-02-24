@@ -78,6 +78,7 @@ typedef struct _ION_ {
   short *vnl, *vni;
   short *sw;
   short *ibase;
+  short *nk;
   double *energy;
   ARRAY *ce_rates;
   ARRAY *tr_rates;

@@ -306,6 +306,8 @@ int          GetAverageConfig(int ng, int *kg, int ic, double *weight, int wm,
 int          GroupIndex(char *name);
 int          GroupExists(char *name);
 int          AddConfigToList(int k, CONFIG *cfg);
+int          AddOptGrp(int n, int *kg);
+int          **GetOptGrps(int *n);
 int          AddGroup(char *name);
 int          RemoveGroup(int k);
 CONFIG_GROUP *GetGroup(int k);
@@ -352,4 +354,5 @@ int SDConfig(CONFIG *c, char *cs,
 	     int n2, int k2, int n3, int k3);
 short VNIFromSName(char *sn);
 int CompareCfgPointer(const void *p1, const void *p2);
+void SetOptionConfig(char *s, char *sp, int ip, double dp);
 #endif

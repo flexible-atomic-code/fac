@@ -26,6 +26,43 @@ from sys import version_info
 from pfac import fac
 from pfac import const
 from pfac import util
+from multiprocessing import Pool, cpu_count
+
+def nlq(s):
+    i = 0
+    n = 0
+    l = -1
+    q = 0
+    while True:
+        if s[i] == '[':
+            n = int(s[:i])
+            i += 1
+            k = i
+            while (s[i] != ']'):
+                i += 1
+                if i >= len(s):
+                    break
+            l = int(s[k:i])
+            if i < len(s)-1:
+                q = int(s[i+1:])
+            else:
+                q = 1
+            break
+        elif not s[i].isdigit():
+            n = int(s[:i])
+            try:
+                l = fac.SPECSYMBOL.index(s[i])
+            except:
+                l = -1
+            if i < len(s)-1:
+                q = int(s[i+1:])
+            else:
+                q = 1
+            break
+        i += 1
+        if i >= len(s):
+            break
+    return n,l,q
 
 def voigt_fwhm(gw, lw):
     return 0.5346*lw + np.sqrt(0.2166*lw**2 + gw**2)
@@ -1639,3 +1676,4 @@ def NISTCorr(ff, fn, fo):
     r1 = MLEV(fn, md=1)
     r0.match(r1)
     r0.write(fo)
+

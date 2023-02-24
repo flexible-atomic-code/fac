@@ -3354,6 +3354,11 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
     pot->vtr[i] = 0.5*pot->dr_drho[i]*(0.5*tp3-0.75*pot->dr_drho[i]*tp2*tp2);
   }
 
+  UVIP3C(3, pot->maxrp, pot->rho, pot->rad,
+	 pot->a1r, pot->a2r, pot->a3r);
+  UVIP3C(3, pot->maxrp, pot->rho, pot->dr_drho,
+	 pot->a1dr, pot->a2dr, pot->a3dr);
+  
   RGMQED(&a, &b);
   for (i = 0; i < pot->maxrp; i++) {
     pot->mqrho[i] = b*log(pot->rad[i]) + a*pot->rad[i];
@@ -3450,6 +3455,22 @@ double GetRFromRho(double rho, double a, double b, double q, double r) {
   return r;
 }
 
+double DrRho(POTENTIAL *p, int i, double x) {
+  double r;
+
+  r = x - p->rho[i];
+  r = p->dr_drho[i] + r*(p->a1dr[i] + r*(p->a2dr[i] + r*p->a3dr[i]));
+  return r;
+}
+
+double RadRho(POTENTIAL *p, int i, double x) {
+  double r;
+
+  r = x - p->rho[i];
+  r = p->rad[i] + r*(p->a1r[i] + r*(p->a2r[i] + r*p->a3r[i]));
+  return r;
+}  
+  
 void FitDiff(double *y0, double *y1, double *y2, int i1, int i2,
 	     POTENTIAL *pot) {
   int i, n, k, nd;

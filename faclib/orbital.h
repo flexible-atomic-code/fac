@@ -55,6 +55,7 @@ typedef struct _POTENTIAL_ {
   double feps, fps, ups, xps, jps, qps, gps, sf0, sf1, efm, eth, ewd;
   int mps, kps, vxf, ips, sps, iqf, miter, vxm;
   double *Z, *dZ, *dZ2, *rad, *rho, *mqrho, *dr_drho, *dr_drho2, *vtr;
+  double *a1r, *a2r, *a3r, *a1dr, *a2dr, *a3dr;
   double *Vc, *dVc, *dVc2, *qdist, *U, *dU, *dU2, *W, *dW, *dW2;
   double *ZVP, *dZVP, *dZVP2;
   double *NPS, *VPS, *EPS, *VXF, *ICF, *ZPS, *dZPS, *dZPS2;
@@ -168,7 +169,8 @@ double FreeVe(double u, double te);
 double FreeTe(double u, double ne);
 double InterpFermiNR(int m, double u);
 double BoundFactor(double e, double eth, double de, int mps);
-
+double DrRho(POTENTIAL *p, int i, double x);
+double RadRho(POTENTIAL *p, int i, double x);
 #endif
 
 

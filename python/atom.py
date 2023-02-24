@@ -17,8 +17,245 @@
 #
 
 from pfac.fac import *
+from pfac import rfac
+import numpy as np
+from multiprocessing import Pool,cpu_count
 from types import *
-import time
+import time, os
+
+def levene(cs, gs, gv, i, p):
+    Reinit(0)
+    Closed()
+    for ss in cs.split('.'):
+        Closed(ss)
+    for k in range(len(gs)):
+        Config(gs[k], gv[k])
+    OptimizeRadial(gs[i])
+    pp = p + 'g%d'%i
+    ListConfig(pp+'a.cfg')
+    Structure(pp+'b.en', [gs[i]], gs[:i]+gs[i+1:])
+    PrintTable(pp+'b.en', pp+'a.en')
+    print(pp+'a.en')
+    r = rfac.FLEV(pp+'a.en')
+    return r
+
+def cfgene(a, nkq, p, cs=None):
+    SetAtom(a)
+    SetOption('structure:full_name', 1)
+    Reinit(0)
+    s = ''
+    nm = 0
+    nmax = 0
+    for x in nkq:
+        if x[3] > 0:
+            nm = max(nm,x[0])
+        nmax = max(nmax,x[0])
+    qs = np.zeros((nmax,nmax),dtype=np.int32)
+    es = np.zeros((2,nmax,nmax))
+    for x in nkq:
+        n = x[0]
+        m = x[1]
+        qs[n-1,m] = qs[n-1,m]+x[3]
+        if x[2] > 0:
+            es[1,n-1,m] = x[4]
+        else:
+            es[0,n-1,m] = x[4]
+        if m == 0:
+            es[0,n-1,m] = es[1,n-1,m]
+                    
+    Closed()
+    if cs is None:
+        cs = ''
+        for n in range(1,nm+1):
+            for k in range(n):
+                ee = max(es[0,n-1,m],es[1,n-1,m])
+                if ee >= 0:
+                    ee = -30
+                if (qs[n-1,k] == 2*(2*k+1) and
+                    (ee < -100 or (n < nm and ee < -25))):
+                    ss = '%d%s'%(n, SPECSYMBOL[k])
+                    Closed(ss)
+                    if cs == '':
+                        cs = '%s%d'%(ss,qs[n-1,k])
+                    else:
+                        cs = cs+'.%s%d'%(ss,qs[n-1,k])
+    else:
+        for ss in cs.split('.'):
+            Closed(ss)
+         
+    for x in nkq:
+        if x[3] == 0:
+            continue
+        if cs.find('%d%s'%(x[0],SPECSYMBOL[x[1]])) == 0:
+            continue
+        if cs.find('.%d%s'%(x[0],SPECSYMBOL[x[1]])) > 0:
+            continue
+        if x[2] < 0:
+            c = '-'
+        else:
+            c = '+'
+        ss = '%d[%s%c]%d'%(x[0], SPECSYMBOL[x[1]], c, x[3])
+        if s == '':
+            s = ss
+        else:
+            s = s + ' ' + ss            
+    Config('g', s)
+    OptimizeRadial('g')
+    Structure(p+'b.en', ['g'])
+    PrintTable(p+'b.en', p+'a.en')
+    Closed()
+    Reinit(0)
+    return cs,qs,es
+
+def dist_iqs(iw0, iw1, iqs):
+    n = len(iw0)
+    if n == 1:
+        return [[iqs]]
+    rs = []
+    for iq in range(iw0[0], iw1[0]+1):
+        w = dist_iqs(iw0[1:],iw1[1:],iqs-iq)
+        for iw in w:            
+            rs.append([iq]+iw)
+    return rs
+        
+def run1q(x):
+    i = x[0]
+    nkq = x[1].copy()
+    w = x[2]
+    iqs = x[3]
+    p = x[4]
+    a = x[5]
+    cs = x[6]
+    for k in range(len(w)):
+        nkq[w[k]][3] = iqs[k]
+        pp = '%sp%d'%(p,i)
+        cs,qs,ea = cfgene(a, nkq, pp,cs=cs)
+        r = rfac.FLEV(pp+'a.en')
+    return (r,cs,qs,ea)
+
+def run1g(x):
+    i = x[0]
+    cs = x[1]
+    gs = x[2]
+    gv = x[3]
+    p = x[4]
+    r = levene(cs, gs, gv, i, p)
+    return r
+
+def grdcfg(z, k, pref='', nmax=10, cleanup=2):
+    if k > z:
+        print('k=%d > z=%d'%(z,k))
+    a = ATOMICSYMBOL[z]
+    p = '%s%s%02d'%(pref,a,k)
+    nkq = []
+    nq = 0
+    for n in range(1,nmax+1):
+        for m in range(n):
+            for s in [-1,1]:
+                if m == 0 and s == -1:
+                    continue
+                j = 2*m+s
+                iq = j+1
+                if nq+iq >= k:
+                    iq = k-nq
+                nq = nq + iq            
+                nkq.append([n,m,s,iq,0.0])
+    cs,qs,ea = cfgene(a, nkq, p)
+
+    niter = 0
+    while True:
+        r = rfac.FLEV(p+'a.en')
+        gc = r.s[0]
+        if cs != '':
+            gc = '%s.%s'%(cs, gc)
+        for x in nkq:
+            ka = x[1]
+            if x[2] > 0:
+                ka = -ka-1
+            WaveFuncTable(p+'a.wav', x[0], ka, 0.0)
+            w = rfac.read_wfun(p+'a.wav')
+            x[4] = w[2]
+        es = np.array([x[4] for x in nkq])
+        ia = es.argsort()
+        dia = np.diff(ia)
+        niter = niter+1
+        print('niter=%d gc=%s dia=%d/%d'%(niter, gc, dia.min(), dia.max()))
+        iq = [x[3] for x in nkq]
+        if niter <= 2:
+            iq0 = iq.copy()
+            iq1 = iq.copy()
+        else:
+            iq0 = [min(iq0[i],iq[i]) for i in range(len(iq))]
+            iq1 = [max(iq1[i],iq[i]) for i in range(len(iq))]
+        if niter > 2:
+            break
+        nq = 0
+        for i in ia:
+            x = nkq[i]
+            n = x[0]
+            m = x[1]
+            s = x[2]
+            j = 2*m+s
+            iq = j+1
+            if nq+iq >= k:
+                iq = k-nq
+            nq = nq+iq
+            x[3] = iq
+        cs,qs,ea = cfgene(a, nkq, p, cs=None)
+
+    iq = np.array([x[3] for x in nkq])
+    iq0 = np.array(iq0)
+    iq1 = np.array(iq1)
+    w = np.where(iq1 > iq0)[0]
+    if (len(w) > 1):
+        iqs = dist_iqs(iq0[w], iq1[w], np.sum(iq[w]))
+        nproc = cpu_count()
+        mp = Pool(processes=nproc)
+        xs = []
+        ip = 0
+        for i in range(len(iqs)):
+            if (np.array(iqs[i]).min()<0):
+                continue
+            skip = False
+            for j in range(len(iqs[i])):
+                x = nkq[w[j]]
+                qf = x[1]*2+x[2]+1
+                if (iqs[i][j] > qf):
+                    skip = True
+                    break
+            if skip:
+                continue
+            xs.append((ip,nkq,w,iqs[i],p,a,cs))
+            ip = ip+1
+        rs = mp.map(run1q, xs)
+        egs = np.array([x[0].e0 for x in rs])
+        im = egs.argmin()
+        emin = egs[im]
+        qs = rs[im][2]
+        ea = rs[im][3]
+        w = np.where(egs - emin < 5.0)[0]
+        im = egs[w].argsort()
+        rr = [rs[i][0] for i in w[im]]
+    else:
+        rr = [r]
+
+    if cleanup:
+        if cleanup > 0:
+            os.system('rm -f %sp*.*'%p)
+            if cleanup > 1:
+                os.system('rm -f %s*.en'%p)
+                os.system('rm -f %s*.cfg'%p)
+
+    with open(p+'a.grd', 'w') as f:
+        f.write('# z: %d\n'%z)
+        f.write('# k: %d\n'%k)
+        f.write('# c: %s\n'%cs)
+        for r in rr:
+            gc = r.s[0]
+            f.write('%15.8E %32s    %-s\n'%(r.e0, gc, r.n[0]))
+
+def gcf():
+    return ''
 
 # reinitialize FAC
 def reinit(m = 0):
