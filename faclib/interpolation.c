@@ -454,7 +454,7 @@ double Simpson(double *x, int i0, int i1) {
 /* original integration by newton-cotes formula */
 int NewtonCotes(double *r, double *x, int i0, int i1, int m, int id) {
   int i, k;
-  double a, yp;
+  double a;
 
   if (id >= 0) {
     if (m >= 0) {
@@ -480,15 +480,9 @@ int NewtonCotes(double *r, double *x, int i0, int i1, int m, int id) {
       }
       r[i1] += r[i0];
     } else {
-      i = i0+1;      
-      if (x[i0] > 0 && x[i] > 0) {
-	yp = exp(0.5*(log(x[i0])+log(x[i])));
-      } else if (x[i0] < 0 && x[i] < 0) {
-	yp = -exp(0.5*(log(-x[i0])+log(-x[i])));
-      } else {
-	yp = 0.5*(x[i0]+x[i]);
-      }
-      r[i0+1] = r[i0] + 0.5*(_CNC[2][0]*(x[i0]+x[i0+1]) + _CNC[2][1]*yp);
+      k = i1 - i0 + 1;
+      if (k > 7) k = 7;
+      r[i0+1] = r[i0] + uvip3s(k, x+i0, 1);
       for (i = i0+2; i <= i1; i++) {
 	r[i] = r[i-2] + _CNC[2][0]*(x[i-2]+x[i]) + _CNC[2][1]*x[i-1];
       }
@@ -517,15 +511,10 @@ int NewtonCotes(double *r, double *x, int i0, int i1, int m, int id) {
       }
       r[i1] += r[i0];
     } else {
-      i = i1-1;
-      if (x[i1] > 0 && x[i] > 0) {
-	yp = exp(0.5*(log(x[i1])+log(x[i])));
-      } else if (x[i1] < 0 && x[i] < 0) {
-	yp = -exp(0.5*(log(-x[i1])+log(-x[i])));
-      } else {
-	yp = 0.5*(x[i1]+x[i]);
-      }
-      r[i1-1] = r[i1] + 0.5*(_CNC[2][0]*(x[i1]+x[i1-1]) + _CNC[2][1]*yp);
+      k = i1-i0+1;
+      if (k > 7) k = 7;
+      i = i1-(k-1);
+      r[i1-1] = r[i1] + uvip3s(k, x+i, i1-i);
       for (i = i1-2; i >= i0; i--) {
 	r[i] = r[i+2] + _CNC[2][0]*(x[i+2]+x[i]) + _CNC[2][1]*x[i+1];
       }

@@ -93,7 +93,7 @@ static EXCIT_TIMING timing = {0, 0, 0};
 #endif
 
 static CEPW_SCRATCH pw_scratch = {1, 0, MAXKL, 100, 5E-2, 0, 0, 10};
-static int _no_topup = 0;
+static int _topup = 2;
 
 static int maxcecache = MAXCECACHE;
 static CECACHE cecache = {0};
@@ -484,18 +484,24 @@ int SetCEPWGrid(int ns, int *n, int *step) {
 			     &ns, n, step);
   pw_scratch.ns = ns;
   if (pw_scratch.min_kl > 0) {
-    int i, j, k;
-    for (i = 1; i < pw_scratch.nkl; i++) {
-      if (pw_scratch.kl[i] > pw_scratch.min_kl) break;
+    if (pw_scratch.min_kl >= pw_scratch.max_kl) {
+      pw_scratch.kl[0] = pw_scratch.min_kl;
+      pw_scratch.log_kl[0] = log(pw_scratch.kl[0]);
+      pw_scratch.nkl = 1;
+    } else {
+      int i, j, k;
+      for (i = 1; i < pw_scratch.nkl; i++) {
+	if (pw_scratch.kl[i] > pw_scratch.min_kl) break;
+      }
+      pw_scratch.kl[0] = pw_scratch.min_kl;
+      pw_scratch.log_kl[0] = log(pw_scratch.kl[0]);
+      for (j = i; j < pw_scratch.nkl; j++) {
+	k = j-i+1;
+	pw_scratch.kl[k] = pw_scratch.kl[j];
+	pw_scratch.log_kl[k] = log(pw_scratch.kl[k]);
+      }
+      pw_scratch.nkl = k+1;
     }
-    pw_scratch.kl[0] = pw_scratch.min_kl;
-    pw_scratch.log_kl[0] = log(pw_scratch.kl[0]);
-    for (j = i; j < pw_scratch.nkl; j++) {
-      k = j-i+1;
-      pw_scratch.kl[k] = pw_scratch.kl[j];
-      pw_scratch.log_kl[k] = log(pw_scratch.kl[k]);
-    }
-    pw_scratch.nkl = k+1;
   }
   return 0;
 }
@@ -598,7 +604,7 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k, int trylock) {
   }
   for (t = 0; t < pw_scratch.nkl; t++) {
     kl0 = pw_scratch.kl[t];
-    if (pw_scratch.kl[t] > kl_max) break;
+    if (kl0 > kl_max) break;
     kl0p = 2*kl0;
     for (i = 0; i < n_tegrid; i++) {
       if (noex[i] == 0) {
@@ -1039,8 +1045,10 @@ int CERadialQkBornMSub(int k0, int k1, int k2, int k3, int k, int kp,
 }
 
 double TopUpQk(double b, double c, double k0, double a, double te, double e1) {
-  //printf("topup: %g %g %g\n", b, c/(1-c), e1/te);
+  //printf("topup: %g %g %g %g\n", k0, b, c, e1/te);
   if (b > 0) return b;
+  return 0.0;
+  /*
   int i;
   double b0, e, d, f;
   b0 = e1/(e1+te);
@@ -1058,6 +1066,7 @@ double TopUpQk(double b, double c, double k0, double a, double te, double e1) {
     }
   }
   return d;
+  */
 }
 
 double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
@@ -1208,6 +1217,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
 	  ipk += n_tegrid;
 	}
 	if (fpw) {
+	  fprintf(fpw, "# %d %d %d %d %d\n", k0, k1, k2, k3, k);
 	  for (i = 0; i < nkl; i++) {
 	    kl0 = pw_scratch.kl[i];
 	    fprintf(fpw, "%12.5E %12.5E %3d %3d %12.5E %12.5E\n",
@@ -1231,15 +1241,14 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
 	    rd += s;
 	  }
 	}
-	nklp = nkl-1;
 	s = 0.0;
 	b = 0.0;
-	if (_no_topup == 0) {
+	if (_topup > 0 && nklp > 0) {
 	  if (dqk[nklp] && dqk[nklp-1]) {
 	    if (type < 0) {
 	      b = 0.0;
 	    } else {
-	      if (type == 0 || type > CBMULT) {
+	      if (type == 0) {
 		b = -1.0;
 	      } else {
 		b = (GetCoulombBethe(0, ite, ie, k/2, 0))[nklp];
@@ -1254,8 +1263,8 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
 	  s = dqk[nklp]*b;
 	  rq[ite][ie] = r + s;
 	  drq[ite][ie] = rd + s;
-	  if (s) {
-	    s = fabs(s/drq[ite][ie]);
+	  if (_topup > 1 && s) {
+	    s = pow(fabs(s/drq[ite][ie]),0.5);
 	    if (ie < n_egrid-1 && s > xp[ite]) s = xp[ite];
 	    else xp[ite] = s;	    
 	    d = drq[ite][ie]*(1-s) + brq[ite][ie]*s;
@@ -1546,11 +1555,11 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
 
 	i = nkl - 1;
 	r = 0.0;
-	if (_no_topup == 0) {
+	if (_topup > 0 && i > 0) {
 	  for (iq = 0; iq < nq; iq++) {
 	    b = 0.0;
 	    if (_dqk[iq][i] && _dqk[iq][i-1]) {
-	      if (k != kp || type1 == 0 || type1 > CBMULT) {
+	      if (k != kp || type1 == 0) {
 		c = _dqk[iq][i]/_dqk[iq][i-1];
 		if (c > 0) {
 		  c = pow(c, 1.0/(pw_scratch.kl[i]-pw_scratch.kl[i-1]));
@@ -1570,7 +1579,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
 	    s = _dqk[iq][i]*b;
 	    _rq[iq][ite][ie] += s;
 	    _drq[iq][ite][ie] += s;
-	    if (s) {
+	    if (_topup > 1 && s) {
 	      s = fabs(s/_drq[iq][ite][ie]);
 	      if (ie < n_egrid-1 && s > _xp[iq][ite]) s = _xp[iq][ite];
 	      else _xp[iq][ite] = s;
@@ -4327,8 +4336,8 @@ void SetOptionExcitation(char *s, char *sp, int ip, double dp) {
     _progress_report = ip;
     return;
   }
-  if (strcmp("excitation:no_topup", s) == 0) {
-    _no_topup = ip;
+  if (strcmp("excitation:topup", s) == 0) {
+    _topup = ip;
     return;
   }
 }

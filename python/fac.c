@@ -307,7 +307,7 @@ static int DecodeGroupArgs(PyObject *args, int **kg, int *n0) {
 	Py_DECREF(p);
       }
       if (k < 0) {
-	printf("group does not exist: %d %s\n", i, s);
+	//printf("group does not exist: %d %s\n", i, s);
 	if (i < n0q) n0p--;
 	continue;
       }
@@ -317,8 +317,10 @@ static int DecodeGroupArgs(PyObject *args, int **kg, int *n0) {
     if (n0) *n0 = n0p;
     ng = n;
     if (ng <= 0) {
-      onError("all cfg groups invalid");
-      return -1;
+      //onError("all cfg groups invalid");
+      free(*kg);
+      *kg = NULL;
+      return 0;
     }
   } else {
     ng = GetNumGroups();
@@ -843,6 +845,21 @@ static PyObject *PListConfig(PyObject *self, PyObject *args) {
   return Py_None;
 }  
  
+static PyObject *PGroupStat(PyObject *self, PyObject *args) {
+  int k;
+  CONFIG_GROUP *g;
+  char *s;
+
+  if (!PyArg_ParseTuple(args, "s", &s)) return NULL;
+
+  k = GroupExists(s);
+  if (k < 0) {
+    return Py_BuildValue("(iii)", k, 0, 0);
+  }
+  g = GetGroup(k);
+  return Py_BuildValue("(iii)", k, g->n_cfgs, g->n_electrons);
+}  
+  
 static PyObject *PAvgConfig(PyObject *self, PyObject *args) {
   char *s;
   int ns, *n, *kappa;
@@ -1476,6 +1493,35 @@ static PyObject *PSetHydrogenicNL(PyObject *self, PyObject *args) {
   return Py_None;
 }  
 
+static PyObject *POptimizeGroup(PyObject *self, PyObject *args) {
+  int ng, *kg, np, i;  
+  PyObject *p;
+
+  if (sfac_file) {
+    SFACStatement("OptimizeGroup", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  np = PySequence_Length(args);
+  if (np == 0) {
+    AddOptGrp(0, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  for (i = 0; i < np; i++) {
+    p = PySequence_GetItem(args, i);
+    ng = DecodeGroupArgs(p, &kg, NULL);
+    if (ng > 0) {
+      AddOptGrp(ng, kg);
+      free(kg);
+    }
+    Py_DECREF(p);
+  }
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *POptimizeRadial(PyObject *self, PyObject *args) {
   int ng, i, k;
   int *kg;
@@ -1744,7 +1790,10 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
       } else {
 	if (PyTuple_Check(q) || PyList_Check(q)) {
 	  ng = DecodeGroupArgs(q, &kg, NULL);
-	  if (ng < 0) return NULL;
+	  if (ng <= 0) {
+	    Py_INCREF(Py_None);
+	    return Py_None;
+	  }
 	  if (s) {
 	    if (PyLong_Check(s)) {
 	      ngp = 0;
@@ -1764,7 +1813,7 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
     } else { 
       if (PyTuple_Check(p) || PyList_Check(p)) {
 	ng = DecodeGroupArgs(p, &kg, NULL);
-	if (ng < 0) {
+	if (ng <= 0) {
 	  Py_INCREF(Py_None);
 	  return Py_None;
 	}
@@ -1786,7 +1835,7 @@ static PyObject *PStructure(PyObject *self, PyObject *args) {
     }
   } else {
     ng = DecodeGroupArgs(NULL, &kg, NULL);  
-    if (ng < 0) {
+    if (ng <= 0) {
       Py_INCREF(Py_None);
       return Py_None;
     }
@@ -6561,6 +6610,7 @@ static struct PyMethodDef fac_methods[] = {
   {"RemoveConfig", PRemoveConfig, METH_VARARGS},
   {"ListConfig", PListConfig, METH_VARARGS},
   {"GetConfigNR", PGetConfigNR, METH_VARARGS},
+  {"GroupStat", PGroupStat, METH_VARARGS},
   {"Closed", PClosed, METH_VARARGS},
   {"CutMixing", PCutMixing, METH_VARARGS},
   {"AvgConfig", PAvgConfig, METH_VARARGS},
@@ -6610,6 +6660,7 @@ static struct PyMethodDef fac_methods[] = {
   {"MemENTable", PMemENTable, METH_VARARGS},
   {"LevelInfor", PLevelInfor, METH_VARARGS},
   {"LevelInfo", PLevelInfor, METH_VARARGS},
+  {"OptimizeGroup", POptimizeGroup, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
   {"AverageAtom", PAverageAtom, METH_VARARGS},
   {"PrepAngular", PPrepAngular, METH_VARARGS},

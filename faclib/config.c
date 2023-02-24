@@ -42,14 +42,18 @@ USE (rcsid);
 ** NOTE:        
 */
 static CONFIG_GROUP *cfg_groups;
-
+static MULTI *grpidx;
+static int _ugid = MAX_GROUPS;
 /*
 ** VARIABLE:    n_groups
 ** TYPE:        static int
 ** PURPOSE:     number of groups present.
 ** NOTE:        
 */
-static int n_groups; 
+static int max_groups = MAX_GROUPS;
+static int n_groups = 0;
+static int n_optgrps = 0;
+static int *optgrps[MAX_OPTGRPS];
 
 /*
 ** VARIABLE:    symmetry_list
@@ -97,6 +101,7 @@ static int _isclosed[NCS][NCS];
 #define MAXNK2 2501
 #define MAXNK12 (MAXNK1*MAXNK2)
 static ARRAY _csary[MAXNK12];
+
 
 int IsClosedComplex(int n, int nq) {
   if (n >= NCS) return 0;
@@ -1923,10 +1928,7 @@ int ShellNeedNuNr(SHELL *s, SHELL_STATE *st) {
 int GroupIndex(char *name) {
   int i;
 
-  for (i = n_groups - 1; i >= 0; i--) {
-    if (strncmp(name, cfg_groups[i].name, GROUP_NAME_LEN) == 0) 
-      break;
-  }
+  i = GroupExists(name);
   if (i < 0) i = AddGroup(name);
   return i;
 }
@@ -1945,11 +1947,59 @@ int GroupIndex(char *name) {
 int GroupExists(char *name) {
   int i;
 
-  for (i = n_groups - 1; i >= 0; i--) {
-    if (strncmp(name, cfg_groups[i].name, GROUP_NAME_LEN) == 0) 
-      break;
+  if (n_groups < _ugid) {
+    for (i = n_groups - 1; i >= 0; i--) {
+      if (strncmp(name, cfg_groups[i].name, GROUP_NAME_LEN) == 0) 
+	break;
+    }
+  } else {
+    int *ip, *id, n;
+    char c[GROUP_NAME_LEN];
+    strncpy(c, name, GROUP_NAME_LEN);    
+    for (i = 0; i < GROUP_NAME_LEN; i++) {
+      if (!c[i]) break;
+    }
+    for (i++; i < GROUP_NAME_LEN; i++) {
+      c[i] = '\0';
+    }
+    ip = (int *)c;    
+    id = MultiGet(grpidx, ip, NULL);
+    if (id) i = *id;
+    else i = -1;
   }
   return i;
+}
+
+int **GetOptGrps(int *n) {
+  *n = n_optgrps;
+  if (n_optgrps == 0) return NULL;
+  return optgrps;
+}
+
+int AddOptGrp(int n, int *kg) {
+  int i, k;
+
+  if (n <= 0) {
+    for (i = 0; i < n_optgrps; i++) {
+      free(optgrps[i]);
+      optgrps[i] = NULL;
+    }
+    n_optgrps = 0;
+    return 0;
+  }
+  if (n_optgrps >= MAX_OPTGRPS) {
+    printf("num. of optgrps exceeded maximum: %d>=%d\n",
+	   n_optgrps, MAX_OPTGRPS);
+    return -1;
+  }
+  i = n_optgrps;
+  optgrps[i] = (int *) malloc(sizeof(int)*(n+1));
+  optgrps[i][0] = n;
+  for (k = 0; k < n; k++) {
+    optgrps[i][k+1] = kg[k];
+  }
+  n_optgrps++;
+  return n_optgrps;
 }
 
 /* 
@@ -1964,13 +2014,26 @@ int GroupExists(char *name) {
 */
 int AddGroup(char *name) {
   if (name == NULL) return -1;
-  if (n_groups == MAX_GROUPS) {
-    printf("Max # groups reached\n");
-    exit(1);
-  }
+  if (n_groups == max_groups) {
+    max_groups += MAX_GROUPS;
+    cfg_groups = (CONFIG_GROUP *) realloc(cfg_groups,
+					  max_groups*sizeof(CONFIG_GROUP));
+  }  
   strncpy(cfg_groups[n_groups].name, name, GROUP_NAME_LEN);
   cfg_groups[n_groups].nmax = 0;
-  n_groups++;
+  int i, *ip;
+  char *c;
+  c = cfg_groups[n_groups].name;
+  for (i = 0; i < GROUP_NAME_LEN; i++) {
+    if (!c[i]) break;
+  }
+  for (i++; i < GROUP_NAME_LEN; i++) {
+    c[i] = '\0';
+  }
+  ip = (int *)c;
+  MultiSet(grpidx, ip, &n_groups, NULL, InitIntData, NULL);
+  
+  n_groups++;  
   return n_groups-1;
 }
 
@@ -1987,24 +2050,6 @@ int AddGroup(char *name) {
 CONFIG_GROUP *GetGroup(int k) {
   if (k < 0 || k >= n_groups) return NULL;
   return cfg_groups+k;
-}
-
-/* 
-** FUNCTION:    GetNewGroup
-** PURPOSE:     add a new group and return its pointer.
-** INPUT:       
-** RETURN:      {CONFIG_GROUP *},
-**              pointer to the added group.
-** SIDE EFFECT: 
-** NOTE:        the name of the group is initialized as '_all_'.
-*/
-CONFIG_GROUP *GetNewGroup(void) {
-  if (n_groups == MAX_GROUPS) {
-    printf("Max # groups reached\n");
-    exit(1);
-  }
-  n_groups++;
-  return cfg_groups+n_groups-1;
 }
 
 /* 
@@ -2956,16 +3001,19 @@ int CompareCfgPointer(const void *p1, const void *p2) {
 ** NOTE:        
 */
 int InitConfig(void) {
-  int i;
+  int i, blks[4];
 
   n_groups = 0;
   cfg_groups = malloc(MAX_GROUPS*sizeof(CONFIG_GROUP));
   for (i = 0; i < MAX_GROUPS; i++) {
-    strcpy(cfg_groups[i].name, "_all_");
+    cfg_groups[i].name[0] = '\0';
     cfg_groups[i].n_cfgs = 0;
     ArrayInit(&(cfg_groups[i].cfg_list), sizeof(CONFIG), CONFIGS_BLOCK);
   }
-
+  grpidx = malloc(sizeof(MULTI));
+  for (i = 0; i < 4; i++) blks[i] = MULTI_BLOCK4;
+  MultiInit(grpidx, sizeof(int), 4, blks, "grpidx");
+  
   symmetry_list = malloc(MAX_SYMMETRIES*sizeof(SYMMETRY));
   for (i = 0; i < MAX_SYMMETRIES; i++) {
     symmetry_list[i].n_states = 0;
@@ -3031,15 +3079,20 @@ void FreeConfigData(void *p) {
 int RemoveGroup(int k) {
   SYMMETRY *sym;
   STATE *s;
-  int i, m;
+  int i, m, *ip;
 
   if (k != n_groups-1) {
     printf("only the last group can be removed\n");
     return -1;
   }
+
+  ip = (int *) (cfg_groups[k].name);
+  i = -2;
+  MultiSet(grpidx, ip, &i, NULL, InitIntData, NULL);
   ArrayFree(&(cfg_groups[k].cfg_list), FreeConfigData);
   cfg_groups[k].n_cfgs = 0;
-  strcpy(cfg_groups[k].name, "_all_");
+  cfg_groups[k].name[0] = '\0';
+
   n_groups--;
 
   for (i = 0; i < MAX_SYMMETRIES; i++) {
@@ -3072,12 +3125,14 @@ int ReinitConfig(int m) {
 
   if (m) return 0;
 
+  AddOptGrp(0, NULL);
   for (i = 0; i < n_groups; i++) {
     ArrayFree(&(cfg_groups[i].cfg_list), FreeConfigData);
     cfg_groups[i].n_cfgs = 0;
-    strcpy(cfg_groups[i].name, "_all_");
+    cfg_groups[i].name[0] = '\0';
   }
   n_groups = 0;
+  MultiFree(grpidx, NULL);
 
   for (i = 0; i < MAX_SYMMETRIES; i++) {
     if (symmetry_list[i].n_states > 0) {
@@ -3091,4 +3146,11 @@ int ReinitConfig(int m) {
 
   SetClosedShellNR(0, 0);
   return 0;
+}
+
+void SetOptionConfig(char *s, char *sp, int ip, double dp) {
+  if (0 == strcmp(s, "config:ugid")) {
+    _ugid = ip;
+    return;
+  }
 }

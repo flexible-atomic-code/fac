@@ -243,6 +243,7 @@ static void InitIonData(void *p, int n) {
     ion->ilev = NULL;
     ion->j = NULL;
     ion->vnl = NULL;
+    ion->nk = NULL;
     ion->ibase = NULL;
     ion->energy = NULL;
     for (i = 0; i < NDB1; i++) {
@@ -273,6 +274,7 @@ static void FreeIonData(void *p) {
     free(ion->ilev);
     free(ion->j);
     free(ion->vnl);
+    free(ion->nk);
     free(ion->ibase);
     free(ion->sw);
     free(ion->energy);
@@ -542,6 +544,7 @@ void ExtrapolateEN(int iion, ION *ion) {
   ion->ilev = (int *) realloc(ion->ilev, sizeof(int)*nlev);
   ion->j = (int *) realloc(ion->j, sizeof(int)*nlev);
   ion->vnl = (short *) realloc(ion->vnl, sizeof(short)*nlev);
+  ion->nk = (short *) realloc(ion->nk, sizeof(short)*nlev);
   ion->vni = (short *) realloc(ion->vni, sizeof(short)*nlev);
   ion->ibase = (short *) realloc(ion->ibase, sizeof(short)*nlev);
   ion->sw = (short *) realloc(ion->sw, sizeof(short)*nlev);
@@ -592,6 +595,7 @@ void ExtrapolateEN(int iion, ION *ion) {
 	  ion->ilev[p] = q;
 	  ion->j[p] = ion->j[k];
 	  ion->vnl[p] = n*100 + ion->vnl[k]%100;
+	  ion->nk[p] = ion->nk[k];
 	  ion->ibase[p] = ion->ibase[k];
 	  e0 = ion->energy[ion->ibase[p]];
 	  delta = ion->energy[k] - e0 - a;
@@ -1022,6 +1026,7 @@ int SetBlocks(double ni, char *ifn) {
     ion->j = (int *) malloc(sizeof(int)*nlevels);
     ion->p = (short *) malloc(sizeof(short)*nlevels);
     ion->vnl = (short *) malloc(sizeof(short)*nlevels);
+    ion->nk = (short *) malloc(sizeof(short)*nlevels);
     ion->vni = (short *) malloc(sizeof(short)*nlevels);
     ion->ibase = (short *) malloc(sizeof(short)*nlevels);
     ion->sw = (short *) malloc(sizeof(short)*nlevels);
@@ -1127,6 +1132,7 @@ int SetBlocks(double ni, char *ifn) {
 	    ion->iblock[p] = ion1->iblock[q];
 	    ion->ilev[p] = ion1->ilev[q];
 	    ion->j[p] = JFromENRecord(&(r0[i]));
+	    ion->nk[p] = h.nele;
 	    if (r0[i].p < 0) {
 	      ion->vnl[p] = -r0[i].p;
 	      ion->p[p] = 1;
@@ -1209,6 +1215,7 @@ int SetBlocks(double ni, char *ifn) {
 	    ion->iblock[p] = blkp;
 	    ion->ilev[p] = q;
 	    ion->j[p] = JFromENRecord(&(r0[i]));
+	    ion->nk[p] = h.nele;
 	    if (r0[i].p < 0) {
 	      ion->vnl[p] = -r0[i].p;
 	      ion->p[p] = 1;
@@ -1366,6 +1373,7 @@ int SetBlocks(double ni, char *ifn) {
 	ion->iblock[p] = blkp;
 	ion->ilev[p] = q;
 	ion->j[p] = JFromENRecord(&(r));
+	ion->nk[p] = h.nele;
 	if (r.p < 0) {
 	  ion->vnl[p] = -r.p;
 	  ion->p[p] = 1;
@@ -8728,7 +8736,7 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
   F_HEADER fh;
   int ms[RC_TT], ir[RC_TT];
   int *ik, *ii, *ia, *io;
-  int nk, ni, na, nb, p, i, ntd, m, dj, vn, nkk, nii, nki, nbi, nr, s, n, ib;
+  int nk, ni, na, nb, p, i, ntd, m, vn, nkk, nii, nki, nbi, nr, s, n, ib;
   int it, id, ilo, iup, j0, nce, nci, nrr, ndr, nre, nea, kg, ig, n1;
   double dt, dd, rdt, rdd, *ra, *ra0, ek, ei, de, te, mp[3], br, rt, x;
   double **wr, *drs;
@@ -8812,8 +8820,7 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
     j0 = ion->j[ion->ground];
     for (i = 0; i < ion->nlevels; i++) {
       vn = ion->vnl[i]/100;
-      dj = abs(ion->j[i] - j0);
-      if (dj%2 == 0) {
+      if (ion->nk[i] == ion->nele) {
 	if (vn <= nexc) {
 	  if (ion->energy[i] < ei) {
 	    nb++;
@@ -8856,8 +8863,7 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
     n1 = 0;
     for (i = 0; i < ion->nlevels; i++) {
       vn = ion->vnl[i]/100;
-      dj = abs(ion->j[i] - j0);
-      if (dj%2 == 0) {
+      if (ion->nk[i] == ion->nele) {
 	if (vn <= nexc) {
 	  if (ion->energy[i] < ei) {
 	    io[nb] = i;

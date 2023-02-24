@@ -250,5 +250,9 @@ void SetOption(char *s, char *sp, int ip, double dp) {
     SetOptionNucleus(s, sp, ip, dp);
     return;
   }
+  if (strstr(s, "config:") == s) {
+    SetOptionConfig(s, sp, ip, dp);
+    return;
+  }
   return;
 }

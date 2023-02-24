@@ -142,7 +142,7 @@ static int DecodeGroupArgs(int **kg, int n, int *n0, char *argv[], int argt[],
       s = v[i];
       k = GroupExists(s);      
       if (k < 0) {
-	printf("group does not exist: %d %s\n", i, s);
+	//printf("group does not exist: %d %s\n", i, s);
 	if (i < n0q) n0p--;
 	continue;
       }
@@ -152,7 +152,7 @@ static int DecodeGroupArgs(int **kg, int n, int *n0, char *argv[], int argt[],
     if (n0) *n0 = n0p;
     ng = n;
     if (ng <= 0) {
-      printf("all cfg groups invalid\n");
+      //printf("all cfg groups invalid\n");
       free(*kg);
       return ng;
     }
@@ -1258,6 +1258,25 @@ static int PMemENTable(int argc, char *argv[], int argt[],
 
   MemENTable(argv[0]);
 
+  return 0;
+}
+
+static int POptimizeGroup(int argc, char *argv[], int argt[], 
+			  ARRAY *variables) {
+  int ng, *kg, i;
+
+  if (argc == 0) {
+    AddOptGrp(0, NULL);
+    return 0;
+  }
+
+  for (i = 0; i < argc; i++) {
+    ng = DecodeGroupArgs(&kg, 1, NULL, &argv[i], &argt[i], variables);
+    if (ng > 0) {
+      AddOptGrp(ng, kg);
+      free(kg);
+    }
+  }
   return 0;
 }
 
@@ -3583,7 +3602,7 @@ static int PStructure(int argc, char *argv[], int argt[],
   if (n == 1) {
     if (argt[0] != STRING) return -1;
     ng = DecodeGroupArgs(&kg, 0, NULL, NULL, NULL, variables);
-    if (ng < 0) return -1;
+    if (ng <= 0) return -1;
   } else {
     if (argt[1] == STRING) {
       hfn = argv[1];
@@ -3598,7 +3617,7 @@ static int PStructure(int argc, char *argv[], int argt[],
       } else {
 	if (argt[2] != LIST && argt[2] != TUPLE) return -1;
 	ng = DecodeGroupArgs(&kg, 1, NULL, &(argv[2]), &(argt[2]), variables);
-	if (ng < 0) return 0;
+	if (ng <= 0) return 0;
 	if (n >= 4) {
 	  if (argt[3] == NUMBER) {
 	    ngp = 0;
@@ -3617,7 +3636,7 @@ static int PStructure(int argc, char *argv[], int argt[],
       if (argt[0] != STRING) return -1;
       if (argt[1] != LIST && argt[1] != TUPLE) return -1;
       ng = DecodeGroupArgs(&kg, 1, NULL, &(argv[1]), &(argt[1]), variables);
-      if (ng < 0) return 0;
+      if (ng <= 0) return 0;
       if (n >= 3) {
 	if (argt[2] == NUMBER) {
 	  ngp = 0;
@@ -3697,6 +3716,29 @@ static int PTestAngular(int argc, char *argv[], int argt[],
 static int PTestIntegrate(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
   TestIntegrate();  
+  return 0;
+}
+
+static int PIntRadJn(int argc, char *argv[], int argt[], 
+		     ARRAY *variables) {
+  int n0, k0, n1, k1, n, m;
+  double e0, e1;
+  char *fn = NULL;
+
+  n0 = atoi(argv[0]);
+  k0 = atoi(argv[1]);
+  e0 = atof(argv[2]);
+  n1 = atoi(argv[3]);
+  k1 = atoi(argv[4]);
+  e1 = atof(argv[5]);
+  n = atoi(argv[6]);
+  m = atoi(argv[7]);
+  if (argc > 8) fn = argv[8];
+  
+  double r = IntRadJn(n0, k0, e0/HARTREE_EV,
+		      n1, k1, e1/HARTREE_EV,
+		      n, m, fn);
+  printf("IntRadJn: %15.8E\n", r);
   return 0;
 }
 
@@ -5387,6 +5429,7 @@ static METHOD methods[] = {
   {"SetOption", PSetOption, METH_VARARGS},
   {"StructureMBPT", PStructureMBPT, METH_VARARGS},
   {"TransitionMBPT", PTransitionMBPT, METH_VARARGS},
+  {"OptimizeGroup", POptimizeGroup, METH_VARARGS},
   {"OptimizeRadial", POptimizeRadial, METH_VARARGS},
   {"AverageAtom", PAverageAtom, METH_VARARGS},
   {"PrepAngular", PPrepAngular, METH_VARARGS},
@@ -5476,6 +5519,7 @@ static METHOD methods[] = {
   {"CoulombBethe", PCoulombBethe, METH_VARARGS}, 
   {"TestAngular", PTestAngular, METH_VARARGS}, 
   {"TestIntegrate", PTestIntegrate, METH_VARARGS}, 
+  {"IntRadJn", PIntRadJn, METH_VARARGS}, 
   {"TestMyArray", PTestMyArray, METH_VARARGS},   
   {"ReportMultiStats", PReportMultiStats, METH_VARARGS},   
   {"ElectronDensity", PElectronDensity, METH_VARARGS},  

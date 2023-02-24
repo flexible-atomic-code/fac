@@ -144,6 +144,10 @@ static double _gridrmin = GRIDRMIN;
 static double _gridrmax = 0.0;
 static double _gridemax = 0.0;
 static int _maxrp = DMAXRP;
+static int _intscm = 0;
+static double _intscp1 = 0.025;
+static double _intscp2 = 0.5;
+static double _intscp3 = 0.025;
 
 static struct {
   int nr, md, jmax;
@@ -663,7 +667,7 @@ void AllocPotMem(POTENTIAL *p, int n) {
     free(p->dws);
   }
   p->maxrp = n;
-  p->nws = n*(30+3*NKSEP+3*NKSEP1);
+  p->nws = n*(36+3*NKSEP+3*NKSEP1);
   p->dws = (double *) malloc(sizeof(double)*p->nws);
   SetPotDP(p);
 }
@@ -688,6 +692,18 @@ void SetPotDP(POTENTIAL *p) {
   p->dr_drho2 = x;
   x += n;
   p->vtr = x;
+  x += n;
+  p->a1r = x;
+  x += n;
+  p->a2r = x;
+  x += n;
+  p->a3r = x;
+  x += n;
+  p->a1dr = x;
+  x += n;
+  p->a2dr = x;
+  x += n;
+  p->a3dr = x;
   x += n;
   p->Vc = x;
   x += n;
@@ -920,38 +936,6 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   n = BFileRead(&p->sturm_idx, sizeof(double), 1, f);
   AllocPotMem(p, maxrp);
   n = BFileRead(p->dws, sizeof(double), p->nws, f);
-  /*
-  n = BFileRead(p->Z, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->dZ, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->dZ2, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->rad, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->rho, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->mqrho, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->dr_drho, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->dr_drho2, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->vtr, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->Vc, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->dVc, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->dVc2, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->qdist, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->U, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->dU, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->dU2, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->W, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->dW, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->dW2, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->ZVP, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->dZVP, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->dZVP2, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->ZPS, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->dZPS, sizeof(double), p->maxrp, f);
-  n = BFileRead(p->dZPS2, sizeof(double), p->maxrp, f);
-  for (i = 0; i < NKSEP; i++) {
-    n = BFileRead(p->ZSE[k], sizeof(double), p->maxrp, f);
-    n = BFileRead(p->dZSE[k], sizeof(double), p->maxrp, f);
-    n = BFileRead(p->dZSE2[k], sizeof(double), p->maxrp, f);
-  }
-  */
   p->atom = GetAtomicNucleus();
   BFileClose(f);
   ReinitRadial(1);
@@ -1070,38 +1054,6 @@ int SavePotential(char *fn, POTENTIAL *p) {
   n = fwrite(&p->ips, sizeof(int), 1, f);
   n = fwrite(&p->sturm_idx, sizeof(double), 1, f);
   n = fwrite(p->dws, sizeof(double), p->nws, f);
-  /*
-  n = fwrite(p->Z, sizeof(double), p->maxrp, f);
-  n = fwrite(p->dZ, sizeof(double), p->maxrp, f);
-  n = fwrite(p->dZ2, sizeof(double), p->maxrp, f);
-  n = fwrite(p->rad, sizeof(double), p->maxrp, f);
-  n = fwrite(p->rho, sizeof(double), p->maxrp, f);
-  n = fwrite(p->mqrho, sizeof(double), p->maxrp, f);
-  n = fwrite(p->dr_drho, sizeof(double), p->maxrp, f);
-  n = fwrite(p->dr_drho2, sizeof(double), p->maxrp, f);
-  n = fwrite(p->vtr, sizeof(double), p->maxrp, f);
-  n = fwrite(p->Vc, sizeof(double), p->maxrp, f);
-  n = fwrite(p->dVc, sizeof(double), p->maxrp, f);
-  n = fwrite(p->dVc2, sizeof(double), p->maxrp, f);
-  n = fwrite(p->qdist, sizeof(double), p->maxrp, f);
-  n = fwrite(p->U, sizeof(double), p->maxrp, f);
-  n = fwrite(p->dU, sizeof(double), p->maxrp, f);
-  n = fwrite(p->dU2, sizeof(double), p->maxrp, f);
-  n = fwrite(p->W, sizeof(double), p->maxrp, f);
-  n = fwrite(p->dW, sizeof(double), p->maxrp, f);
-  n = fwrite(p->dW2, sizeof(double), p->maxrp, f);
-  n = fwrite(p->ZVP, sizeof(double), p->maxrp, f);
-  n = fwrite(p->dZVP, sizeof(double), p->maxrp, f);
-  n = fwrite(p->dZVP2, sizeof(double), p->maxrp, f);
-  n = fwrite(p->ZPS, sizeof(double), p->maxrp, f);
-  n = fwrite(p->dZPS, sizeof(double), p->maxrp, f);
-  n = fwrite(p->dZPS2, sizeof(double), p->maxrp, f);
-  for (i = 0; i < NKSEP; i++) {
-    n = fwrite(p->ZSE[k], sizeof(double), p->maxrp, f);
-    n = fwrite(p->dZSE[k], sizeof(double), p->maxrp, f);
-    n = fwrite(p->dZSE2[k], sizeof(double), p->maxrp, f);
-  }
-  */
   fclose(f);
   return 0;
 }
@@ -3594,14 +3546,24 @@ int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
   AVERAGE_CONFIG *acfg;
   double a, b, c, z, z0, rn;
   double *r, *x, emin, smin, hxs[NXS2], ehx[NXS2], mse;
-  int iter, i, j, i0, i1, k;
+  int iter, i, j, i0, i1, k, wce;
   
   if (potential->atom->atomic_number < EPS10) {
     printf("SetAtom has not been called\n");
     Abort(1);
   }
-  if (!ife && _config_energy >= 0) {
-    ConfigEnergy(0, _config_energy, 0, NULL);
+  wce = 0;
+  if (!ife) {
+    if (_config_energy >= 0) {
+      ConfigEnergy(0, _config_energy, 0, NULL);
+      wce = 1;
+    } else {
+      int **og = GetOptGrps(&k);
+      if (k > 0) {
+	ConfigEnergy(0, 0, 0, NULL);
+	wce = 1;
+      }
+    }
   }
   mse = qed.se;
   qed.se = -1000000;
@@ -4036,7 +3998,7 @@ int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
   */
   qed.se = mse;
   CopyPotentialOMP(0);
-  if (!ife && _config_energy >= 0) {
+  if (wce) {
     ConfigEnergy(1, 0, 0, NULL);
   }
 
@@ -5432,10 +5394,37 @@ int ClearOrbitalTable(int m) {
   return 0;
 }
 
+int SkipOptGrp(CONFIG_GROUP *g) {
+  int skip, nmax, i, ic;
+  CONFIG *cfg;
+  
+  nmax = potential->nmax-1;
+  if (potential->nb > 0 && nmax < potential->nb) nmax = potential->nb;
+  skip = nmax>0 && g->nmax>nmax;
+  if (!skip) {
+    nmax = GetOrbNMax(-1, 0);
+    if (nmax > 0) {
+      for (i = 0; i < g->n_cfgs; i++) {
+	cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
+	for (ic = 0; ic < cfg->n_shells; ic++) {
+	  nmax = GetOrbNMax(cfg->shells[ic].kappa, 0);
+	  if (nmax > 0 && cfg->shells[ic].n >= nmax) {
+	    skip = 1;
+	    break;
+	  }
+	}
+	if (skip) break;
+      }	    
+    }
+  }
+  return skip;
+} 
+
 int ConfigEnergy(int m, int mr, int ng, int *kg) {
   CONFIG_GROUP *g;
   CONFIG *cfg;
-  int k, kk, i, md, md1, ic;
+  int k, kk, i, md, md1;
+  int nog, iog, **og, *gp, ngp;
   double e0;
 
   if (optimize_control.mce < 0) return 0;
@@ -5443,87 +5432,103 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
   else if (ng <= 0) kg = NULL;
   if (ng == 0) {
     ng = GetNumGroups();
+  }
+  og = GetOptGrps(&nog);
+  if (!og) {
+    nog = ng;
   }  
   md = optimize_control.mce%10;  
   md1 = 10*(optimize_control.mce/10);
   if (m == 0) {
-    for (k = 0; k < ng; k++) {
-      if (kg != NULL) kk = kg[k];
-      else kk = k;
-      g = GetGroup(kk);
-      int nmax = potential->nmax-1;
-      if (potential->nb > 0 && nmax < potential->nb) nmax = potential->nb;
-      int skip = nmax > 0 && g->nmax > nmax;
-      if (!skip) {
-	nmax = GetOrbNMax(-1, 0);
-	if (nmax > 0) {
+    for (iog = 0; iog < nog; iog++) {
+      if (og) {
+	gp = malloc(sizeof(int)*og[iog][0]);
+	ngp = 0;
+	for (k = 0; k < og[iog][0]; k++) {
+	  g = GetGroup(og[iog][k+1]);
 	  for (i = 0; i < g->n_cfgs; i++) {
 	    cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
-	    for (ic = 0; ic < cfg->n_shells; ic++) {
-	      nmax = GetOrbNMax(cfg->shells[ic].kappa, 0);
-	      if (nmax > 0 && cfg->shells[ic].n >= nmax) {
-		skip = 1;
-		break;
-	      }
-	    }
-	    if (skip) break;
-	  }	    
+	    cfg->energy = 0;
+	    cfg->delta = 0;
+	  }
+	  if (SkipOptGrp(g)) continue;
+	  gp[ngp++] = og[iog][k+1];
 	}
-      }	
-      if (skip) {
+      } else {
+	ngp = 1;
+	if (kg) kk = kg[iog];
+	else kk = iog;
+	gp = &kk;
+	g = GetGroup(kk);
 	for (i = 0; i < g->n_cfgs; i++) {
 	  cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
 	  cfg->energy = 0;
 	  cfg->delta = 0;
 	}
+	if (SkipOptGrp(g)) {
+	  ngp = 0;
+	}
+      }
+      if (ngp == 0) {
 	continue;
       }
       if (md == 0) {
-	if (OptimizeRadial(1, &kk, -1, NULL, 1) < 0) {
+	if (OptimizeRadial(ngp, gp, -1, NULL, 1) < 0) {
 	  ReinitRadial(1);
 	  ClearOrbitalTable(0);
 	  continue;
 	}
 	if (mr > 0) RefineRadial(mr, 0, 0, -1);
       }
-      for (i = 0; i < g->n_cfgs; i++) {
-	if (md > 0) {
-	  if (OptimizeRadial(1, &kk, i, NULL, 1) < 0) {
+      for (k = 0; k < ngp; k++) {	
+	g = GetGroup(gp[k]);
+	for (i = 0; i < g->n_cfgs; i++) {
+	  if (md > 0) {
+	    if (OptimizeRadial(1, gp+k, i, NULL, 1) < 0) {
+	      ReinitRadial(1);
+	      ClearOrbitalTable(0);
+	      continue;
+	    }
+	    if (mr > 0) RefineRadial(mr, 0, 0, -1);
+	  }
+	  cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
+	  e0 = AverageEnergyConfigMode(cfg, md1);
+	  cfg->energy = e0;
+	  if (md > 0) {
 	    ReinitRadial(1);
 	    ClearOrbitalTable(0);
-	    continue;
 	  }
-	  if (mr > 0) RefineRadial(mr, 0, 0, -1);
 	}
-	cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
-	nmax = potential->nmax-1;
-	if (potential->nb > 0 && nmax < potential->nb) nmax = potential->nb;
-	if (nmax > 0 && g->nmax > nmax) {
-	  cfg->energy = 0;
-	  cfg->delta = 0;
-	  ReinitRadial(1);
-	  ClearOrbitalTable(0);
-	  continue;
-	}
-	e0 = AverageEnergyConfigMode(cfg, md1);
-	cfg->energy = e0;
+      }
+      if (md == 0) {
 	ReinitRadial(1);
 	ClearOrbitalTable(0);
       }
+      if (og) free(gp);
     }
   } else if (md1 < 20) {
-    for (k = 0; k < ng; k++) {
-      if (kg != NULL) kk = kg[k];
-      else kk = k;
-      g = GetGroup(kk);
-      for (i = 0; i < g->n_cfgs; i++) {
-	cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
-	if (cfg->energy != 0) {
-	  e0 = AverageEnergyConfigMode(cfg, md1);
-	  cfg->delta = cfg->energy - e0;	
-	  if (optimize_control.iprint) {
-	    MPrintf(-1, "ConfigEnergy: %d %d %d %d %g %g %g\n", 
-		    md, md1, kk, i, cfg->energy, e0, cfg->delta);
+    for (iog = 0; iog < nog; iog++) {
+      if (og) {
+	ngp = og[iog][0];
+	gp = og[iog]+1;
+      } else {
+	ngp = 1;
+	if (kg) kk = kg[iog];
+	else kk = iog;
+	gp = &kk;
+      }
+      for (k = 0; k < ngp; k++) {
+	kk = gp[k];
+	g = GetGroup(kk);
+	for (i = 0; i < g->n_cfgs; i++) {
+	  cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
+	  if (cfg->energy != 0) {
+	    e0 = AverageEnergyConfigMode(cfg, md1);
+	    cfg->delta = cfg->energy - e0;	
+	    if (optimize_control.iprint) {
+	      MPrintf(-1, "ConfigEnergy: %d %d %d %d %g %g %g\n", 
+		      md, md1, kk, i, cfg->energy, e0, cfg->delta);
+	    }
 	  }
 	}
       }
@@ -7103,7 +7108,7 @@ double IntRadJn(int n0, int k0, double e0,
 		int n, int m, char *fn) {
   ORBITAL *orb0, *orb1;
   int i, i0, i1, jy;
-  double de, a, x;
+  double de, a, x, r;
 
   i0 = OrbitalIndex(n0, k0, e0);
   i1 = OrbitalIndex(n1, k1, e1);
@@ -7121,7 +7126,10 @@ double IntRadJn(int n0, int k0, double e0,
     }
   }
   _yk[0] = 0.0;
-  Integrate(_xk, orb0, orb1, -abs(m), _yk, 0);
+  m = abs(m);
+
+  Integrate(_xk, orb0, orb1, m, &r, 0);
+  Integrate(_xk, orb0, orb1, -m, _yk, 0);
   if (fn) {
     FILE *f;
     f = fopen(fn, "w");
@@ -7147,7 +7155,7 @@ double IntRadJn(int n0, int k0, double e0,
       fclose(f);
     }
   }
-  return _yk[potential->maxrp-1];
+  return r;
 }
 
 double MultipoleRadialFR(double aw, int m, int k1, int k2, int gauge) {
@@ -9139,7 +9147,7 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
       if (orb3->n > 0) ilast = Min(ilast, orb3->ilast);
       for (i = 0; i <= ilast; i++) {
 	_yk[i] /= potential->rad[i];
-      }
+      }     
       Integrate(_yk, orb1, orb3, 2, s, 0);
 
       norm  = orb0->qr_norm;
@@ -10460,6 +10468,397 @@ int IntegrateSubRegion(int i0, int i1,
 int IntegrateSinCos(int j, double *x, double *y, 
 		    double *phase, double *dphase, 
 		    int i0, double *r, int t) {
+  int i, k, m, n, q, s, i1, qn;
+  double si0, si1, cs0, cs1;
+  double is0, is1, is2, is3;
+  double ic0, ic1, ic2, ic3;
+  double his0, his1, his2, his3;
+  double hic0, hic1, hic2, hic3;
+  double a0, a1, a2, a3;
+  double d, p, h, dr, scx, scy;
+  double *z, *u, *w, *u1, *w1, *xi, *yi, *wi;
+  double mdp[2];
+  
+  w = _dwork2;
+  z = _dwork10;
+  u = _dwork11;
+  xi = _dwork15;
+  yi = _dwork16;
+  wi = _dwork17;
+  scx = 0.0;
+  scy = 0.0;
+  if (x) {
+    for (i = 0; i < j; i++) {
+      if (fabs(x[i]) > scx) scx = fabs(x[i]);
+    }
+    if (scx) {
+      for (i = 0; i < j; i++) {
+	x[i] /= scx;
+      }
+    }
+  }
+  if (y) {
+    for (i = 0; i < j; i++) {
+      if (fabs(y[i]) > scy) scy = fabs(y[i]);
+    }
+    if (scy) {
+      for (i = 0; i < j; i++) {
+	y[i] /= scy;
+      }
+    }
+  }
+
+  if (_intscm == 1) {
+    return IntegrateSinCos1(j, x, scx, y, scy, phase, dphase, i0, r, t);
+  }
+  if (_intscm > 1) {
+    return IntegrateSinCos2(j, x, scx, y, scy, phase, dphase, i0, r, t);
+  }
+
+  m = 0;
+  mdp[0] = PI*_intscp1;
+  mdp[1] = PI*_intscp2;
+  d = fabs(phase[1]-phase[0]);
+  if (d <= mdp[0]) q = 0;
+  else if (d <= mdp[1]) q = 1;
+  else q = 2;
+  while (m < j-1) {
+    s = m;
+    if (q == 0) {
+      for (i = m+1; i < j; i++) {
+	d = fabs(phase[i]-phase[i-1]);
+	if (d > mdp[0]) {
+	  if (d > mdp[1]) qn = 2;
+	  else qn = 1;
+	  break;
+	}
+      }
+    } else if (q == 1) {
+      for (i = m+1; i < j; i++) {
+	d = fabs(phase[i]-phase[i-1]);
+	if (d <= mdp[0]) {
+	  qn = 0;
+	  break;
+	} else if (d > mdp[1]) {
+	  qn = 2;
+	  break;
+	}
+      }
+    } else {
+      for (i = m+1; i < j; i++) {
+	d = fabs(phase[i]-phase[i-1]);
+	if (d <= mdp[1]) {
+	  if (d <= mdp[0]) qn = 0;
+	  else qn = 1;
+	  break;
+	}
+      }
+    }
+    m = i-1;
+    if (m >= j-3) m = j-1;
+    if (q == 0) {
+      for (i = s; i <= m; i++) {
+	k = i0 + 2*i;
+	z[k] = 0.0;
+	if (x) z[k] += x[i]*sin(phase[i])*scx;
+	if (y) z[k] += y[i]*cos(phase[i])*scy;
+	z[k] *= potential->dr_drho[k];
+	u[i] = potential->rho[k];
+      }
+      n = m-s+1;
+      if (m < j-1) {
+	i1 = n+1;
+	u[n] = potential->rad[i0+2*(m+1)];	
+      } else {
+	i1 = n;
+      }
+      UVIP3C(3, i1, u+s, phase+s, wi+s, wi+j+s, u+j+s);
+      if (x) {
+	UVIP3C(3, i1, u+s, x+s, xi+s, xi+j+s, w+s);
+      }
+      if (y) {
+	UVIP3C(3, i1, u+s, y+s, yi+s, yi+j+s, w+j+s);
+      }
+      for (i = s; i < m; i++) {
+	k = i0 + 2*i + 1;
+	z[k] = 0.0;
+	a1 = wi[i];
+	a2 = wi[i+j];
+	a3 = u[i+j];
+	a0 = phase[i] + a1 + a2 + a3;
+	if (x) {
+	  a1 = xi[i];
+	  a2 = xi[i+j];
+	  a3 = w[i];
+	  z[k] += (x[i]+a1+a2+a3)*sin(a0)*scx;
+	}
+	if (y) {
+	  a1 = yi[i];
+	  a2 = yi[i+j];
+	  a3 = w[i+j];
+	  z[k] += (y[i]+a1+a2+a3)*cos(a0)*scy;
+	}
+	z[k] *= potential->dr_drho[k];
+      }
+      NewtonCotes(r, z, i0+2*s, i0+2*m, t, 0);
+      //printf("q0: %d %d %d %d %d %12.5E %12.5E\n", j, s, m, i0+2*s, i0+2*m, r[i0+2*s], r[i0+2*m]);
+    } else if (q == 1) {
+      double *x1, *y1;
+      int m1, s1;
+      m1 = m+1;
+      if (m1 >= j) m1 = j-1;
+      s1 = s-1;
+      if (s1 < 0) s1 = 0;
+      if (x) x1 = x+s1;
+      else x1 = NULL;
+      if (y) y1 = y+s1;
+      else y1 = NULL;
+      k = i0+2*s1;
+      if (s1 < s) {
+	a0 = r[k];
+	a1 = r[k+1];
+	a2 = r[k+2];      
+	r[k] = 0.0;
+      }
+      i1 = m1-s1+1;
+      IntegrateSinCos2(i1, x1, scx, y1, scy, phase+s1, dphase+s1, k, r, t);
+      if (s1 < s) {
+	r[k] = a0;
+	r[k+1] = a1;
+	a2 -= r[k+2];
+	for (i = s; i <= m; i++) {
+	  r[i0+2*i] += a2;
+	  r[i0+2*i+1] += a2;
+	}
+      }
+      //printf("q1: %d %d %d %d %d %12.5E %12.5E\n", j, s, m, i0+2*s, i0+2*m, r[i0+2*s], r[i0+2*m]);
+    } else {
+      for (n = 1; n <= 5; n++) {
+	i1 = s-n;
+	if (i1 < 0 || dphase[i1]*dphase[s] <= 0) {
+	  i1++;
+	  break;
+	}
+      }
+      if (t < 0) {
+	for (i = i1; i <= m; i++) {
+	  k = i0 + 2*i;
+	  u[i] = potential->rad[k];
+	  z[i] = potential->rad[k+1];
+	}
+	UVIP3P(3, m+1-i1, u+i1, phase+i1, m+1-s, z+s, w+s);
+      }
+      if (x) {
+	for (i = i1; i <= m; i++) {
+	  x[i] /= dphase[i];
+	}
+	UVIP3C(3, m+1-i1, phase+i1, x+i1, z+i1, z+j+i1, x+j+i1);
+      }
+      if (y) {
+	for (i = i1; i <= m; i++) {
+	  y[i] /= dphase[i];
+	}
+	UVIP3C(3, m+1-i1, phase+i1, y+i1, u+i1, u+j+i1, y+j+i1);
+      }
+      si0 = sin(phase[s]);
+      cs0 = cos(phase[s]);
+      for (i = s+1; i <= m; i++) {
+	k = i0 + 2*i;
+	if (t < 0) {
+	  dr = w[i-1] - phase[i-1];
+	  si1 = sin(w[i-1]);
+	  cs1 = cos(w[i-1]);
+	  his0 = -(cs1 - cs0);
+	  hic0 = si1 - si0;
+	  p = dr;
+	  his1 = -p * cs1 + hic0;
+	  hic1 = p * si1 - his0;
+	  p *= dr; 
+	  his2 = -p * cs1 + 2.0*hic1;
+	  hic2 = p * si1 - 2.0*his1;
+	  p *= dr;
+	  his3 = -p * cs1 + 3.0*hic2;
+	  hic3 = p * si1 - 3.0*his2;
+	  r[k-1] = r[k-2];
+	}
+	d = phase[i] - phase[i-1];
+	si1 = sin(phase[i]);
+	cs1 = cos(phase[i]);
+	is0 = -(cs1 - cs0);
+	ic0 = si1 - si0;
+	p = d;
+	is1 = -p * cs1 + ic0;
+	ic1 = p * si1 - is0;
+	p *= d;
+	is2 = -p * cs1 + 2.0*ic1;
+	ic2 = p * si1 - 2.0*is1; 
+	p *= d;
+	is3 = -p * cs1 + 3.0*ic2;
+	ic3 = p * si1 - 3.0*is2;
+	r[k] = r[k-2];
+	if (x != NULL) {
+	  a0 = x[i-1];
+	  a1 = z[i-1]; 
+	  a2 = z[j+i-1];
+	  a3 = x[j+i-1];
+	  h = a0*is0 + a1*is1 + a2*is2 + a3*is3;
+	  r[k] += h*scx;
+	  h = a0*his0 + a1*his1 + a2*his2 + a3*his3;
+	  r[k-1] += h*scx;      
+	}
+	if (y != NULL) {
+	  a0 = y[i-1];
+	  a1 = u[i-1];
+	  a2 = u[j+i-1];
+	  a3 = y[j+i-1];
+	  h = a0*ic0 + a1*ic1 + a2*ic2 + a3*ic3;
+	  r[k] += h*scy;
+	  h = a0*hic0 + a1*hic1 + a2*hic2 + a3*hic3;
+	  r[k-1] += h*scy;
+	}
+	si0 = si1;
+	cs0 = cs1;
+      }      
+      //printf("q2: %d %d %d %d %d %12.5E %12.5E\n", j, s, m, i0+2*s, i0+2*m, r[i0+2*s], r[i0+2*m]);
+    }
+    q = qn;
+  }
+}
+
+int IntegrateSinCos2(int j, double *x, double scx, double *y, double scy,
+		     double *phase, double *dphase, 
+		     int i0, double *r, int t) {
+  int i, m, n, p, k, s, ip, iq, ip1, iq1, nj, ni;
+  int *ix, *iy, mm, j0, j1;
+  double d, dp, dr, a, xa, ya, a1, a2, a3;
+  double *xi, *yi, *zi, *ri, *ui, *vi, *wi, *w;
+  //static double t0, dt0 = 0, dt1 = 0.0, dt2 = 0.0, dt3 = 0.0;
+
+  if (t > 0) t = -t;
+  w = _dwork2;
+  for (i = 0; i < j; i++) {
+    w[i] = potential->rho[i0+i*2];
+  }
+  ri = _dwork10;
+  wi = _dwork11;
+  xi = _dwork15;
+  yi = _dwork16;
+  zi = _dwork17;
+  vi = potential->W;
+  ix = (int *) potential->dW;
+  iy = (int *) potential->dW2;
+  ui = potential->dW;
+
+  mm = potential->maxrp-1;
+  if (IsOdd(mm)) mm--;
+  dp = PI*_intscp3;
+  ip = 0;
+  ni = 0;
+  iy[0] = 0;
+  while (ip < j-1) {
+    //t0 = WallTime();
+    n = 1;
+    for (i = ip+1; i < j; i++) {
+      d = fabs(phase[i]-phase[i-1]);
+      m = (int)(1+d/dp);
+      if (IsOdd(m)) m++;
+      n += m;
+      if (n > potential->maxrp) break;
+    }
+    iq = i-1;
+    if (iq == ip) {
+      iq = ip+1;
+    }
+    ri[0] = potential->rho[i0+2*ip];
+    ix[0] = ip;
+    k = 1;
+    for (i = ip+1; i <= iq; i++) {
+      d = fabs(phase[i]-phase[i-1]);
+      m = (int)(1+d/dp);
+      if (IsOdd(m)) m++;
+      if (m > mm) m = mm;
+      p = i0+2*i;      
+      dr = (potential->rho[p]-potential->rho[p-2])/m;
+      for (s = 0; s < m; s++,k++) {
+	ri[k] = ri[k-1] + dr;
+	ix[k] = i-1;
+      }
+      iy[i] = iy[i-1]+m;
+    }
+    //dt0 += WallTime()-t0;
+    n = k;
+    ip1 = ip-3;
+    if (ip1 < 0) ip1 = 0;
+    iq1 = iq+3;
+    if (iq1 >= j) iq1 = j-1;
+    nj = iq1-ip1+1;
+    UVIP3C(3, nj, w+ip1, phase+ip1, wi+ip1, wi+j+ip1, w+j+ip1);
+    if (x) {
+      UVIP3C(3, nj, w+ip1, x+ip1, xi+ip1, xi+j+ip1, vi+ip1);
+    }
+    if (y) {
+      UVIP3C(3, nj, w+ip1, y+ip1, yi+ip1, yi+j+ip1, vi+j+ip1);
+    }
+    //dt1 += WallTime()-t0;
+    for (i = 0; i < n; i++) {
+      zi[i] = 0.0;
+      k = ix[i];
+      a1 = wi[k];
+      a2 = wi[j+k];
+      a3 = w[j+k];
+      d = ri[i]-w[k];
+      a = phase[k] + d*(a1 + d*(a2 + d*a3));      
+      if (x) {
+	a1 = xi[k];
+	a2 = xi[j+k];
+	a3 = vi[k];
+	xa = x[k] + d*(a1 + d*(a2 + d*a3));
+	zi[i] += xa*sin(a)*scx;
+      }
+      if (y) {
+	a1 = yi[k];
+	a2 = yi[j+k];
+	a3 = vi[j+k];
+	ya = y[k] + d*(a1 + d*(a2 + d*a3));
+	zi[i] += ya*cos(a)*scy;
+      }
+      p = i0+2*k;
+      if (d < 1.) {
+	dr = DrRho(potential, p, ri[i]);
+      } else {
+	dr = DrRho(potential, p+1, ri[i]);
+      }
+      zi[i] *= dr;
+      /*
+      printf("ip: %d %d %d %d %d %d %d %d %d %d %d %d %g %g %g %g %g %g %g %g\n",
+	     j, i, k, i0,i0+2*k, iy[k], ip, ip1, iq, iq1, n, mm, d, ri[i],
+	     a, xa, dr, zi[i], potential->dr_drho[p], potential->dr_drho[p+1]);
+      */
+    }
+    //dt2 += WallTime()-t0;
+    nj = iq-ip+1;
+    k = i0+2*ip;
+    for (i = ip+1; i <= iq; i++, k += 2) {
+      j0 = iy[i-1]-iy[ip];
+      j1 = iy[i]-iy[ip];
+      ui[j0] = 0.0;
+      NewtonCotes(ui, zi, j0, j1, t, 0);
+      m = iy[i]-iy[i-1];
+      d = (w[i]-w[i-1])/m;
+      r[k+1] = r[k] + ui[j0+m/2]*d;
+      r[k+2] = r[k] + ui[j0+m]*d;
+    }          
+    //dt3 += WallTime()-t0;
+    ip = iq;
+    ni++;    
+  }
+  //printf("dt: %10.3E %10.3E %10.3E %10.3E\n", dt0, dt1, dt2, dt3);
+  return 0;
+}
+
+int IntegrateSinCos1(int j, double *x, double scx, double *y, double scy,
+		     double *phase, double *dphase, 
+		     int i0, double *r, int t) {
   int i, k, m, n, q, s, i1, nh;
   double si0, si1, cs0, cs1;
   double is0, is1, is2, is3;
@@ -10480,12 +10879,13 @@ int IntegrateSinCos(int j, double *x, double *y,
       if (x) x[i] = -x[i];
     }
   }
+ 
   nh = 0;
   for (i = 1, k = i0+2; i < j; i++, k += 2) {
     h = phase[i] - phase[i-1];
     z[k] = 0.0;
-    if (x != NULL) z[k] += x[i]*sin(phase[i]);
-    if (y != NULL) z[k] += y[i]*cos(phase[i]);
+    if (x != NULL) z[k] += x[i]*sin(phase[i])*scx;
+    if (y != NULL) z[k] += y[i]*cos(phase[i])*scy;
     z[k] *= potential->dr_drho[k];    
     if (i < 5) {
       if (h > 0.2) nh++;
@@ -10498,8 +10898,8 @@ int IntegrateSinCos(int j, double *x, double *y,
   }
   if (i > 1) {
     z[i0] = 0.0;
-    if (x != NULL) z[i0] += x[0]*sin(phase[0]);
-    if (y != NULL) z[i0] += y[0]*cos(phase[0]);
+    if (x != NULL) z[i0] += x[0]*sin(phase[0])*scx;
+    if (y != NULL) z[i0] += y[0]*cos(phase[0])*scy;
     z[i0] *= potential->dr_drho[i0];
     if (i == j) {
       i1 = i;
@@ -10520,13 +10920,13 @@ int IntegrateSinCos(int j, double *x, double *y,
     if (x) {
       UVIP3P(3, i1, u, x, i, w, u1);
       for (m = 0, n = i0+1; m < i; m++, n += 2) {
-        z[n] += u1[m]*sin(w1[m]);
+        z[n] += u1[m]*sin(w1[m])*scx;
       }
     }
     if (y) {
       UVIP3P(3, i1, u, y, i, w, u1);
       for (m = 0, n = i0+1; m < i; m++, n += 2) {
-        z[n] += u1[m]*cos(w1[m]);
+        z[n] += u1[m]*cos(w1[m])*scy;
       }
     }
     for (m = 0, n = i0+1; m < i; m++, n += 2) {
@@ -10567,7 +10967,6 @@ int IntegrateSinCos(int j, double *x, double *y,
     }
     UVIP3C(3, j-i1, phase+i1, y+i1, u+i1, u+j+i1, y+j+i1);
   }
-
   si0 = sin(phase[i-1]);
   cs0 = cos(phase[i-1]);
   for (; i < j; i++, k += 2) {
@@ -10609,9 +11008,9 @@ int IntegrateSinCos(int j, double *x, double *y,
       a2 = z[j+i-1];
       a3 = x[j+i-1];
       h = a0*is0 + a1*is1 + a2*is2 + a3*is3;
-      r[k] += h;
+      r[k] += h*scx;
       h = a0*his0 + a1*his1 + a2*his2 + a3*his3;
-      r[k-1] += h;      
+      r[k-1] += h*scx;      
     }
     if (y != NULL) {
       a0 = y[i-1];
@@ -10619,9 +11018,9 @@ int IntegrateSinCos(int j, double *x, double *y,
       a2 = u[j+i-1];
       a3 = y[j+i-1];
       h = a0*ic0 + a1*ic1 + a2*ic2 + a3*ic3;
-      r[k] += h;
+      r[k] += h*scy;
       h = a0*hic0 + a1*hic1 + a2*hic2 + a3*hic3;
-      r[k-1] += h;
+      r[k-1] += h*scy;
     }
     si0 = si1;
     cs0 = cs1;
@@ -10900,7 +11299,7 @@ void SetSlaterScale(int m, char *s0, char *s1, double x) {
     for (k0 = 0; k0 < MAXNSSC; k0++) {
       for (k1 = 0; k1 < MAXNSSC; k1++) {
 	for (t = 0; t < MAXKSSC; t++) {
-	  _slater_scale[t][k0][k1] = 1.0;
+	  _slater_scale[t][k0][k1] = (float)x;
 	}
       }
     }
@@ -12354,6 +12753,22 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   if (0 == strcmp(s, "radial:maxrp")) {
     _maxrp = ip;
     AllocWorkSpace(_maxrp);
+    return;
+  }
+  if (0 == strcmp(s, "radial:intscm")) {
+    _intscm = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:intscp1")) {
+    _intscp1 = dp;
+    return;
+  }
+  if (0 == strcmp(s, "radial:intscp2")) {
+    _intscp2 = dp;
+    return;
+  }
+  if (0 == strcmp(s, "radial:intscp3")) {
+    _intscp3 = dp;
     return;
   }
 }

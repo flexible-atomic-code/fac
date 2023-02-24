@@ -567,6 +567,7 @@ double CoulombPhaseShift(double z, double e, int kappa) {
 }
 
 double *GetCoulombBethe(int ie2, int ite, int ie1, int t, int q) {
+  if (t > CBMULT) t = CBMULT;
   return _cb[ie2][ite][ie1][_cbindex[t-1][q]];
 }
 

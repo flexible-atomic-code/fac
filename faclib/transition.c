@@ -925,7 +925,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	    ir++;
 	  }
 	}	
-	if (wm > 0.0 && ir0 >= 0) {
+	if (wp > 0 && wm > 0.0 && ir0 >= 0) {
 	  nrs0 = 0;
 	  nrs1 = 0;
 	  for (i = 0; i < c0->nnrs; i++) {
@@ -940,10 +940,18 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	  }
 	  ep /= wp;
 	  em /= wm;
-	  e0 /= w0;
+	  e0 /= w0;	  
 	  de = ConfigEnergyShiftCI(nrs0, nrs1);
-	  cm = 1.0 + de/(e0 - ep);
-	  cp = 1.0 + de/(e0 - em);
+	  if (e0 != ep) {
+	    cm = 1.0 + de/(e0 - ep);
+	  } else {
+	    cm = 1.0;
+	  }
+	  if (e0 != em) {
+	    cp = 1.0 + de/(e0 - em);
+	  } else {
+	    cp = 1.0;
+	  }
 	  if (cm < EPS3) {
 	    cp = (wp+wm)/wp;
 	    cm = 0.0;
