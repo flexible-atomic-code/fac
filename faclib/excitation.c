@@ -52,6 +52,7 @@ static double egrid_max;
 static int egrid_limits_type = 0;
 
 static int n_tegrid = 0;
+static int uta_tegrid = 0;
 static double tegrid[MAXNTE];
 static double log_te[MAXNTE];
 
@@ -102,7 +103,7 @@ static MULTI *pk_array;
 static MULTI *qk_array;
 static MULTI *qkm_array;
 
-static int _progress_report = -1;
+static int _progress_report = 0;
 
 static void InitCEPK(void *p, int n) {
   CEPK *d;
@@ -355,6 +356,13 @@ int SetCETEGridDetail(int n, double *x) {
 }
 
 int SetCETEGrid(int n, double emin, double emax) {
+  if (n == -1) {
+    n_tegrid = 1;
+    uta_tegrid = 1;
+    tegrid[0] = -1;
+    return 1;
+  }
+  uta_tegrid = 0;
   n_tegrid = SetTEGrid(tegrid, log_te, n, emin, emax);
   return n_tegrid;
 }
@@ -366,11 +374,18 @@ int SetCEEGridDetail(int n, double *xg) {
 
 int SetCEEGrid(int n, double emin, double emax, double eth) {
   double bms, bte;
+  int i;
 
   BornFormFactorTE(&bte);
   bms = BornMass();
   eth = (eth + bte)/bms;
   n_egrid = SetEGrid(egrid, log_egrid, n, emin, emax, eth);
+  if (uta_tegrid) {
+    for (i = 0; i < n_egrid; i++) {
+      egrid[i] /= eth;
+      log_egrid[i] = log(egrid[i]);
+    }
+  }
   return n_egrid;
 }
 
@@ -385,6 +400,7 @@ int SetUsrCEEGridDetail(int n, double *xg) {
  
 int SetUsrCEEGrid(int n, double emin, double emax, double eth) {
   double bms, bte;
+  int i;
 
   if (n > MAXNUSR) {
     printf("Max # of grid points reached \n");
@@ -395,6 +411,12 @@ int SetUsrCEEGrid(int n, double emin, double emax, double eth) {
   bms = BornMass();
   eth = (eth + bte)/bms;
   n_usr = SetEGrid(usr_egrid, log_usr, n, emin, emax, eth);
+  if (uta_tegrid) {
+    for (i = 0; i < n_usr; i++) {
+      usr_egrid[i] /= eth;
+      log_usr[i] = log(usr_egrid[i]);
+    }
+  }
   return n_usr;
 }
 
@@ -534,6 +556,7 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k, int trylock) {
   type = -1;
   orb0 = GetOrbital(k0);
   orb1 = GetOrbital(k1);
+  if (uta_tegrid) te = fabs(orb0->energy-orb1->energy);
   GetJLFromKappa(orb0->kappa, &j0, &kl0);
   GetJLFromKappa(orb1->kappa, &j1, &kl1);
   kl0 = kl0/2;
@@ -569,6 +592,7 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k, int trylock) {
   pke = (double *) malloc(sizeof(double)*(nkappa*n_tegrid));
 
   e1 = egrid[ie];
+  if (uta_tegrid) e1 *= te;
   e1w = e1;
   double mc = MColl();
   if (fabs(mc-1)<1e-3) mc = 0;
@@ -655,7 +679,9 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k, int trylock) {
 	    ks[1] = kf1;
 	  }
 	  for (i = 0; i < n_tegrid; i++) {
-	    te = tegrid[i];
+	    if (!uta_tegrid) {
+	      te = tegrid[i];
+	    }
 	    e0 = e1 + te/mc1;
 	    e0w = e0;
 	    if (mc > 0) e0w *= mc;
@@ -1072,7 +1098,7 @@ double TopUpQk(double b, double c, double k0, double a, double te, double e1) {
 double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
   int type, t, ie, ite, ipk, ipkp, nqk, nopb;
   int i, j, kl0, kl1, kl, nkappa, nkl, nkappap, nklp;
-  CEPK *cepk, *cepkp, *tmp;
+  CEPK *cepk[MAXNE], *cepkp[MAXNE], *tmp;
   short *kappa0, *kappa1, *kappa0p, *kappa1p;
   double *pkd, *pke, *pkdp, *pkep, *pd;
   double r, rd, s, b, c, d;
@@ -1117,6 +1143,9 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
   double mc = MColl();
   if (mc <= 0) mc = 1.0;
   if (xborn == 0 || xborn < -1E30) {
+    if (uta_tegrid) {
+      te = fabs(GetOrbital(k0)->energy-GetOrbital(k1)->energy);
+    }
     for (ie = 0; ie < n_egrid1; ie++) {
       if (ie == n_egrid) mb = 1;
       else {
@@ -1127,8 +1156,9 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
 	}
       }
       e1 = egrid[ie];
+      if (uta_tegrid) e1 *= te;
       for (ite = 0; ite < n_tegrid; ite++) {
-	te = tegrid[ite];
+	if (!uta_tegrid) te = tegrid[ite];
 	type = CERadialQkBorn(k0, k1, k2, k3, k,
 			      te, e1, &(rq[ite][ie]), mb);
 	drq[ite][ie] = rq[ite][ie];
@@ -1136,50 +1166,58 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
     }
   } else {
     te0 = -GetOrbital(k0)->energy;
-    te = -GetOrbital(k1)->energy;
-    te0 = Max(te0, te);
-    te = -GetOrbital(k2)->energy;
-    te0 = Max(te0, te);
-    te = -GetOrbital(k3)->energy;
-    te0 = Max(te0, te);
+    c = -GetOrbital(k1)->energy;
+    if (uta_tegrid) {
+      te = fabs(c-te0);
+    }
+    te0 = Max(te0, c);
+    c = -GetOrbital(k2)->energy;
+    te0 = Max(te0, c);
+    c = -GetOrbital(k3)->energy;
+    te0 = Max(te0, c);
     ie = n_egrid;
+    
     for (ie = 0; ie < n_egrid1; ie++) {
       e1 = egrid[ie];
+      if (uta_tegrid) e1 *= te;
       for (ite = 0; ite < n_tegrid; ite++) {
-	te = tegrid[ite];
+	if (!uta_tegrid) te = tegrid[ite];
 	type = CERadialQkBorn(k0, k1, k2, k3, k,
 			      te, e1, &(rq[ite][ie]), 1);
 	drq[ite][ie] = rq[ite][ie];
 	brq[ite][ie] = rq[ite][ie];
       }    
     }
+    for (ie = 0; ie < n_egrid; ie++) {
+      type = CERadialPk(&cepk[ie], ie, k0, k1, k, 0);
+      if (k2 != k0 || k3 != k1) {
+	type = CERadialPk(&cepkp[ie], ie, k2, k3, k, 0);
+      } else {
+	cepkp[ie] = cepk[ie];
+      }
+    }    
     for (ie = n_egrid-1; ie >= 0; ie--) {
       e1 = egrid[ie];
-      type = CERadialPk(&cepk, ie, k0, k1, k, 0);
-      if (k2 != k0 || k3 != k1) {
-	type = CERadialPk(&cepkp, ie, k2, k3, k, 0);
-      } else {
-	cepkp = cepk;
+      if (uta_tegrid) e1 *= te;
+      if (cepk[ie]->nkl > cepkp[ie]->nkl) {
+	tmp = cepk[ie];
+	cepk[ie] = cepkp[ie];
+	cepkp[ie] = tmp;
       }
-      if (cepk->nkl > cepkp->nkl) {
-	tmp = cepk;
-	cepk = cepkp;
-	cepkp = tmp;
-      }
-      kappa0 = cepk->kappa0;
-      kappa1 = cepk->kappa1;
-      nkappa = cepk->nkappa;
-      kappa0p = cepkp->kappa0;
-      kappa1p = cepkp->kappa1;
-      nkappap= cepkp->nkappa;
-      pkd = cepk->pkd;
-      pke = cepk->pke;
-      pkdp = cepkp->pkd;
-      pkep = cepkp->pke;
-      nkl = cepk->nkl;
+      kappa0 = cepk[ie]->kappa0;
+      kappa1 = cepk[ie]->kappa1;
+      nkappa = cepk[ie]->nkappa;
+      kappa0p = cepkp[ie]->kappa0;
+      kappa1p = cepkp[ie]->kappa1;
+      nkappap= cepkp[ie]->nkappa;
+      pkd = cepk[ie]->pkd;
+      pke = cepk[ie]->pke;
+      pkdp = cepkp[ie]->pkd;
+      pkep = cepkp[ie]->pke;
+      nkl = cepk[ie]->nkl;
       nklp = nkl-1;
       for (ite = 0; ite < n_tegrid; ite++) {
-	te = tegrid[ite];
+	if (!uta_tegrid) te = tegrid[ite];
 	for (i = 0; i < nkl; i++) {
 	  qk[i] = 0.0;
 	  dqk[i] = 0.0;
@@ -1251,7 +1289,11 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
 	      if (type == 0) {
 		b = -1.0;
 	      } else {
-		b = (GetCoulombBethe(0, ite, ie, k/2, 0))[nklp];
+		if (uta_tegrid) {
+		  b = (GetCoulombBethe(0, 0, 0, k/2, 0))[nklp];
+		} else {
+		  b = (GetCoulombBethe(0, ite, ie, k/2, 0))[nklp];
+		}
 	      }
 	      c = dqk[nklp]/dqk[nklp-1];
 	      if (c > 0) {
@@ -1275,11 +1317,10 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
 	  rq[ite][ie] = r;
 	  drq[ite][ie] = rd;
 	}
-	//printf("drq: %d %d %d %d %d %d %d %d %g %g %g %g %g %g %g %g %g %g\n", ie,(int)pw_scratch.kl[nklp],k0,k1,k2,k3,k,type,r,rd,b,dqk[nklp],dqk[nklp-1],c,s,d, drq[ite][ie], brq[ite][ie]); 
       }
-    }
-  }  
-
+    }    
+  }
+  
   nqk = n_tegrid*n_egrid1;
   t = nqk + 1;
   if (type >= 0 && k > 0) {
@@ -1827,9 +1868,10 @@ void RelativisticCorrection(int m, double *s, double *p, double te, double b) {
   if (b <= 0.0) return;
   for (j = 0; j < n_usr; j++) {
     a = usr_egrid[j];
+    if (uta_tegrid) a *= te;
     c = FINE_STRUCTURE_CONST2*a;
     b1 = 1.0 + c;
-    a = usr_egrid[j] + te;
+    a = a + te;
     c = FINE_STRUCTURE_CONST2*a;
     b0 = 1.0 + c;
     a = 2.0*a*(1.0 + 0.5*c)*FINE_STRUCTURE_CONST2;
@@ -1851,8 +1893,10 @@ int CollisionStrengthUTA0(double *qkc, double *e, double *bethe0,
 			  int p1, int p2) {  
   INTERACT_DATUM *idatum;
   double rq[(MAXNE+1)], r, d;
-  int type, ie, ns, j1, j2, k0, k1, q1, q2;
-  int k, kmin, kmax, ty;
+  int type, ie, ns, j1, j2, k0, k1, q1, w1, q2;
+  int i, n, k, kmin, kmax, kmt, ty;
+  int nd = 1000, done[1000];
+  CONFIG *c;
   
   for (ie = 0; ie < n_egrid1; ie++) {
     qkc[ie] = 0.0;
@@ -1865,11 +1909,14 @@ int CollisionStrengthUTA0(double *qkc, double *e, double *bethe0,
     free(idatum);
     return -1;
   }
+  c = GetConfigFromGroup(kg0, kc0);
   if (idatum->s[0].nq_bra > idatum->s[0].nq_ket) {
     j1 = idatum->s[0].j;
     j2 = idatum->s[1].j;
     q1 = idatum->s[0].nq_bra;
     q2 = idatum->s[1].nq_bra;
+    w1 = FactorNR(c, idatum->s[0].n, idatum->s[0].kappa);
+    if (w1 > 0) q1 = w1;
     k0 = OrbitalIndex(idatum->s[0].n, idatum->s[0].kappa, 0.0);
     k1 = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
   } else {
@@ -1877,6 +1924,8 @@ int CollisionStrengthUTA0(double *qkc, double *e, double *bethe0,
     j2 = idatum->s[0].j;
     q1 = idatum->s[1].nq_bra;
     q2 = idatum->s[0].nq_bra;
+    w1 = FactorNR(c, idatum->s[1].n, idatum->s[1].kappa);
+    if (w1 > 0) q1 = w1;
     k1 = OrbitalIndex(idatum->s[0].n, idatum->s[0].kappa, 0.0);
     k0 = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
   }
@@ -1884,14 +1933,33 @@ int CollisionStrengthUTA0(double *qkc, double *e, double *bethe0,
   type = -1;
   kmin = abs(j1-j2);
   kmax = j1 + j2;
-  for (k = kmin; k <= kmax; k += 2) {
-    ty = CERadialQk(rq, *e, k0, k1, k0, k1, k, 0);
-    if (ty > type) type = ty;
-    for (ie = 0; ie < n_egrid1; ie++) {
-      qkc[ie] += rq[ie]/(k+1.0);
+  while (1) {
+    n = nd;
+    kmt = (n-1)*2 + kmin;
+    if (kmt > kmax) {
+      kmt = kmax;
+      n = (kmt-kmin)/2 + 1;
     }
+    for (i = 0; i < n; i++) done[i] = 0;
+    while (n > 0) {
+      for (k = kmin; k <= kmt; k += 2) {
+	i = (k-kmin)/2;
+	if (done[i]) continue;
+	ty = CERadialQk(rq, *e, k0, k1, k0, k1, k, 1);
+	if (ty == -9999) {
+	  continue;
+	}
+	done[i] = 1;
+	n--;
+	if (ty > type) type = ty;
+	for (ie = 0; ie < n_egrid1; ie++) {
+	  qkc[ie] += rq[ie]/(k+1.0);
+	}
+      }
+    }
+    if (kmt >= kmax) break;
+    kmin += 2;
   }
-
   d = q1*(j2+1.0-q2)/((j1+1.0)*(j2+1.0));
   for (ie = 0; ie < n_egrid1; ie++) {
     qkc[ie] *= d;
@@ -2015,11 +2083,16 @@ int CollisionStrengthUTA(double *qkt, double *params,
     ie = n_egrid;
     born_cross = qkc[ie]*8.0;
     if (born_cross > 0) {
-      c = egrid[ie]+bte;
+      if (uta_tegrid) {
+	c = bte*(1+egrid[ie]);
+      } else {
+	c = egrid[ie]+bte;
+      }
       born_egrid = c/te;
       if (bethe[0] > 0) bethe[1] = born_cross - bethe[0]*log(born_egrid);
       else bethe[1] = born_cross;
-      bethe[2] = egrid[ie]; 
+      bethe[2] = egrid[ie];
+      if (uta_tegrid) bethe[2] *= bte;
     } else {
       bethe[0] = -1.0;
       bethe[1] = 0.0;
@@ -2034,7 +2107,11 @@ int CollisionStrengthUTA(double *qkt, double *params,
     for (ie = 0; ie < n_egrid; ie++) {
       qkc[ie] = 8.0*qkc[ie];
       qkt[ie] = qkc[ie];
-      xusr[ie] = egrid[ie]/te;
+      if (uta_tegrid) {
+	xusr[ie] = egrid[ie];
+      } else {
+	xusr[ie] = egrid[ie]/te;
+      }
       if (egrid_type == 1) xusr[ie] += 1.0;
       log_xusr[ie] = log(xusr[ie]);
     }	
@@ -2187,11 +2264,18 @@ int CollisionStrengthUTA1(double *qkt, double *params,
     ie = n_egrid;
     born_cross = qkc[ie]*8.0;
     if (born_cross > 0) {
-      c = egrid[ie]+bte;
+      if (uta_tegrid) {
+	c = bte*(1+egrid[ie]);
+      } else {
+	c = egrid[ie]+bte;
+      }
       born_egrid = c/te;
       if (bethe[0] > 0) bethe[1] = born_cross - bethe[0]*log(born_egrid);
       else bethe[1] = born_cross;
-      bethe[2] = egrid[ie]; 
+      bethe[2] = egrid[ie];
+      if (uta_tegrid) {
+	bethe[2] *= bte;
+      }
     } else {
       bethe[0] = -1.0;
       bethe[1] = 0.0;
@@ -2206,7 +2290,11 @@ int CollisionStrengthUTA1(double *qkt, double *params,
     for (ie = 0; ie < n_egrid; ie++) {
       qkc[ie] = 8.0*qkc[ie];
       qkt[ie] = qkc[ie];
-      xusr[ie] = egrid[ie]/te;
+      if (uta_tegrid) {
+	xusr[ie] = egrid[ie];
+      } else {
+	xusr[ie] = egrid[ie]/te;
+      }
       if (egrid_type == 1) xusr[ie] += 1.0;
       log_xusr[ie] = log(xusr[ie]);
     }	
@@ -2366,11 +2454,18 @@ int CollisionStrengthEB(double *qkt, double *e, double *bethe,
   ie = n_egrid;
   born_cross = qkc[ie]*8.0;
   if (born_cross > 0) {
-    c = egrid[ie] + bte;
+    if (uta_tegrid) {
+      c = bte*(1+egrid[ie]);
+    } else {
+      c = egrid[ie] + bte;
+    }
     born_egrid = c/te;
     if (bethe[0] > 0) bethe[1] = born_cross-bethe[0]*log(born_egrid);
     else bethe[1] = born_cross;
     bethe[2] = egrid[ie];
+    if (uta_tegrid) {
+      bethe[2] *= bte;
+    }
   } else {
     bethe[0] = -1.0;
     bethe[1] = 0.0;
@@ -2494,10 +2589,18 @@ int CollisionStrengthEBD(double *qkt, double *e, double *bethe, double *born,
   for (i = 0; i < m; i++) {
     born_cross = qkt[ie + i*n_egrid1];
     d = qkt[ie-1 + i*n_egrid1];
-    c = egrid[ie] + bte;
+    if (uta_tegrid) {
+      c = bte*(1+egrid[ie]);
+    } else {
+      c = egrid[ie] + bte;
+    }
     born_egrid = c/te;
     d1 = log(born_egrid);
-    c = egrid[ie-1] + bte;
+    if (uta_tegrid) {
+      c = bte*(1+egrid[ie-1]);
+    } else {
+      c = egrid[ie-1] + bte;
+    }
     d2 = log(c/te);
     if (born_cross > d) {
       bethe[i] = (born_cross-d)/(d1-d2);
@@ -2507,7 +2610,11 @@ int CollisionStrengthEBD(double *qkt, double *e, double *bethe, double *born,
       born[i] = born_cross;
     }
   }
-  born[m] = egrid[ie];
+  if (uta_tegrid) {
+    born[m] = egrid[ie]*bte;
+  } else {
+    born[m] = egrid[ie];
+  }
 
   RelativisticCorrection(0, qkt, NULL, bte, bethe[0]);
   return 1;
@@ -2795,11 +2902,18 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
       born_cross = bt*8.0;      
     }
     if (born_cross > 0) {
-      c = egrid[ie] + bte;
+      if (uta_tegrid) {
+	c = bte*(1+egrid[ie]);
+      } else {
+	c = egrid[ie] + bte;
+      }
       born_egrid = c/te;
       if (bethe[0] > 0) bethe[1] = born_cross - bethe[0]*log(born_egrid);
       else bethe[1] = born_cross;
-      bethe[2] = egrid[ie]; 
+      bethe[2] = egrid[ie];
+      if (uta_tegrid) {
+	bethe[2] *= bte;
+      }
     } else {
       bethe[0] = -1.0;
       bethe[1] = 0.0;
@@ -2828,7 +2942,11 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
       for (ie = 0; ie < n_egrid; ie++) {
 	qkc[ie] = 8.0*qkc[ie];
 	qkt[ie] = qkc[ie];
-	xusr[ie] = egrid[ie]/te;
+	if (uta_tegrid) {
+	  xusr[ie] = egrid[ie];
+	} else {
+	  xusr[ie] = egrid[ie]/te;
+	}
 	if (egrid_type == 1) xusr[ie] += 1.0;
 	log_xusr[ie] = log(xusr[ie]);
       }	
@@ -3286,13 +3404,15 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   F_HEADER fhdr;
   ARRAY subte;
   int isub, n_tegrid0, n_egrid0, n_usr0;
-  int te_set, e_set, usr_set, iuta;
+  int te_set, e_set, usr_set, iuta, auta;
   double emin, emax, e, c;
   double e0, e1, te0, ei;
   double rmin, rmax, bethe[3];
   int nc, ilow, iup;
+  RANDIDX *rid0, *rid1;
 
   iuta = IsUTA();
+  auta = iuta && UTAGrid();
   if (iuta && msub) {
     printf("cannot call CETableMSub in UTA mode\n");
     return -1;
@@ -3324,8 +3444,10 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   m = 0;
   for (i = 0; i < nlow; i++) {
     lev1 = GetLevel(low[i]);
+    if (lev1->n_basis > 0) auta = 0;
     for (j = 0; j < nup; j++) {
       lev2 = GetLevel(up[j]);
+      if (lev2->n_basis > 0) auta = 0;
       e = lev2->energy - lev1->energy;
       if (i < nlow-nc || j < nup-nc) e = fabs(e);
       if (e > 0) m++;
@@ -3385,16 +3507,18 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 
   ArrayInit(&subte, sizeof(double), 128);
   ArrayAppend(&subte, &emin, NULL);
-  c = 1.0/TE_MIN_MAX;
-  if (!e_set || !te_set) {
-    e = c*emin;
-    while (e < emax) {
-      ArrayAppend(&subte, &e, NULL);
-      e *= c;
+  if (!auta) {
+    c = 1.0/TE_MIN_MAX;
+    if (!e_set || !te_set) {
+      e = c*emin;
+      while (e < emax) {
+	ArrayAppend(&subte, &e, NULL);
+	e *= c;
+      }
     }
   }
   ArrayAppend(&subte, &emax, NULL);
- 
+
   if (msub) {
     pw_type = 1;
     qk_mode = QK_EXACT;
@@ -3422,46 +3546,59 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   strcpy(fhdr.symbol, GetAtomicSymbol());
   fhdr.atom = GetAtomicNumber();
   f = OpenFile(fn, &fhdr);
+  if (NProcMPI() > 1) {
+    rid0 = RandList(nlow);
+    rid1 = RandList(nup);
+  } else {
+    rid0 = NULL;
+    rid1 = NULL;
+  }
   double tstart = WallTime();
   int nproc = 0;
   int *ntrans = NULL;
-  if (_progress_report >= 0) ntrans = InitTransReport(&nproc);
+  if (_progress_report != 0) ntrans = InitTransReport(&nproc);
   for (isub = 1; isub < subte.dim; isub++) {
     e1 = *((double *) ArrayGet(&subte, isub));
     if (isub == subte.dim-1) e1 = e1*1.001;
-    emin = e1;
-    emax = e0;
-    m = 0;
-    for (i = 0; i < nlow; i++) {
-      lev1 = GetLevel(low[i]);
-      for (j = 0; j < nup; j++) {
-	lev2 = GetLevel(up[j]);
-	e = lev2->energy - lev1->energy;
-	if (i < nlow-nc || j < nup-nc) e = fabs(e);
-	if (e < e0 || e >= e1) continue;
-	if (e < emin) emin = e;
-	if (e > emax) emax = e;
-	m++;
+    if (!auta) {
+      emin = e1;
+      emax = e0;
+      m = 0;
+      for (i = 0; i < nlow; i++) {
+	lev1 = GetLevel(low[i]);
+	for (j = 0; j < nup; j++) {
+	  lev2 = GetLevel(up[j]);
+	  e = lev2->energy - lev1->energy;
+	  if (i < nlow-nc || j < nup-nc) e = fabs(e);
+	  if (e < e0 || e >= e1) continue;
+	  if (e < emin) emin = e;
+	  if (e > emax) emax = e;
+	  m++;
+	}
+      }
+      if (m == 0) {
+	e0 = e1;
+	continue;
       }
     }
-    if (m == 0) {
-      e0 = e1;
-      continue;
-    }
     if (!te_set) {
-      e = emax/emin;  
-      if (e < 1.001) {
-	SetCETEGrid(1, 0.5*(emax+emin), emax);
-      } else if (e < 1.5) {
-	SetCETEGrid(2, emin, emax);
-      } else if (e < 5.0) {
-	if (m == 2) n_tegrid = 2; 
-	else if (n_tegrid0 == 0) n_tegrid = 3;
-	SetCETEGrid(n_tegrid, emin, emax);
+      if (auta) {
+	SetCETEGrid(-1, 0.5*(emax+emin), emax);
       } else {
-	if (m == 2) n_tegrid = 2;
-	else if (n_tegrid0 == 0) n_tegrid = 4;
-	SetCETEGrid(n_tegrid, emin, emax);
+	e = emax/emin;  
+	if (e < 1.001) {
+	  SetCETEGrid(1, 0.5*(emax+emin), emax);
+	} else if (e < 1.5) {
+	  SetCETEGrid(2, emin, emax);
+	} else if (e < 5.0) {
+	  if (m == 2) n_tegrid = 2; 
+	  else if (n_tegrid0 == 0) n_tegrid = 3;
+	  SetCETEGrid(n_tegrid, emin, emax);
+	} else {
+	  if (m == 2) n_tegrid = 2;
+	  else if (n_tegrid0 == 0) n_tegrid = 4;
+	  SetCETEGrid(n_tegrid, emin, emax);
+	}
       }
     }
     e = 0.5*(emin + emax);
@@ -3495,7 +3632,11 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     n_egrid1 = n_egrid + 1;
     ie = n_egrid;
     if (eborn > 0.0) {
-      egrid[ie] = Max(te0,ei)*eborn;
+      if (uta_tegrid) {
+	egrid[ie] = eborn;
+      } else {
+	egrid[ie] = Max(te0,ei)*eborn;
+      }
     } else {
       egrid[ie] = -eborn;
     }
@@ -3507,12 +3648,24 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     if (qk_mode == QK_INTERPOLATE) {
       for (i = 0; i < n_egrid; i++) {
 	log_egrid[i] = egrid[i];
-	if (egrid_type == 1) log_egrid[i] += ce_hdr.te0;
+	if (egrid_type == 1) {
+	  if (uta_tegrid) {
+	    log_egrid[i] += 1.0;
+	  } else {
+	    log_egrid[i] += ce_hdr.te0;
+	  }
+	}
 	log_egrid[i] = log(log_egrid[i]);
       }
       for (i = 0; i < n_egrid; i++) {
 	log_usr[i] = usr_egrid[i];
-	if (usr_egrid_type == 1) log_usr[i] += ce_hdr.te0;
+	if (usr_egrid_type == 1) {
+	  if (uta_tegrid) {
+	    log_usr[i] += 1.0;
+	  } else {
+	    log_usr[i] += ce_hdr.te0;
+	  }
+	}
 	log_usr[i] = log(log_usr[i]);
       }
     }
@@ -3520,8 +3673,20 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     e = 0.0;
     c = GetResidualZ();
     if (xborn+1.0 != 1.0) {
+      if (auta) {
+	tegrid[0] = sqrt(emin*emax);
+	for (i = 0; i < n_egrid; i++) {
+	  egrid[i] *= tegrid[0];
+	}
+      }      
       PrepCoulombBethe(1, n_tegrid, n_egrid, c, &e, tegrid, egrid,
 		       pw_scratch.nkl, pw_scratch.kl, msub);
+      if (auta) {
+	for (i = 0; i < n_egrid; i++) {
+	  egrid[i] /= tegrid[0];
+	}
+	tegrid[0] = -1;
+      }
     }
     ce_hdr.nele = GetNumElectrons(low[0]);
     ce_hdr.qk_mode = qk_mode;
@@ -3540,6 +3705,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     ce_hdr.egrid = egrid;
     ce_hdr.usr_egrid = usr_egrid;
     InitFile(f, &fhdr, &ce_hdr);
+
     ResetWidMPI();
 #pragma omp parallel default(shared) private(i, j, lev1, lev2, e, ilow, iup, k, qkc, params, bethe, r, m, ip, nsub, ie, iempty)
     {
@@ -3555,16 +3721,25 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     //ic = 0;
     int myrank = MPIRank(NULL);
     for (i = 0; i < nlow; i++) {
-      lev1 = GetLevel(low[i]);
-      for (j = 0; j < nup; j++) {
-	lev2 = GetLevel(up[j]);	
-	e = lev2->energy - lev1->energy;	
+      if (rid0) {
+	ilow = low[rid0[i].i];
+      } else {
 	ilow = low[i];
-	iup = up[j];
+      }
+      lev1 = GetLevel(ilow);
+      for (j = 0; j < nup; j++) {
+	if (rid1) {
+	  iup = up[rid1[j].i];
+	} else {
+	  iup = up[j];
+	}
+	lev2 = GetLevel(iup);
+	e = lev2->energy - lev1->energy;	
 	if (i < nlow-nc || j < nup-nc) {
 	  if (e < 0) {
-	    ilow = up[j];
-	    iup = low[i];
+	    k = ilow;
+	    ilow = iup;
+	    iup = k;
 	    e = -e;
 	  }
 	}	    
@@ -3580,9 +3755,15 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 	if (k < 0) continue;
 	if (ntrans) {
 	  ntrans[myrank]++;
-	  if (_progress_report > 0 && myrank == 0 &&
-	      ntrans[0]%_progress_report == 0) {
-	    PrintTransReport(nproc, tstart, ntrans, "CE", 0);
+	  if (_progress_report > 0) {
+	    if (myrank == 0 &&
+		ntrans[0]%_progress_report == 0) {
+	      PrintTransReport(nproc, tstart, ntrans, "CE", 0);
+	    }
+	  } else if (_progress_report < 0) {
+	    if (ntrans[0]%(-_progress_report) == 0) {
+	      PrintTransReport(-myrank, tstart, ntrans, "CE", 0);
+	    }
 	  }
 	}
 	r.bethe = bethe[0];
@@ -3655,6 +3836,8 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   //FreeCECache(0);
   ArrayFreeLock(&subte, NULL);
   if (alev) free(alev);
+  if (rid0) free(rid0);
+  if (rid1) free(rid1);
   CloseFile(f, &fhdr);
 
   if (fpw) {
@@ -3662,7 +3845,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     fpw = NULL;
   }
 
-  if (_progress_report >= 0) {
+  if (_progress_report != 0) {
     PrintTransReport(nproc, tstart, ntrans, "CE", 1);
   }
 #ifdef PERFORM_STATISTICS
@@ -3877,7 +4060,11 @@ int SaveExcitationEB(int nlow0, int *low0, int nup0, int *up0, char *fn) {
     n_egrid1 = n_egrid + 1;
     ie = n_egrid;
     if (eborn > 0.0) {
-      egrid[ie] = Max(te0,ei)*eborn;
+      if (uta_tegrid) {
+	egrid[ie] = eborn;
+      } else {
+	egrid[ie] = Max(te0,ei)*eborn;
+      }
     } else {
       egrid[ie] = -eborn;
     }

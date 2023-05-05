@@ -345,6 +345,8 @@ CONFIG *ConfigFromIListM(int n, int *s, int m);
 void FreeConfigData(void *p);
 int ConfigExists(CONFIG *c);
 void SetClosedShellNR(int n, int k);
+int IsShellNR(int n, int k);
+int FactorNR(CONFIG *c, int n, int k);
 int IsClosedShellNR(int n, int k, int nq, int fn);
 int IsClosedShellFR(int n, int k, int j, int nq, int fn);
 int IsClosedComplex(int n, int nq);
@@ -355,4 +357,5 @@ int SDConfig(CONFIG *c, char *cs,
 short VNIFromSName(char *sn);
 int CompareCfgPointer(const void *p1, const void *p2);
 void SetOptionConfig(char *s, char *sp, int ip, double dp);
+char *GetSpecSymbols();
 #endif

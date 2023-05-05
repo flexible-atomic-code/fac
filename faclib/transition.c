@@ -59,7 +59,7 @@ static double _upper_emin = 0.0;
 static double _upper_emax = 0.0;
 static double _tr_emin = 0.0;
 static double _tr_emax = 0.0;
-static int _progress_report = -1;
+static int _progress_report = 0;
 
 int OutOfERange(double e0, double e1, double de) {
   if (_lower_emin > 0 && e0 < _lower_emin) return 1;
@@ -124,9 +124,10 @@ int GetTransitionMode(void) {
 int TRMultipoleUTA0(double *strength, TR_EXTRA *rx, 
 		    int m, int kg0, int kg1, int kc0, int kc1,
 		    double te, int p1, int p2, int *ks) {
-  int m2, ns, k0, k1, q1, q2, m0;
+  int m2, ns, k0, k1, q1, w1, q2, m0;
   int j1, j2, ia, ib;
   double r, aw, eg;
+  CONFIG *c;
   INTERACT_DATUM *idatum;
 
   m0 = m;
@@ -141,6 +142,7 @@ int TRMultipoleUTA0(double *strength, TR_EXTRA *rx,
     return 0;
   }
 
+  c = GetConfigFromGroup(kg0, kc0);
   if (idatum->s[0].nq_bra > idatum->s[0].nq_ket) {
     ia = ns-1-idatum->s[0].index;
     ib = ns-1-idatum->s[1].index;
@@ -148,6 +150,8 @@ int TRMultipoleUTA0(double *strength, TR_EXTRA *rx,
     j2 = idatum->s[1].j;
     q1 = idatum->s[0].nq_bra;
     q2 = idatum->s[1].nq_bra;
+    w1 = FactorNR(c, idatum->s[0].n, idatum->s[0].kappa);
+    if (w1 > 0) q1 = w1;
     k0 = OrbitalIndex(idatum->s[0].n, idatum->s[0].kappa, 0.0);
     k1 = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
     if (ks) {
@@ -163,6 +167,8 @@ int TRMultipoleUTA0(double *strength, TR_EXTRA *rx,
     j2 = idatum->s[0].j;
     q1 = idatum->s[1].nq_bra;
     q2 = idatum->s[0].nq_bra;
+    w1 = FactorNR(c, idatum->s[1].n, idatum->s[1].kappa);
+    if (w1 > 0) q1 = w1;
     k1 = OrbitalIndex(idatum->s[0].n, idatum->s[0].kappa, 0.0);
     k0 = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
     if (ks) {
@@ -732,7 +738,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
   STATE *st;
   double *s, *et, *a, trd, gf;
   double e0, emin, emax;
-  int iuta, ic0, ic1, nic0, nic1, *nc0, *nc1, j0, j1, ntr;
+  int iuta, auta, ic0, ic1, nic0, nic1, *nc0, *nc1, j0, j1, ntr;
   int imin, imax, jmin, jmax, nrs0, nrs1, ir, ir0, nele;
   double ep, em, wp, wm, w0, de, cp, cm, eg;
   CONFIG *c0, *c1;
@@ -753,6 +759,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
   emax = 1E-10;
 
   iuta = IsUTA();
+  auta = iuta && UTAGrid();
   nele = GetNumElectrons(low[0]);
   eg = EGroundIon(nele);
   for (i = 0; i < nlow; i++) {
@@ -765,6 +772,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
       if (_tr_all || e0 > 0) k++;
       if (e0 < emin && e0 > 0) emin = e0;
       if (e0 > emax) emax = e0;
+      if (lev1->n_basis > 0 || lev2->n_basis > 0) auta = 0;
     }
   }
     
@@ -777,18 +785,21 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
   e0 = 2.0*(emax-emin)/(emin+emax);
     
   FreeMultipoleArray();
-  if (_tr_aw >= 0) {
-    SetAWGrid(1, _tr_aw, _tr_aw);
+  if (auta) {
+    SetAWGrid(-1, emin, emax);
   } else {
-    if (e0 < EPS3) {
-      SetAWGrid(1, 0.5*(emin+emax), emax);
-    } else if (e0 < 1.0) {
-      SetAWGrid(2, emin, emax);
+    if (_tr_aw >= 0) {
+      SetAWGrid(1, _tr_aw, _tr_aw);
     } else {
-      SetAWGrid(3, emin, emax);
+      if (e0 < EPS3) {
+	SetAWGrid(1, 0.5*(emin+emax), emax);
+      } else if (e0 < 1.0) {
+	SetAWGrid(2, emin, emax);
+      } else {
+	SetAWGrid(3, emin, emax);
+      }
     }
   }
-  
   fhdr.type = DB_TR;
   strcpy(fhdr.symbol, GetAtomicSymbol());
   fhdr.atom = GetAtomicNumber();
@@ -805,7 +816,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
     
   double tstart = WallTime();
   int nproc=0, *ntrans = NULL;
-  if (_progress_report >= 0) {
+  if (_progress_report != 0) {
     ntrans = InitTransReport(&nproc);
   }
   if (iuta) {
@@ -986,10 +997,14 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	  WriteTRRecord(f, &(rd[ir].r), &(rd[ir].rx));
 	  if (ntrans) {
 	    ntrans[myrank]++;
-	    if (myrank == 0 &&
-		_progress_report > 0 &&
-		ntrans[0]%_progress_report == 0) {
-	      PrintTransReport(nproc, tstart, ntrans, "TR", 0);
+	    if (_progress_report > 0) {
+	      if (myrank == 0 && ntrans[0]%_progress_report == 0) {
+		PrintTransReport(nproc, tstart, ntrans, "TR", 0);
+	      }
+	    } else if (_progress_report < 0) {
+	      if (ntrans[myrank]%(-_progress_report) == 0) {
+		PrintTransReport(-myrank, tstart, ntrans, "TR", 0);
+	      }
 	    }
 	  }
 	}
@@ -1027,10 +1042,14 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	  trd += a[i];
 	  if (ntrans) {
 	    ntrans[myrank]++;
-	    if (myrank == 0 &&
-		_progress_report > 0 &&
-		ntrans[0]%_progress_report == 0) {
-	      PrintTransReport(nproc, tstart, ntrans, "TR", 0);
+	    if (_progress_report > 0) {
+	      if (myrank == 0 && ntrans[0]%_progress_report == 0) {
+		PrintTransReport(nproc, tstart, ntrans, "TR", 0);
+	      }
+	    } else if (_progress_report < 0) {
+	      if (ntrans[myrank]%(-_progress_report) == 0) {
+		PrintTransReport(-myrank, tstart, ntrans, "TR", 0);
+	      }
 	    }
 	  }
 	}
@@ -1051,7 +1070,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
   }
   DeinitFile(f, &fhdr);
   CloseFile(f, &fhdr);
-  if (_progress_report >= 0) {
+  if (_progress_report != 0) {
     PrintTransReport(nproc, tstart, ntrans, "TR", 1);
   }
 #ifdef PERFORM_STATISTICS

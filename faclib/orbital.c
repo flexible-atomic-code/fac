@@ -605,6 +605,25 @@ double *GetVEffective(void) {
   return _veff;
 }
 
+int FirstMaximum(double *p, int i1, int i2, POTENTIAL *pot) {
+  int i, im;
+  double fm, fi;
+
+  fm = 0.0;
+  im = -1;
+  for (i = i1; i <= i2; i++) {
+    if (pot->rad[i] < pot->atom->rms0) continue;
+    fi = fabs(p[i]);
+    if (fm < fi) {
+      fm = fi;
+      im = i;
+    } else {
+      break;
+    }
+  }
+  return im;
+}
+
 int LastMaximum(double *p, int i1, int i2, POTENTIAL *pot) {
   int i, im;
   double fm, fi;
@@ -1788,7 +1807,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
   for (i = 0; i <= i2p2; i++) {
     p[i] = p[i] * pot->dr_drho2[i];
   }
-  i2 = LastMaximum(p, pot->r_core, i2, pot);
+  i2 = FirstMaximum(p, pot->r_core, i2, pot);
   i2p = i2 + 1;
   i2m = i2 - 1;
   i2p2 = i2 + 2;
@@ -1845,7 +1864,8 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
   for (i = 0; i <= i2p2; i++) {
     p[i] = p[i] * pot->dr_drho2[i];
   }
-  i2 = LastMaximum(p, pot->r_core, i2, pot);
+  i2 = FirstMaximum(p, pot->r_core, i2, pot);
+  //i2 = pot->r_core;
   zp = FINE_STRUCTURE_CONST2*e;
   x0 = pot->rad[i2];
   ierr = 1;
@@ -1868,6 +1888,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
 
   if (pot->flag == -1) {
     DiracSmall(orb, pot, -1, kv);
+    /*
     p2 = sqrt(pp*pp + qq*qq);    
     if (p2) {
       i = i2 + pot->maxrp;
@@ -1880,6 +1901,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
 	}
       }
     }
+    */
   }
 
   return 0;

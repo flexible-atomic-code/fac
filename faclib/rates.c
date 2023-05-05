@@ -501,7 +501,7 @@ double CERate1E(double e1, double eth0, int np, void *p) {
   int m1, n, one;
   double *dp, a, x0, y0;
   double e0, d, c, b, b0, b1;
-  double bte, bms, eth, e;
+  double bte, bms, eth, e, et0;
 
   BornFormFactorTE(&bte);
   bms = BornMass();  
@@ -523,9 +523,13 @@ double CERate1E(double e1, double eth0, int np, void *p) {
     b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
     a *= b0*b1;    
   } else {
+    if (dp[0] > 0) et0 = dp[0];
+    else et0 = eth;
     m1 = np + 1;
     y = dp+2;
-    x0 = log((dp[0]+e-eth)/dp[0]);
+    x0 = (et0+e-eth)/et0;
+    x0 = Max(1e-10, x0);
+    x0 = log(x0);
     x = y + m1;
     if (x0 <= x[np-1]) {
       n = 2;
@@ -537,10 +541,10 @@ double CERate1E(double e1, double eth0, int np, void *p) {
 	a = y[0] * pow(exp(x0-x[0]), 2.5);
       }
     } else {
-      x0 = (e-eth)/(dp[0]+e-eth);
+      x0 = (e-eth)/(et0+e-eth);
       y0 = y[np-1];
       if (dp[1] > 0) {
-	e0 = (x[np]*dp[0]/(1.0-x[np]) + eth)/HARTREE_EV;
+	e0 = (x[np]*et0/(1.0-x[np]) + eth)/HARTREE_EV;
 	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
 	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
 	y0 /= b0*b1;
@@ -558,7 +562,7 @@ double CERate1E(double e1, double eth0, int np, void *p) {
 	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
 	a *= b0*b1;
       } else if (dp[1] + 1.0 == 1.0) {
-	e0 = (x[np]*dp[0]/(1.0-x[np]) + eth)/HARTREE_EV;
+	e0 = (x[np]*et0/(1.0-x[np]) + eth)/HARTREE_EV;
 	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
 	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
 	y0 /= b0*b1;
@@ -591,7 +595,7 @@ double DERate1E(double e1, double eth0, int np, void *p) {
   double *dp;
   int m1, n, one;
   double e0, d, c, b, b0, b1;
-  double bte, bms, eth, e;
+  double bte, bms, eth, e, et0;
 
   BornFormFactorTE(&bte);
   bms = BornMass();
@@ -611,8 +615,13 @@ double DERate1E(double e1, double eth0, int np, void *p) {
     b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
     a *= b0*b1;    
   } else {
+    if (dp[0] > 0) {
+      et0 = dp[0];
+    } else {
+      et0 = eth;
+    }
     m1 = np + 1;
-    x0 = log((dp[0]+e)/dp[0]);
+    x0 = log((et0+e)/et0);
     y = dp+2;
     x = y + m1;
 
@@ -626,10 +635,10 @@ double DERate1E(double e1, double eth0, int np, void *p) {
 	a = y[0] * pow(exp(x0-x[0]), 2.5);
       }
     } else {
-      x0 = e/(dp[0]+e);
+      x0 = e/(et0+e);
       y0 = y[np-1]; 
       if (dp[1] > 0) {
-	e0 = (x[np]*dp[0]/(1.0-x[np]) + eth)/HARTREE_EV;
+	e0 = (x[np]*et0/(1.0-x[np]) + eth)/HARTREE_EV;
 	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
 	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
 	y0 /= b0*b1;
@@ -647,7 +656,7 @@ double DERate1E(double e1, double eth0, int np, void *p) {
 	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
 	a *= b0*b1;
       } else if (dp[1] + 1.0 == 1.0) {
-	e0 = (x[np]*dp[0]/(1.0-x[np]) + eth)/HARTREE_EV;
+	e0 = (x[np]*et0/(1.0-x[np]) + eth)/HARTREE_EV;
 	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
 	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
 	y0 /= b0*b1;

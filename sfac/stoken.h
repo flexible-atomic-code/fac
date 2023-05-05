@@ -27,8 +27,8 @@
 #include "array.h"
 #include "parser.h"
 
-#define MAXNARGS 512
-#define MAXLINELENGTH 8192
+#define MAXNARGS 5000
+#define MAXLINELENGTH 100000
 #define MAXMETHODNAME 128
 
 #define ERR_LINEUNTERMINATED (-1)
@@ -81,5 +81,6 @@ void FreeStatementData(void *p);
 void FreeVariableData(void *p);
 void ErrorOcurred(int ierr, int loc);
 void SetModName(char *s);
+void ParseArgs(int argc, char *argv[], METHOD *methods);
 
 #endif

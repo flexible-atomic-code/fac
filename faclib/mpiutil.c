@@ -98,19 +98,24 @@ void PrintTransReport(int nproc, double t0, int *ntrans,
 		      char *sid, int isfinal) {
   int k;
   double nt;
-  int n0, n1;
-  n1 = n0 = ntrans[0];
-  for (k = 0; k < nproc; k++) {
-    nt += ntrans[k];
-    if (n0 > ntrans[k]) n0 = ntrans[k];
-    if (n1 < ntrans[k]) n1 = ntrans[k];
-  }
+  int n0, n1, md;
   if (nproc > 0) {
+    n1 = n0 = ntrans[0];
+    nt = 0;
+    for (k = 0; k < nproc; k++) {
+      nt += ntrans[k];
+      if (n0 > ntrans[k]) n0 = ntrans[k];
+      if (n1 < ntrans[k]) n1 = ntrans[k];
+    }
     nt /= nproc;
-  }
+    md = 0;
+  } else {
+    n0 = n1 = nt = ntrans[-nproc];
+    md = -1;
+  }    
   double dt = WallTime() - t0;
   double mdt = 1e3*dt;
-  MPrintf(0, "%s: %d(%d,%d) trans in %8.2E s, %8.2E(%8.2E,%8.2E) ms/tran\n",
+  MPrintf(md, "%s: %d(%d,%d) trans in %8.2E s, %8.2E(%8.2E,%8.2E) ms/tran\n",
 	  sid, ((int)(nt+0.25)), n0, n1, dt, mdt/nt, mdt/n1, mdt/n0);
   if (isfinal) free(ntrans);
 }

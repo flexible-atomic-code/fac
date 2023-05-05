@@ -19,8 +19,8 @@ C     ierr error code returned by coulcc
       complex*16 fc(1), gc(1), fcp(1), gcp(1), sig(1), clgam, lam0
       double precision SL, SL2, TSL2, ALPHA
       PARAMETER (SL=137.036D0,SL2=SL*SL,TSL2=SL2+SL2,ALPHA=1.0D0/SL)
-      real*8 HALFPI
-      parameter (HALFPI = 1.5707963268D0)
+      real*8 HALFPI, EPS
+      parameter (HALFPI = 1.5707963268D0, EPS=1D-6)
       
       inorm = ierr
       IONE = dcmplx(0.0, 1.0)
@@ -34,14 +34,16 @@ C     ierr error code returned by coulcc
       
       x0 = ki*r      
       if (e .lt. 0) then
-         x = dcmplx(0.0, x0)
+         x = dcmplx(EPS*x0, x0)
          if (inorm .eq. 1) then
-            eta = dcmplx(1D-10*(0.5+y), 0.5+y)
+            eta = dcmplx(EPS*(0.5+y), 0.5+y)
          else
             eta = dcmplx(0.0, 0.5+y)
          endif
-         mu = dcmplx(k - z/ki, 0.0)
-         nu = dcmplx(0.5+y-x0, 0.0)
+         b1 = k-z/ki;
+         b2 = 0.5+y-x0;
+         mu = dcmplx(b1, 0.0)
+         nu = dcmplx(b2, 0.0)
       else
          x = dcmplx(x0, 0.0)
          eta = dcmplx(-y, 0.5)
@@ -49,7 +51,7 @@ C     ierr error code returned by coulcc
          nu = IONE*(x - eta)
       endif
 
-      zlmin = dcmplx(lambda, 0.0)
+      zlmin = dcmplx(lambda, lambda*EPS)
       ierr = 0
       kfn = 0
       

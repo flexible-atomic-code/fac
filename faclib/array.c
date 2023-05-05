@@ -619,7 +619,6 @@ int SMultiFree(MULTI *ma, void (*FreeElem)(void *)) {
 
 
 /* hash table size 2^NHASH */
-typedef unsigned long int ub4;
 typedef struct _MDATA_ {
   int *index;
   LOCK *lock;
@@ -637,9 +636,6 @@ void InitMDataData(void *p, int n) {
     d[i].lock = NULL;
   }
 }
-
-#define HashSize(n) ((ub4)1<<(((n)/2)+16))
-#define HashMask(n) (HashSize(n)-1)
 
 #define rot(x,k) (((x)<<(k)) | ((x)>>(32-(k))))
 
@@ -709,7 +705,7 @@ static inline int Hash2a(int *id, ub4 length, ub4 initval, int n, int m) {
   return (int) (c & m);
 }
 
-static inline int Hash2(int *k, ub4 length, ub4 initval, int n, int m) {
+inline int Hash2(int *k, ub4 length, ub4 initval, int n, int m) {
   ub4 a,b,c;
   
   /* Set up the internal state */

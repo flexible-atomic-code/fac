@@ -21,91 +21,72 @@ from pfac import rfac
 import numpy as np
 from multiprocessing import Pool,cpu_count
 from types import *
-import time, os
+import time, os, copy
 
-def levene(cs, gs, gv, i, p):
-    Reinit(0)
-    Closed()
-    for ss in cs.split('.'):
-        Closed(ss)
-    for k in range(len(gs)):
-        Config(gs[k], gv[k])
-    OptimizeRadial(gs[i])
-    pp = p + 'g%d'%i
-    ListConfig(pp+'a.cfg')
-    Structure(pp+'b.en', [gs[i]], gs[:i]+gs[i+1:])
-    PrintTable(pp+'b.en', pp+'a.en')
-    print(pp+'a.en')
-    r = rfac.FLEV(pp+'a.en')
-    return r
+def grdcfg0(z, k):
+    s = ''
+    nq = 0
+    for n in range(1, 11):
+        for m in range(n):
+            q = 2*(2*m+1)
+            if nq+q > k:
+                q = k-nq
+            s += ' %d%s%d'%(n, SPECSYMBOL[m], q)
+            nq += q
+            if nq == k:
+                break
+        if nq == k:
+            break
+    s = s[1:]
+    return s
 
-def cfgene(a, nkq, p, cs=None):
+def cfgene(a, gc, p):
     SetAtom(a)
     SetOption('structure:full_name', 1)
     Reinit(0)
-    s = ''
-    nm = 0
-    nmax = 0
-    for x in nkq:
-        if x[3] > 0:
-            nm = max(nm,x[0])
-        nmax = max(nmax,x[0])
-    qs = np.zeros((nmax,nmax),dtype=np.int32)
-    es = np.zeros((2,nmax,nmax))
-    for x in nkq:
-        n = x[0]
-        m = x[1]
-        qs[n-1,m] = qs[n-1,m]+x[3]
-        if x[2] > 0:
-            es[1,n-1,m] = x[4]
-        else:
-            es[0,n-1,m] = x[4]
-        if m == 0:
-            es[0,n-1,m] = es[1,n-1,m]
                     
     Closed()
-    if cs is None:
-        cs = ''
-        for n in range(1,nm+1):
-            for k in range(n):
-                ee = max(es[0,n-1,m],es[1,n-1,m])
-                if ee >= 0:
-                    ee = -30
-                if (qs[n-1,k] == 2*(2*k+1) and
-                    (ee < -100 or (n < nm and ee < -25))):
-                    ss = '%d%s'%(n, SPECSYMBOL[k])
-                    Closed(ss)
-                    if cs == '':
-                        cs = '%s%d'%(ss,qs[n-1,k])
-                    else:
-                        cs = cs+'.%s%d'%(ss,qs[n-1,k])
-    else:
-        for ss in cs.split('.'):
+    nkq = rfac.nlqs(gc)
+    nv = nkq[-1][0]
+    kv = nkq[-1][1]
+    i = ''
+    s = ''
+    cs = ''
+    for n,k,q in nkq:
+        if q == 2*(2*k+1) and n < nv:
+            ss = '%d%s'%(n,SPECSYMBOL[k])
             Closed(ss)
-         
-    for x in nkq:
-        if x[3] == 0:
-            continue
-        if cs.find('%d%s'%(x[0],SPECSYMBOL[x[1]])) == 0:
-            continue
-        if cs.find('.%d%s'%(x[0],SPECSYMBOL[x[1]])) > 0:
-            continue
-        if x[2] < 0:
-            c = '-'
+            cs += ' %s%d'%(ss,q)
         else:
-            c = '+'
-        ss = '%d[%s%c]%d'%(x[0], SPECSYMBOL[x[1]], c, x[3])
-        if s == '':
-            s = ss
-        else:
-            s = s + ' ' + ss            
+            s += ' %d%s%d'%(n,SPECSYMBOL[k],q)
+            if n == nv and k == kv:
+                if q > 1:
+                    i += ' %d%s%d'%(n,SPECSYMBOL[k],q-1)
+            else:
+                i += ' %d%s%d'%(n,SPECSYMBOL[k],q)
+    if len(cs) > 0:
+        cs = cs[1:]
+    if len(s) > 0:
+        s = s[1:]
+    if len(i) > 0:
+        i = i[1:]
     Config('g', s)
+    Config('i', i)
     OptimizeRadial('g')
+    GetPotential(p+'a.pot')
     Structure(p+'b.en', ['g'])
+    Structure(p+'b.en', ['i'])
     PrintTable(p+'b.en', p+'a.en')
     Closed()
     Reinit(0)
-    return cs,qs,es
+    r = rfac.FLEV(p+'a.en')
+    i = np.argmin(r.e)
+    if len(cs) > 0:
+        gc = cs.replace(' ', '.')+'.'+r.s[i]
+    else:
+        gc = r.s[i]
+    j = np.where(r.nele == r.nele[i]-1)[0]
+    return r.e[i],r.e[j].min(),gc,r.n[i]
 
 def dist_iqs(iw0, iw1, iqs):
     n = len(iw0)
@@ -117,145 +98,69 @@ def dist_iqs(iw0, iw1, iqs):
         for iw in w:            
             rs.append([iq]+iw)
     return rs
-        
-def run1q(x):
-    i = x[0]
-    nkq = x[1].copy()
-    w = x[2]
-    iqs = x[3]
-    p = x[4]
-    a = x[5]
-    cs = x[6]
-    for k in range(len(w)):
-        nkq[w[k]][3] = iqs[k]
-        pp = '%sp%d'%(p,i)
-        cs,qs,ea = cfgene(a, nkq, pp,cs=cs)
-        r = rfac.FLEV(pp+'a.en')
-    return (r,cs,qs,ea)
 
-def run1g(x):
-    i = x[0]
-    cs = x[1]
-    gs = x[2]
-    gv = x[3]
-    p = x[4]
-    r = levene(cs, gs, gv, i, p)
-    return r
+def run1c(x):
+    return cfgene(x[0], x[2], x[1])
 
-def grdcfg(z, k, pref='', nmax=10, cleanup=2):
+def grdcfg(z, k, pref='', nmax=10, cleanup=2, nproc=-1):
     if k > z:
         print('k=%d > z=%d'%(z,k))
     a = ATOMICSYMBOL[z]
     p = '%s%s%02d'%(pref,a,k)
-    nkq = []
-    nq = 0
-    for n in range(1,nmax+1):
-        for m in range(n):
-            for s in [-1,1]:
-                if m == 0 and s == -1:
-                    continue
-                j = 2*m+s
-                iq = j+1
-                if nq+iq >= k:
-                    iq = k-nq
-                nq = nq + iq            
-                nkq.append([n,m,s,iq,0.0])
-    cs,qs,ea = cfgene(a, nkq, p)
 
-    niter = 0
-    while True:
-        r = rfac.FLEV(p+'a.en')
-        gc = r.s[0]
-        if cs != '':
-            gc = '%s.%s'%(cs, gc)
-        for x in nkq:
-            ka = x[1]
-            if x[2] > 0:
-                ka = -ka-1
-            WaveFuncTable(p+'a.wav', x[0], ka, 0.0)
-            w = rfac.read_wfun(p+'a.wav')
-            x[4] = w[2]
-        es = np.array([x[4] for x in nkq])
-        ia = es.argsort()
-        dia = np.diff(ia)
-        niter = niter+1
-        print('niter=%d gc=%s dia=%d/%d'%(niter, gc, dia.min(), dia.max()))
-        iq = [x[3] for x in nkq]
-        if niter <= 2:
-            iq0 = iq.copy()
-            iq1 = iq.copy()
-        else:
-            iq0 = [min(iq0[i],iq[i]) for i in range(len(iq))]
-            iq1 = [max(iq1[i],iq[i]) for i in range(len(iq))]
-        if niter > 2:
-            break
-        nq = 0
-        for i in ia:
-            x = nkq[i]
-            n = x[0]
-            m = x[1]
-            s = x[2]
-            j = 2*m+s
-            iq = j+1
-            if nq+iq >= k:
-                iq = k-nq
-            nq = nq+iq
-            x[3] = iq
-        cs,qs,ea = cfgene(a, nkq, p, cs=None)
+    gc = grdcfg0(z, k)
+    nkq = rfac.nlqs(gc)
 
-    iq = np.array([x[3] for x in nkq])
-    iq0 = np.array(iq0)
-    iq1 = np.array(iq1)
-    w = np.where(iq1 > iq0)[0]
-    if (len(w) > 1):
-        iqs = dist_iqs(iq0[w], iq1[w], np.sum(iq[w]))
+    nv,kv,qv = nkq[-1]
+    if nv < 3:
+        return gc
+    if nv == 3 and kv < 2:
+        return gc
+    nv1 = nv+1
+    gcs = [gc]
+    for q in range(qv-1,-1,-1):
+        nqs = copy.deepcopy(nkq)
+        nqs[-1] = (nqs[-1][0],nqs[-1][1], q)
+        qq = qv-q
+        qv1 = 0
+        for k1 in range(0,3):
+            q1 = 2*(2*k1+1)
+            if qv1+q1 > qq:
+                q1 = qq-qv1
+            nqs.append((nv1,k1,q1))
+            qv1 += q1
+            if qv1 == qq:
+                break
+        gcs.append(rfac.cfgnr(nqs))
+
+    nc = len(gcs)
+    if nproc < 0:
         nproc = cpu_count()
-        mp = Pool(processes=nproc)
-        xs = []
-        ip = 0
-        for i in range(len(iqs)):
-            if (np.array(iqs[i]).min()<0):
-                continue
-            skip = False
-            for j in range(len(iqs[i])):
-                x = nkq[w[j]]
-                qf = x[1]*2+x[2]+1
-                if (iqs[i][j] > qf):
-                    skip = True
-                    break
-            if skip:
-                continue
-            xs.append((ip,nkq,w,iqs[i],p,a,cs))
-            ip = ip+1
-        rs = mp.map(run1q, xs)
-        egs = np.array([x[0].e0 for x in rs])
-        im = egs.argmin()
-        emin = egs[im]
-        qs = rs[im][2]
-        ea = rs[im][3]
-        w = np.where(egs - emin < 5.0)[0]
-        im = egs[w].argsort()
-        rr = [rs[i][0] for i in w[im]]
-    else:
-        rr = [r]
-
+    elif nproc == 0:
+        nproc = 1
+    nproc = min(nc,cpu_count())
+    mp = Pool(processes=nproc)
+    x = []
+    for i in range(nc):
+        x.append((a,p+'c%d'%i,gcs[i]))
+    rs = mp.map(run1c, x)
+    es = np.array([r[0] for r in rs])
+    i = np.argsort(es)
+    os.system('cp %sc%da.pot %sa.pot'%(p,i[0],p))
     if cleanup:
         if cleanup > 0:
-            os.system('rm -f %sp*.*'%p)
+            os.system('rm -f %sc*.*'%p)
             if cleanup > 1:
                 os.system('rm -f %s*.en'%p)
                 os.system('rm -f %s*.cfg'%p)
 
     with open(p+'a.grd', 'w') as f:
-        f.write('# z: %d\n'%z)
-        f.write('# k: %d\n'%k)
-        f.write('# c: %s\n'%cs)
-        for r in rr:
-            gc = r.s[0]
-            f.write('%15.8E %32s    %-s\n'%(r.e0, gc, r.n[0]))
-
-def gcf():
-    return ''
+        for j in i:
+            f.write('%15.8E %12.5E %-85s %-s\n'%(rs[j][0],
+                                                 rs[j][1]-rs[j][0],
+                                                 rs[j][2], rs[j][3]))
+            
+    return rs[i[0]][2]
 
 # reinitialize FAC
 def reinit(m = 0):

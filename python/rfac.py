@@ -28,6 +28,29 @@ from pfac import const
 from pfac import util
 from multiprocessing import Pool, cpu_count
 
+def k2lj(k):
+    l = abs(k)
+    if k < 0:
+        l = l-1
+        j = 1
+    else:
+        j = -1
+    return l,j
+
+def lj2k(l, j):
+    k = l
+    if j > 0:
+        k = -k-1
+    return k
+
+def cfgnr(nq):
+    s = ''
+    if len(nq) == 0:
+        return s
+    for n,k,q in nq:
+        s += ' %d%s%d'%(n,fac.SPECSYMBOL[k],q)
+    return s[1:]
+
 def nlq(s):
     i = 0
     n = 0
@@ -63,6 +86,9 @@ def nlq(s):
         if i >= len(s):
             break
     return n,l,q
+
+def nlqs(s):
+    return [nlq(x) for x in s.split(' ')]
 
 def voigt_fwhm(gw, lw):
     return 0.5346*lw + np.sqrt(0.2166*lw**2 + gw**2)
@@ -865,10 +891,10 @@ def read_pot(fn, cfg=None, header=None):
     else:
         j = 0
     if j == 0:
-        k = SPECSYMBOL.index(cfg[-1:])
+        k = fac.SPECSYMBOL.index(cfg[-1:])
         n = int(cfg[:-1])
     else:
-        k = SPECSYMBOL.index(cfg[-2:-1])
+        k = fac.SPECSYMBOL.index(cfg[-2:-1])
         n = int(cfg[:-2])
     dn = np.int32(d[1])
     dk = np.int32(d[2])
@@ -888,6 +914,32 @@ def read_pot(fn, cfg=None, header=None):
         eb = np.sum(d[3][w1]*d[8][w1])/fb * 27.21
     return fb,eb
 
+def valence_shells(fn, nr=0):
+    z = read_pot(fn, header='Z')
+    r = read_pot(fn, cfg='')
+    i = r[-1].argmax()
+    r[-1] = r[-1]
+    z1 = 1+(z-r[4][-1])
+    de1 = ((z1+1)**2-z1**2)/(2*r[1][-1]**2)
+    z1 = 1+(z-r[4])
+    de0 = ((z1+1)**2-(z1**2))/(2*r[1]**2)
+    de = de0-de1
+    ei = -r[-1][i]
+    ex = r[-1][i]-r[-1]+de
+    w = np.where(ex < ei)[0]
+    x = []
+    nm = int(r[1].max())
+    f = np.zeros((nm,nm),dtype=np.int32)
+    for i in w:
+        if nr == 0:
+            x.append((int(r[1][i]),int(r[2][i])))
+        else:
+            k,j = k2lj(int(r[2][i]))
+            if f[int(r[1][i])-1,k] == 0:
+                x.append((int(r[1][i]),k))
+                f[int(r[1][i])-1,k] = 1
+    return x
+    
 def read_rra(fn):
     """ read the output of the Asymmetry function """
     r = {}

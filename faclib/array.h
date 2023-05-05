@@ -78,6 +78,10 @@
 
 #include "global.h"
 
+typedef unsigned long int ub4;
+#define HashSize(n) ((ub4)1<<(((n)/2)+16))
+#define HashMask(n) (HashSize(n)-1)
+
 #define USE_NMULTI 1
 
 /* choose MULTI implementation */
@@ -178,6 +182,7 @@ typedef struct _MATRIX_ {
   double *d, **r;
 } MATRIX;
 
+int Hash2(int *k, ub4 length, ub4 initval, int n, int m);
 int IdxCmp(int *i0, int *i1, int n);
 void InitMultiStats(void);
 void ReportMultiStats(void);
