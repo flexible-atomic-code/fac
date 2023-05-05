@@ -12,15 +12,17 @@ C     q1 iregular small for e > 0, ignore for e < 0
 C     ierr error code returned by coulcc
       subroutine dcoul(z, e, k, r, p, q, p1, q1, ierr)
       implicit none     
-      integer k, ierr, kfn, inorm
+      integer k, ierr, kfn, inorm, nx, ip
+      parameter (nx = 4)
       double precision z, e, r, p, q, p1, q1, c, ki, zp, gam
-      double precision lambda, y, qi, x0, b1, b2, np
+      double precision lambda, y, yh, qi, x0, b1, b2, np
+      double precision xp(nx),dp(nx),dq(nx),dp1(nx),dq1(nx)
       complex*16 x, eta, zlmin, omega, a, pp, qq, mu, nu, IONE
       complex*16 fc(1), gc(1), fcp(1), gcp(1), sig(1), clgam, lam0
       double precision SL, SL2, TSL2, ALPHA
       PARAMETER (SL=137.036D0,SL2=SL*SL,TSL2=SL2+SL2,ALPHA=1.0D0/SL)
       real*8 HALFPI, EPS
-      parameter (HALFPI = 1.5707963268D0, EPS=1D-6)
+      parameter (HALFPI = 1.5707963268D0, EPS=1D-3/(nx-1))
       
       inorm = ierr
       IONE = dcmplx(0.0, 1.0)
@@ -31,15 +33,11 @@ C     ierr error code returned by coulcc
       lambda = gam - 0.5
       qi = sqrt(c/ki)
       y = (1.0+e/SL2)*z/ki
-      
+      yh = y+0.5
       x0 = ki*r      
       if (e .lt. 0) then
-         x = dcmplx(EPS*x0, x0)
-         if (inorm .eq. 1) then
-            eta = dcmplx(EPS*(0.5+y), 0.5+y)
-         else
-            eta = dcmplx(0.0, 0.5+y)
-         endif
+         x = dcmplx(0, x0)
+         eta = dcmplx(0.0, yh)
          b1 = k-z/ki;
          b2 = 0.5+y-x0;
          mu = dcmplx(b1, 0.0)
@@ -51,37 +49,53 @@ C     ierr error code returned by coulcc
          nu = IONE*(x - eta)
       endif
 
-      zlmin = dcmplx(lambda, lambda*EPS)
+      zlmin = dcmplx(lambda, 0.0)
       ierr = 0
       kfn = 0
       
-      call coulcc(x, eta, zlmin, 1, fc, gc, fcp, gcp, sig, 
-     +     11, kfn, ierr)
       if (e .lt. 0) then
-         omega = IONE*(HALFPI*(lambda - y - 0.5) - sig(1))
-         if (inorm .gt. 0 .and. z > 0) then
-            np = y - gam
-            b1 = sqrt(z*c*(z/ki-k))*ki/z
-            lam0 = np+1.0
-            b2 = dble(clgam(lam0))
-            lam0 = np + 1.0 + 2.0*gam
-            b2 = b2 + dble(clgam(lam0))
-            b2 = -0.5*b2
-            omega = omega + b2
-            a = exp(omega)*b1
-            a = a/(mu*sqrt(2.0*x0))
-         else
-            a = exp(IONE*dimag(omega))
-            a = a/mu
-            a = a*qi/sqrt(2.0*x0)
-         endif
-         pp = a*((mu + nu)*gc(1) - x*gcp(1))
-         qq = (ALPHA*e/ki)*a*((mu - nu)*gc(1) + x*gcp(1))
-         p = dble(pp)
-         q = dble(qq)
-         p1 = dble(omega)
-         q1 = dimag(omega)
+         xp(1) = -(nx-1)*EPS/2
+         do ip = 2, nx
+            xp(ip) = xp(ip-1) + EPS
+         enddo
+         do ip = 1, nx
+            call coulcc(x,
+     +           eta+yh*xp(ip),
+     +           zlmin,
+     +           1, fc, gc, fcp, gcp, sig, 
+     +           11, kfn, ierr)
+            omega = IONE*(HALFPI*(lambda - y - 0.5) - sig(1))
+            if (inorm .gt. 0 .and. z > 0) then
+               np = y - gam
+               b1 = sqrt(z*c*(z/ki-k))*ki/z
+               lam0 = np+1.0
+               b2 = dble(clgam(lam0))
+               lam0 = np + 1.0 + 2.0*gam
+               b2 = b2 + dble(clgam(lam0))
+               b2 = -0.5*b2
+               omega = omega + b2
+               a = exp(omega)*b1
+               a = a/(mu*sqrt(2.0*x0))
+            else
+               a = exp(IONE*dimag(omega))
+               a = a/mu
+               a = a*qi/sqrt(2.0*x0)
+            endif
+            pp = a*((mu + nu)*gc(1) - x*gcp(1))
+            qq = (ALPHA*e/ki)*a*((mu - nu)*gc(1) + x*gcp(1))
+            dp(ip) = dble(pp)
+            dq(ip) = dble(qq)
+            dp1(ip) = dble(omega)
+            dq1(ip) = dimag(omega)
+            !write(*,*) xp(ip),yh,dp(ip),dq(ip),dq(ip)/dp(ip)
+         enddo
+         call UVIP3P(3, nx, xp, dp, 1, 0.0, p)
+         call UVIP3P(3, nx, xp, dq, 1, 0.0, q)
+         call UVIP3P(3, nx, xp, dp1, 1, 0.0, p1)
+         call UVIP3P(3, nx, xp, dq1, 1, 0.0, q1)
       else
+         call coulcc(x, eta, zlmin, 1, fc, gc, fcp, gcp, sig, 
+     +        11, kfn, ierr)
          a = qi/sqrt(2.0*IONE*mu*x)
          pp = a*((mu + nu)*gc(1) - x*gcp(1))
          qq = (IONE*e*ALPHA/ki)*a*((mu - nu)*gc(1) + x*gcp(1))
