@@ -1807,7 +1807,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
   for (i = 0; i <= i2p2; i++) {
     p[i] = p[i] * pot->dr_drho2[i];
   }
-  i2 = FirstMaximum(p, pot->r_core, i2, pot);
+  i2 = LastMaximum(p, pot->r_core, i2, pot);
   i2p = i2 + 1;
   i2m = i2 - 1;
   i2p2 = i2 + 2;
@@ -1864,15 +1864,16 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
   for (i = 0; i <= i2p2; i++) {
     p[i] = p[i] * pot->dr_drho2[i];
   }
-  i2 = FirstMaximum(p, pot->r_core, i2, pot);
+  i2 = LastMaximum(p, pot->r_core, i2, pot);
   //i2 = pot->r_core;
   zp = FINE_STRUCTURE_CONST2*e;
   x0 = pot->rad[i2];
   ierr = 1;
   DCOUL(z, e, orb->kappa, x0, &pp, &qq, &ppi, &qqi, &ierr);
   norm2 = pp;
-  fact = norm2/p[i2];
-  if (IsOdd(nodes)) {
+  fact = fabs(norm2/p[i2]);
+  i2 = FirstMaximum(p, 0, i2, pot);
+  if (p[i2] < 0) {
     fact = -fact;
   }
   for (i = 0; i <= i2p2; i++) {
