@@ -42,7 +42,7 @@ USE (rcsid);
 ** NOTE:        
 */
 static CONFIG_GROUP *cfg_groups;
-static MULTI *grpidx;
+static MULTI *_grpidx;
 static int _ugid = MAX_GROUPS;
 /*
 ** VARIABLE:    n_groups
@@ -94,14 +94,16 @@ static int _ncsf4[NJQ][NJQ][NJQ][NJQ];
 static int _ncsf5[NJQ][NJQ][NJQ][NJQ][NJQ];
 #define NCS 25
 static int _isclosed[NCS][NCS];
-			  
-#define MAXN1 50
-#define MAXN2 50
-#define MAXNK1 2501
-#define MAXNK2 2501
-#define MAXNK12 (MAXNK1*MAXNK2)
-static ARRAY _csary[MAXNK12];
 
+#define CFGNIDX 5
+static int _cfghmask = 0;
+static ARRAY **_cfghasha = NULL;
+#define MAXNRN 10
+static int _nrk[MAXNRN+1];
+
+char *GetSpecSymbols() {
+  return spec_symbols;
+}
 
 int IsClosedComplex(int n, int nq) {
   if (n >= NCS) return 0;
@@ -115,7 +117,7 @@ int IsClosedComplex(int n, int nq) {
 
 int IsClosedShellNR(int n, int k, int nq, int fn) {
   if (nq < 2*(k*2+1)) return 0;
-  if (fn && n >= fn) {
+  if (fn > 0) {
     if (n >= NCS) return 0;
     return _isclosed[n-1][k];
   } else {
@@ -125,7 +127,7 @@ int IsClosedShellNR(int n, int k, int nq, int fn) {
 
 int IsClosedShellFR(int n, int k, int j, int nq, int fn) {
   if (nq < j+1) return 0;
-  if (fn && n >= fn) {
+  if (fn > 0) {
     if (n >= NCS) return 0;
     return _isclosed[n-1][k];
   } else {
@@ -1963,7 +1965,7 @@ int GroupExists(char *name) {
       c[i] = '\0';
     }
     ip = (int *)c;    
-    id = MultiGet(grpidx, ip, NULL);
+    id = MultiGet(_grpidx, ip, NULL);
     if (id) i = *id;
     else i = -1;
   }
@@ -2031,7 +2033,7 @@ int AddGroup(char *name) {
     c[i] = '\0';
   }
   ip = (int *)c;
-  MultiSet(grpidx, ip, &n_groups, NULL, InitIntData, NULL);
+  MultiSet(_grpidx, ip, &n_groups, NULL, InitIntData, NULL);
   
   n_groups++;  
   return n_groups-1;
@@ -2244,34 +2246,72 @@ int SDConfig(CONFIG *c, char *cs,
   }
   return j;
 }
-    
-int ConfigExists(CONFIG *cfg) {
-  int i, j, t, n, nele;
-  CONFIG *c;
-  int i0, i1, n1;
 
+void SetBits(int idx[], int *p, int *j, int b, int n) {
+  int i;
+
+  for (i = 0; i < n; i++) {
+    if (b%2) idx[*p] |= 1<<(31-(*j));
+    (*j)++;
+    if ((*j) == 32) {
+      (*j) = 0;
+      (*p)++;
+      if ((*p) == CFGNIDX) *p = 2;
+    }
+    b /= 2;
+  }
+}
+
+int ConfigIndex(CONFIG *cfg) {
+  int idx[CFGNIDX], i, p, j, n, k, nq, nq0;
+
+  for (i = 0; i < CFGNIDX; i++) idx[i] = 0;
+
+  p = 2;
+  j = 0;
   n = cfg->shells[0].n;
-  if (n > MAXN1) {
-    i0 = MAXNK1-1;
-  } else {
-    i0 = ShellToInt(cfg->shells[0].n, cfg->shells[0].kappa);
-  }
-  if (cfg->shells[0].nq > 1) {
-    i1 = i0;
-  } else if (cfg->n_shells > 1 && cfg->shells[1].n <= MAXN2) {
-    i1 = ShellToInt(cfg->shells[1].n, cfg->shells[1].kappa);
-  } else {
-    i1 = MAXNK2-1;
-  }
-  n1 = i0*MAXNK2 + i1;
-  ARRAY *csa = &_csary[n1];
-  if (csa->dim == 0) return 0;
+  k = cfg->shells[0].kappa;
+  k = 2*abs(k)-((k>0)?1:2);
+  n %= 128;
+  k %= 128;
+  SetBits(idx, &p, &j, n, 8);
+  SetBits(idx, &p, &j, k, 8);
+  for (i = 0; i < cfg->n_shells; i++) {
+    n = cfg->shells[i].n;
+    k = ShellToInt(cfg->shells[i].n, cfg->shells[i].kappa);
+    k %= 64;
+    if (k < 32) idx[0] |= 1<<k;
+    else idx[1] |= 1<<(k-32);
+    nq = cfg->shells[i].nq;
+    nq0 = 2*abs(cfg->shells[i].kappa)+1;
+    if (nq < nq0) {
+      if (i == 0) nq--;
+      nq %= 16;
+      SetBits(idx, &p, &j, k, 6);
+      SetBits(idx, &p, &j, nq, 4);      
+    }
+  }  
+  i =  Hash2(idx, CFGNIDX, 0, CFGNIDX, _cfghmask);
+  return i;
+}
+
+int ConfigExists(CONFIG *cfg) {
+  int nele, i, t;
+  ARRAY *a;
+  CONFIG *c, **p;
+
+  i = ConfigIndex(cfg);
+  a = _cfghasha[i];
+  
+  if (a == NULL) return 0;  
+  if (a->dim == 0) return 0;
+  
   nele = 0;
   for (i = 0; i < cfg->n_shells; i++) {
     nele += cfg->shells[i].nq;
   }
-  for (i = 0; i < csa->dim; i++) {
-    CONFIG **p = ArrayGet(csa, i);
+  for (i = 0; i < a->dim; i++) {
+    CONFIG **p = ArrayGet(a, i);
     c = *p;
     if (nele != c->n_electrons) continue;
     if (cfg->n_shells != c->n_shells) continue;
@@ -2285,6 +2325,29 @@ int ConfigExists(CONFIG *cfg) {
   return 0;
 }
 
+int FactorNR(CONFIG *c, int n, int k) {
+  int kl, i, q;
+
+  kl = GetLFromKappa(k);
+  if (!IsShellNR(n, kl/2)) return 0;
+
+  q = 0;
+  for (i = 0; i < c->n_shells; i++) {
+    if (GetLFromKappa(c->shells[i].kappa) == kl) {
+      q += c->shells[i].nq;
+    }
+  }
+
+  return q;
+}
+
+int IsShellNR(int n, int k) {
+  if (n > MAXNRN) n = MAXNRN;
+  if (_nrk[n] > 0) return k >= _nrk[n];    
+  if (_nrk[0] > 0) return k >= _nrk[0];
+  return 0;
+}
+  
 /* 
 ** FUNCTION:    AddConfigToList
 ** PURPOSE:     add a configuration to the specified group,
@@ -2301,7 +2364,10 @@ int ConfigExists(CONFIG *cfg) {
 */
 int AddConfigToList(int k, CONFIG *cfg) {
   ARRAY *clist;  
-  int n0, kl0, nq0, m, i, n, kl, p, j, nq;
+  int n0, kl0, j0, nq0, nq1, np, klp, jp;
+  int nqp, m, i, n, kl, p, j, nq, dp;
+  double dq;
+  
   if (k < 0 || k >= n_groups) return -1;
   for (i = 0; i < cfg->n_shells; i++) {
     m = abs(GetOrbNMax(cfg->shells[i].kappa, 0));
@@ -2309,13 +2375,6 @@ int AddConfigToList(int k, CONFIG *cfg) {
       FreeConfigData(cfg);
       return 0;
     }
-  }
-  if (cfg_groups[k].n_cfgs == 0) {
-    cfg_groups[k].n_electrons = cfg->n_electrons;
-  } else if (cfg_groups[k].n_electrons != cfg->n_electrons) {
-    printf("Error: AddConfigToList, Configurations in a group ");
-    printf("must have the same number of electrons\n");
-    return -1;
   }
   clist = &(cfg_groups[k].cfg_list);
 
@@ -2326,6 +2385,10 @@ int AddConfigToList(int k, CONFIG *cfg) {
   n0 = 0;
   kl0 = -1;
   nq0 = 0;
+  j0 = 0;
+  klp = -1;
+  nqp = 0;
+  jp = 0;
   m = 0;
   cfg->nrs = malloc(sizeof(int)*cfg->n_shells);
   cfg->sweight = 1.0;
@@ -2333,24 +2396,68 @@ int AddConfigToList(int k, CONFIG *cfg) {
   for (i = 0; i < cfg->n_shells; i++) {
     UnpackShell(cfg->shells+i, &n, &kl, &j, &nq);
     if (IsOdd(kl/2) && IsOdd(nq)) p++;
-    cfg->sweight *= ShellDegeneracy(j+1, nq);
     if (n == n0 && kl == kl0) {
+      np = n0;
+      klp = kl0;
+      nqp = nq0;
+      jp = j0;
+      j0 = j;
       nq0 += nq;
     } else {
       if (nq0 > 0) {
+	if (IsShellNR(n0, kl0/2)) {
+	  if (j0 > kl0) {
+	    break;
+	  }
+	  if (klp == kl0) {
+	    nq1 = nq0-nqp;
+	    dp = nq1 - nqp;
+	    if (dp > 1 || (dp < 0 && nq1 < j0+1)) {
+	      break;
+	    }
+	  }	
+	  dq = ShellDegeneracy(2*(kl0+1), nq0);
+	  cfg->sweight *= dq;
+	}
 	PackNRShell(cfg->nrs+m, n0, kl0, nq0);
 	m++;
       }
+      np = n0;
+      klp = kl0;
+      nqp = nq0;
+      jp = j0;
       n0 = n;
       kl0 = kl;
       nq0 = nq;
+      j0 = j;
+    }
+    if (!IsShellNR(n, kl/2)) {
+      dq = ShellDegeneracy(j+1, nq);
+      cfg->sweight *= dq;
     }
   }
-  if (IsOdd(p)) cfg->sweight = -cfg->sweight;
+  if (i < cfg->n_shells) {
+    cfg->nnrs = 0;
+    free(cfg->nrs);    
+    FreeConfigData(cfg);
+    return 0;
+  }
+
   if (nq0 > 0) {
     PackNRShell(cfg->nrs+m, n0, kl0, nq0);
     m++;
+    if (IsShellNR(n0, kl0/2)) {
+      if (j0 > kl0 || (klp == kl0 && nq0-nqp < j0+1)) {
+	cfg->nnrs = 0;
+	free(cfg->nrs);    
+	FreeConfigData(cfg);
+	return 0;
+      }      
+      dq = ShellDegeneracy(2*(kl0+1), nq0);
+      cfg->sweight *= dq;
+    }
   }
+  if (IsOdd(p)) cfg->sweight = -cfg->sweight;
   
   cfg->nnrs = m;
   if (m < cfg->n_shells) {
@@ -2363,6 +2470,13 @@ int AddConfigToList(int k, CONFIG *cfg) {
   cfg->icfg = cfg_groups[k].n_cfgs;
   CONFIG *acfg = ArrayAppend(clist, cfg, InitConfigData);
   if (acfg == NULL) return -1;
+  if (cfg_groups[k].n_cfgs == 0) {
+    cfg_groups[k].n_electrons = cfg->n_electrons;
+  } else if (cfg_groups[k].n_electrons != cfg->n_electrons) {
+    printf("Error: AddConfigToList, Configurations in a group ");
+    printf("must have the same number of electrons\n");
+    return -1;
+  }
   if (cfg->n_csfs > 0) {    
     AddConfigToSymmetry(k, cfg_groups[k].n_cfgs, cfg); 
   }
@@ -2370,24 +2484,13 @@ int AddConfigToList(int k, CONFIG *cfg) {
   if (cfg->shells[0].n > cfg_groups[k].nmax) {
     cfg_groups[k].nmax = cfg->shells[0].n;
   }
-  int i0, i1, n1;
-  n = acfg->shells[0].n;
-  if (n > MAXN1) {
-    i0 = MAXNK1-1;
-  } else {
-    i0 = ShellToInt(acfg->shells[0].n, acfg->shells[0].kappa);
+
+  i = ConfigIndex(acfg);
+  if (_cfghasha[i] == NULL) {
+    _cfghasha[i] = malloc(sizeof(ARRAY));
+    ArrayInit(_cfghasha[i], sizeof(CONFIG *), CONFIGS_BLOCK);
   }
-  if (acfg->shells[0].nq > 1) {
-    i1 = i0;
-  } else if (acfg->n_shells > 1 && acfg->shells[1].n <= MAXN2) {
-    i1 = ShellToInt(acfg->shells[1].n, acfg->shells[1].kappa);
-  } else {
-    i1 = MAXNK2-1;
-  }
-  n1 = i0*MAXNK2 + i1;
-  ARRAY *csa = &_csary[n1];
-  ArrayAppend(csa, &acfg, InitPointerData);
-  
+  ArrayAppend(_cfghasha[i], &acfg, InitPointerData);
   return 0;
 }
 
@@ -3010,9 +3113,9 @@ int InitConfig(void) {
     cfg_groups[i].n_cfgs = 0;
     ArrayInit(&(cfg_groups[i].cfg_list), sizeof(CONFIG), CONFIGS_BLOCK);
   }
-  grpidx = malloc(sizeof(MULTI));
+  _grpidx = malloc(sizeof(MULTI));
   for (i = 0; i < 4; i++) blks[i] = MULTI_BLOCK4;
-  MultiInit(grpidx, sizeof(int), 4, blks, "grpidx");
+  MultiInit(_grpidx, sizeof(int), 4, blks, "grpidx");
   
   symmetry_list = malloc(MAX_SYMMETRIES*sizeof(SYMMETRY));
   for (i = 0; i < MAX_SYMMETRIES; i++) {
@@ -3040,11 +3143,17 @@ int InitConfig(void) {
       }
     }
   }
-  for (i = 0; i < MAXNK12; i++) {
-    ArrayInit(&_csary[i], sizeof(CONFIG *), CONFIGS_BLOCK);
+  
+  _cfghmask = HashMask(CFGNIDX);
+  _cfghasha = malloc(sizeof(ARRAY *)*HashSize(CFGNIDX));
+  for (i = 0; i <= _cfghmask; i++) {
+    _cfghasha[i] = NULL;
   }
-
+  
   SetClosedShellNR(0, 0);
+  
+  for (i = 0; i <= MAXNRN; i++) _nrk[i] = 0;
+  
   return 0; 
 }
 
@@ -3079,7 +3188,9 @@ void FreeConfigData(void *p) {
 int RemoveGroup(int k) {
   SYMMETRY *sym;
   STATE *s;
-  int i, m, *ip;
+  CONFIG *c;
+  ARRAY *a;
+  int i, m, n, *ip;
 
   if (k != n_groups-1) {
     printf("only the last group can be removed\n");
@@ -3088,7 +3199,21 @@ int RemoveGroup(int k) {
 
   ip = (int *) (cfg_groups[k].name);
   i = -2;
-  MultiSet(grpidx, ip, &i, NULL, InitIntData, NULL);
+  MultiSet(_grpidx, ip, &i, NULL, InitIntData, NULL);
+  for (i = 0; i < cfg_groups[k].n_cfgs; i++) {
+    c = GetConfigFromGroup(k, i);
+    m = ConfigIndex(c);
+    a = _cfghasha[m];
+    if (a == NULL) continue;
+    if (a->dim == 0) continue;
+    for (n = 0; n < a->dim; n++) {
+      CONFIG **p = ArrayGet(a, n);
+      if (*p == c) {
+	ArrayTrim(a, n-1, NULL);
+	break;
+      }
+    }
+  }
   ArrayFree(&(cfg_groups[k].cfg_list), FreeConfigData);
   cfg_groups[k].n_cfgs = 0;
   cfg_groups[k].name[0] = '\0';
@@ -3121,7 +3246,7 @@ int RemoveGroup(int k) {
 ** NOTE:        
 */
 int ReinitConfig(int m) {
-  int i;
+  int i, blks[4];
 
   if (m) return 0;
 
@@ -3132,25 +3257,48 @@ int ReinitConfig(int m) {
     cfg_groups[i].name[0] = '\0';
   }
   n_groups = 0;
-  MultiFree(grpidx, NULL);
+  MultiFree(_grpidx, NULL);
 
+  for (i = 0; i < 4; i++) blks[i] = MULTI_BLOCK4;
+  MultiInit(_grpidx, sizeof(int), 4, blks, "grpidx");
+  
   for (i = 0; i < MAX_SYMMETRIES; i++) {
     if (symmetry_list[i].n_states > 0) {
       ArrayFree(&(symmetry_list[i].states), NULL);
       symmetry_list[i].n_states = 0;
     }
   }
-  for (i = 0; i < MAXNK12; i++) {
-    ArrayFree(&_csary[i], NULL);
+  
+  for (i = 0; i <= _cfghmask; i++) {
+    if (_cfghasha[i]) {
+      ArrayFree(_cfghasha[i], NULL);
+      _cfghasha[i] = NULL;
+    }
   }
-
   SetClosedShellNR(0, 0);
+
+  for (i = 0; i <= MAXNRN; i++) _nrk[i] = 0;
+  
   return 0;
 }
 
 void SetOptionConfig(char *s, char *sp, int ip, double dp) {
   if (0 == strcmp(s, "config:ugid")) {
     _ugid = ip;
+    return;
+  }
+  if (0 == strcmp(s, "config:nrk")) {
+    int i, n;
+    if (ip >= 1000) {
+      for (i = 0; i <= MAXNRN; i++) _nrk[i] = 0;
+    } else if (ip <= 0) {
+      n = -ip/10;
+      if (n > MAXNRN) n = MAXNRN;
+      _nrk[n] = (-ip)%10;
+    } else {
+      n = ip/10;
+      for (i = n; i <= MAXNRN; i++) _nrk[i] = (ip)%10;
+    }
     return;
   }
 }

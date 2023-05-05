@@ -228,6 +228,7 @@ static float _slater_scale[MAXKSSC][MAXNSSC][MAXNSSC];
 
 #define MAXNAW 128
 static int n_awgrid = 0;
+static int uta_awgrid = 0;
 static double awgrid[MAXNAW];
 static double _awmin = 1e-4;
 #define MAXMP 8
@@ -1721,6 +1722,14 @@ void SetMS(int nms, int sms) {
 
 int SetAWGrid(int n, double awmin, double awmax) {
   int i;
+
+  if (n == -1) {
+    n_awgrid = 1;
+    uta_awgrid = 1;
+    awgrid[0] = awmin;
+    return 0;
+  }
+  uta_awgrid = 0;
   if (awmin < _awmin) {
     awmax = awmax + (_awmin-awmin);
     awmin = _awmin;
@@ -7012,9 +7021,13 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
     
     for (i = 0; i < n_awgrid; i++) {
       r = 0.0;
-      a = awgrid[i];
       pt[i] = 0.0;
-      if (ef > 0.0) a += ef;
+      if (uta_awgrid) {
+	a = fabs(orb1->energy-orb2->energy)*FINE_STRUCTURE_CONST;
+      } else {
+	a = awgrid[i];
+	if (ef > 0.0) a += ef;
+      }
       if (m > 0) {
 	t = kappa1 + kappa2;
 	if (t) {
@@ -7276,9 +7289,13 @@ double MultipoleRadialFR0(double aw, int m, int k1, int k2, int gauge) {
 
   for (i = 0; i < n_awgrid; i++) {
     r = 0.0;
-    a = awgrid[i];
     pt[i] = 0.0;
-    if (ef > 0.0) a += ef;
+    if (uta_awgrid) {
+      a = fabs(orb1->energy-orb2->energy)*FINE_STRUCTURE_CONST;
+    } else {
+      a = awgrid[i];
+      if (ef > 0.0) a += ef;
+    }
     if (m > 0) {
       t = kappa1 + kappa2;
       if (t) {

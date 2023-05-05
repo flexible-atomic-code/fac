@@ -37,6 +37,7 @@ static double *bmatrix = NULL;
 static int n_single_blocks = 64;
 static int _sbnmax1 = 0;
 static int _sbnmax2 = 0;
+static int _new_level_blocks = -1;
 
 static int rec_cascade = 0;
 static double cas_accuracy = EPS4;
@@ -175,6 +176,7 @@ int InitCRM(void) {
   ion0.nionized = 0;
   ion0.energy = NULL;
   ion0.atom = 0;
+  ion0.ei = 0.0;
   ion0.atr = ion0.ace = ion0.aci = ion0.arr = ion0.aai = ion0.acx = -1;
 
   ions = (ARRAY *) malloc(sizeof(ARRAY));
@@ -921,6 +923,12 @@ int SingleLevelBlock(int i, int nb, int nmx, int qmx) {
   return 0;
 }
 
+int NewLevelBlock(int i, int nb, NCOMPLEX *nc1, NCOMPLEX *nc0) {
+  if (_new_level_blocks < 0) return CompareNComplex(nc1, nc0);
+  if (nb >= _new_level_blocks) return i == 0;
+  return CompareNComplex(nc1, nc0);
+}
+
 int SetBlocks(double ni, char *ifn) {
   ION *ion, *ion1 = NULL;
   F_HEADER fh;
@@ -1174,7 +1182,7 @@ int SetBlocks(double ni, char *ifn) {
 	      CopyNComplex(blk.ncomplex, ncomplex);
 	      blkp = ArrayAppend(blocks, &blk, InitBlockData);
 	      q = -1;
-	    } else if (CompareNComplex(ncomplex, blk.ncomplex)) {
+	    } else if (NewLevelBlock(i, nb0, ncomplex, blk.ncomplex)) {
 	      if (blkp) {
 		if (blkp->nlevels > nlevels) {
 		  blkp->n = (double *) ReallocNew(blkp->n, 
@@ -1298,7 +1306,7 @@ int SetBlocks(double ni, char *ifn) {
 	  CopyNComplex(blk.ncomplex, ncomplex);
 	  blkp = ArrayAppend(blocks, &blk, InitBlockData);
 	  q = -1;
-	} else if (CompareNComplex(ncomplex, blk.ncomplex)) {
+	} else if (NewLevelBlock(i, nb, ncomplex, blk.ncomplex)) {
 	  if (blkp) {
 	    if (blkp->nlevels > nlevels) {
 	      blkp->n = (double *) ReallocNew(blkp->n, 
@@ -4095,7 +4103,11 @@ int LevelPopulation(void) {
   double d, c;
 
   if (!_silent) {
-    printf("Population Iteration:\n");
+    if (ProcID() >= 0) {
+      printf("pid=%06d Population Iteration:\n", ProcID());
+    } else {
+      printf("Population Iteration:\n");
+    }
   }
   d = 10.0;
   c = 1.0;
@@ -4110,7 +4122,7 @@ int LevelPopulation(void) {
     wt1 = WallTime();
     if (!_silent) {
       if (ProcID() >= 0) {
-	printf("%6d %5d %11.4E %11.4E %11.4E %11.4E\n",
+	printf("pid=%06d %5d %11.4E %11.4E %11.4E %11.4E\n",
 	       ProcID(), i, d, wt1-wt0, wt1-wt00, TotalSize());
       } else {
 	printf("%5d %11.4E %11.4E %11.4E %11.4E\n",
@@ -4125,7 +4137,7 @@ int LevelPopulation(void) {
   if (_silent < 2) {
     if (i == max_iter) {
       if (ProcID() >= 0) {
-	printf("%6d max iteration reached %d\n", ProcID(), i);
+	printf("pid=%06d max iteration reached %d\n", ProcID(), i);
       } else {
 	printf("max iteration reached %d\n", i);
       }
@@ -4945,6 +4957,8 @@ int AddRate(ION *ion, ARRAY *rts, RATE *r, int m, int **irb) {
   BLK_RATE *brt, brt0;
   RATE *r0;
   int i, rbks;
+  double drbks;
+  
   if (r->dir <= 0 && r->inv <= 0 && m <= 1) return 1;
   ib = ion->iblock[r->i];
   fb = ion->iblock[r->f];
@@ -4979,8 +4993,9 @@ int AddRate(ION *ion, ARRAY *rts, RATE *r, int m, int **irb) {
       irb[ib->ib][fb->ib] = rts->dim;
     }
     brt0.rates = (ARRAY *) malloc(sizeof(ARRAY));
-    rbks = ib->nlevels*fb->nlevels;
-    if (rbks > _rates_block) rbks = _rates_block;
+    drbks = ((double)(ib->nlevels))*((double)(fb->nlevels));
+    if (drbks > _rates_block) rbks = _rates_block;
+    else rbks = (int)(drbks);
     ArrayInit(brt0.rates, sizeof(RATE), rbks);
     ArrayAppend(brt0.rates, r, NULL);
     ArrayAppend(rts, &brt0, InitBlkRateData);    
@@ -5533,11 +5548,19 @@ int SetCERates(int inv) {
 	data = _ce_data;
 	y = data + 2;
 	x = y + m1;
-	data[0] = (h.te0*HARTREE_EV + bte)/bms;
-	for (j = 0; j < m; j++) {
-	  x[j] = log((data[0] + eusr[j]*HARTREE_EV)/data[0]);
+	if (h.tegrid[0] < 0) {
+	  data[0] = -1.0;
+	  for (j = 0; j < m; j++) {
+	    x[j] = log(1 + eusr[j]);
+	  }
+	  x[m] = eusr[m-1]/(1+eusr[m-1]);
+	} else {
+	  data[0] = (h.te0*HARTREE_EV + bte)/bms;
+	  for (j = 0; j < m; j++) {
+	    x[j] = log((data[0] + eusr[j]*HARTREE_EV)/data[0]);
+	  }	  
+	  x[m] = eusr[m-1]/(data[0]/HARTREE_EV+eusr[m-1]);
 	}
-	x[m] = eusr[m-1]/(data[0]/HARTREE_EV+eusr[m-1]);
       }
       nrb = Min(NRTB, h.ntransitions);
       jb = 0;
@@ -5616,11 +5639,19 @@ int SetCERates(int inv) {
 	  data = _ce_data;
 	  y = data + 2;
 	  x = y + m1;
-	  data[0] = (h.te0*HARTREE_EV + bte)/bms;
-	  for (j = 0; j < m; j++) {
-	    x[j] = log((data[0] + eusr[j]*HARTREE_EV)/data[0]);
+	  if (h.tegrid[0] < 0) {
+	    data[0] = -1.0;
+	    for (j = 0; j < m; j++) {
+	      x[j] = log(1 + eusr[j]);
+	    }
+	    x[m] = eusr[m-1]/(1+eusr[m-1]);
+	  } else {
+	    data[0] = (h.te0*HARTREE_EV + bte)/bms;
+	    for (j = 0; j < m; j++) {
+	      x[j] = log((data[0] + eusr[j]*HARTREE_EV)/data[0]);
+	    }	  
+	    x[m] = eusr[m-1]/(data[0]/HARTREE_EV+eusr[m-1]);
 	  }
-	  x[m] = eusr[m-1]/(data[0]/HARTREE_EV+eusr[m-1]);
 	}
 	nrb = Min(NRTB, h.ntransitions);
 	jb = 0;
@@ -6169,7 +6200,7 @@ int SetRRRates(int inv) {
 	      j1 = ion->j[r[jb].f];
 	      j2 = ion->j[r[jb].b];
 	      e = ion->energy[r[jb].f] - ion->energy[r[jb].b];
-	      data[0] = 3.5 + r[jb].kl;
+	      data[0] = 3.5 + (r[jb].kl%1000);
 	      if (e < 0.0) {
 		MPrintf(-1, "%d %d %10.3E %10.3E\n",
 			r[jb].f, r[jb].b,
@@ -6178,7 +6209,11 @@ int SetRRRates(int inv) {
 	      }
 	      cs = r[jb].strength;
 	      for (j = 0; j < m; j++) {
-		x[j] = (e+eusr[j])/e;
+		if (h.tegrid[0] < 0) {
+		  x[j] = 1 + eusr[j];
+		} else {
+		  x[j] = (e+eusr[j])/e;
+		}
 		logx[j] = log(x[j]);
 		y[j] = log(cs[j]);
 	      }
@@ -6495,12 +6530,22 @@ int DRBranch(void) {
 	blk1->n[m] = 0.0;
       }
     }
-    printf("%5d %11.4E\n", i, d);
+    if (!_silent) {
+      if (ProcID() >= 0) {
+	printf("pid=%06d %5d %11.4E\n", ProcID(), i, d);
+      } else {
+	printf("%5d %11.4E\n", i, d);
+      }
+    }
     if (d < iter_accuracy) break;
   }
 
   if (i == max_iter) {
-    printf("Max iteration reached in DRBranch\n");
+    if (ProcID() >= 0) {
+      printf("pid=%06d Max iteration reached in DRBranch\n", ProcID());
+    } else {
+      printf("Max iteration reached in DRBranch\n");
+    }
   }
 
   return 0;
@@ -7720,6 +7765,10 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
     _lblock_block = ip;
     return;
   }
+  if (0 == strcmp(s, "crm:new_level_blocks")) {
+    _new_level_blocks = ip;
+    return;
+  }
 }
 
 void FreeLineRec(LINEREC *r) {
@@ -8739,7 +8788,7 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
   int nk, ni, na, nb, p, i, ntd, m, vn, nkk, nii, nki, nbi, nr, s, n, ib;
   int it, id, ilo, iup, j0, nce, nci, nrr, ndr, nre, nea, kg, ig, n1;
   double dt, dd, rdt, rdd, *ra, *ra0, ek, ei, de, te, mp[3], br, rt, x;
-  double **wr, *drs;
+  double **wr, *drs, eii;
   int *nbai, *nbtr, ncap, mdr, mea, mdrea;
   RATE *r, **bai, **btr;
   BLK_RATE *brts;
@@ -8799,10 +8848,19 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
   rh.nde = nd;
   rh.dte = dt;
   rh.dde = dd;
-  
+
+  ek = 0.0;
+  ei = 0.0;
   for (p = 0; p < ions->dim; p++) {
     ion = (ION *) ArrayGet(ions, p);    
     if (ion->nele < k0 || ion->nele > k1) continue;
+    if (p == 0) {
+      if (ion->nele > 1) {
+	eii = GroundEnergy(ion->nele-2)-GroundEnergy(ion->nele-1);
+      }
+    } else {
+      eii = ei-ek;
+    }
     nk = 0;
     ni = 0;
     na = 0;
@@ -8818,6 +8876,7 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
       ei = 0;
     }
     j0 = ion->j[ion->ground];
+    printf("ipt: %d %g %g\n", ion->nele, ei-ek, eii);
     for (i = 0; i < ion->nlevels; i++) {
       vn = ion->vnl[i]/100;
       if (ion->nk[i] == ion->nele) {
@@ -8831,7 +8890,8 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
 	  na++;
 	}
       } else {
-	if (vn <= nexc) {
+	if (vn <= nexc &&
+	    (eii <= 0 || (ion->energy[i]-ei) < eii)) {
 	  ni++;
 	}
       }
@@ -8878,7 +8938,8 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
 	}
 	if (ion->energy[i] > ei && vn > n1) n1 = vn;
       } else {
-	if (vn <= nexc) {
+	if (vn <= nexc &&
+	    (eii <= 0 || (ion->energy[i]-ei) < eii)) {
 	  ii[ni] = i;
 	  ni++;
 	}
@@ -8886,10 +8947,10 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
     }
     if (nk > 0) {
       InitIdxAry(&iad, nk, ik);
-      kg = IdxGet(&iad, ion->ground);
     }
     if (nb > 0) {
       InitIdxAry(&ibd, nb, io);
+      kg = IdxGet(&ibd, ion->ground);
     }
     if (ni > 0) {
       InitIdxAry(&iid, ni, ii);
@@ -8939,8 +9000,10 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
       ir[RC_EA] = nr;
       nr += nbi;
     }
-    printf("irs: %d %d %d %d %d %d\n",
-	   ir[RC_CE], ir[RC_CI], ir[RC_RR], ir[RC_DR], ir[RC_RE], ir[RC_EA]);
+    printf("irs: %d %d %d %d %d %d %d %d %d %d %d %d\n",
+	   ion->nele, nr, nk, nb, na, ni,
+	   ir[RC_CE], ir[RC_CI], ir[RC_RR],
+	   ir[RC_DR], ir[RC_RE], ir[RC_EA]);
     wr = malloc(sizeof(double *)*nr);
     for (i = 0; i < nr; i++) {
       wr[i] = NULL;
@@ -9172,7 +9235,8 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
       te *= rdt;
     }
 
-    printf("nrs: %d %d %d %d %d %d\n", nce, nci, nrr, ndr, nre, nea);
+    printf("nrs: %d %d %d %d %d %d %d %d\n",
+	   ion->nele, nce, nci, nrr, ndr, nre, nea, mdrea);
     rh.nele = ion->nele;
     if (nce) {
       rh.type = RC_CE;
@@ -9321,8 +9385,9 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
 	      x = ra[it];
 	      x *= ion->j[ibd.d[ilo]]+1.0;
 	      x /= ion->j[iid.d[iup]]+1.0;
-	      x *= exp(de/te);
-	      x *= 1.64156e-12*pow(te, -1.5);
+	      if (x > 0) {
+		x = exp(log(x) + de/te + log(1.64156e-12) - 1.5*log(te));
+	      }
 	      rc.rc[ntd+it] = x;
 	      te *= rdt;
 	    }

@@ -110,7 +110,7 @@ typedef struct _IONIZED_ {
   int *ionized_map[2];
   int imin[2], imax[2];
   double *energy;
-  double n, nt, n0;
+  double n, nt, n0, ei;
   double ace, atr, aci, arr, aai, acx;
 } IONIZED;
 

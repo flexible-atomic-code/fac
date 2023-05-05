@@ -171,6 +171,8 @@ double InterpFermiNR(int m, double u);
 double BoundFactor(double e, double eth, double de, int mps);
 double DrRho(POTENTIAL *p, int i, double x);
 double RadRho(POTENTIAL *p, int i, double x);
+int FirstMaximum(double *p, int i1, int i2, POTENTIAL *pot);
+int LastMaximum(double *p, int i1, int i2, POTENTIAL *pot);
 #endif
 
 

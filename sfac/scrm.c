@@ -1001,6 +1001,17 @@ static int PSetCXLDist(int argc, char *argv[], int argt[],
   }
   return 0;
 }
+	    
+static int PMemENTable(int argc, char *argv[], int argt[], 
+		       ARRAY *variables) {
+
+  if (argc != 1) return -1;
+  if (argt[0] != STRING) return -1;
+
+  MemENTable(argv[0]);
+
+  return 0;
+}
 
 static int PRateCoefficients(int argc, char *argv[], int argt[], 
 			     ARRAY *variables) {  
@@ -1088,6 +1099,7 @@ static METHOD methods[] = {
   {"SetStarkZMP", PSetStarkZMP, METH_VARARGS},
   {"SetOption", PSetOption, METH_VARARGS},
   {"SetCXLDist", PSetCXLDist, METH_VARARGS},
+  {"MemENTable", PMemENTable, METH_VARARGS},
   {"RateCoefficients", PRateCoefficients, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
@@ -1105,18 +1117,7 @@ int main(int argc, char *argv[]) {
 
   SetModName("crm");
 
-  if (argc == 1) {
-    EvalFile(stdin, 1, methods);
-  } else {
-    for (i = 1; i < argc; i++) {
-      f = fopen(argv[i], "r");
-      if (!f) {
-	printf("Cannot open file %s, Skipping\n", argv[i]);
-	continue;
-      }
-      EvalFile(f, 0, methods);
-    }
-  }
+  ParseArgs(argc, argv, methods);
 
 #if PMALLOC_CHECK == 1
   pmalloc_check();

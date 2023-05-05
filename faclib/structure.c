@@ -4375,6 +4375,7 @@ int ConstructLevelName(char *name, char *sname, char *nc,
   n0 = 0;
   kl0= -1;
   nq0 = 0;
+  
   for (i = c->n_shells-1; i >= 0; i--) {
     UnpackShell(c->shells+i, &n, &kl, &j, &nq);
     n = abs(n);
@@ -4418,8 +4419,8 @@ int ConstructLevelName(char *name, char *sname, char *nc,
       if (n == n0 && kl == kl0) {
 	nq0 += nq;
       } else {
-	if (nq0 > 0 && nq0 <= 2*(2*kl0+1) &&
-	    !IsClosedShellNR(n0, kl0, nq0, full_name)) {
+	if ((nq0 > 0 && nq0 <= 2*(2*kl0+1) &&
+	     !IsClosedShellNR(n0, kl0, nq0, full_name))) {
 	  SpecSymbol(symbol, kl0);
 	  if (sname[0]) {
 	    sprintf(ashell, ".%1d%s%1d", n0, symbol, nq0);

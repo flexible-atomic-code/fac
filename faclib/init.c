@@ -49,6 +49,8 @@ double AMU;
 double FINE_STRUCTURE_CONST;
 double FINE_STRUCTURE_CONST2;
 
+static int _utagrid = 1;
+
 int Info(void) {
   printf("========================================\n");
   printf("The Flexible Atomic Code (FAC)\n");
@@ -205,7 +207,7 @@ int ReinitFac(int m_config, int m_recouple, int m_radial,
   return 0;
 }
 
-void SetOption(char *s, char *sp, int ip, double dp) {
+void SetOption(char *s, char *sp, int ip, double dp) {    
   if (strstr(s, "dbase:") == s) {
     SetOptionDBase(s, sp, ip, dp);
     return;
@@ -254,5 +256,14 @@ void SetOption(char *s, char *sp, int ip, double dp) {
     SetOptionConfig(s, sp, ip, dp);
     return;
   }
+  
+  if (strcmp("global:utagrid", s) == 0) {
+    _utagrid = ip;
+    return;
+  }
   return;
+}
+
+int UTAGrid(void) {
+  return _utagrid;
 }

@@ -130,5 +130,7 @@ extern FILE *debug_log;
 extern FILE *perform_log;
 #endif
 
+int UTAGrid(void);
+
 #endif
 

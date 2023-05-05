@@ -204,7 +204,7 @@ class AA:
 
     def rpot(self, pref, cfg=None, header=None):
         fn = '%s.pot'%pref
-        return rfac.read_pot(fn)
+        return rfac.read_pot(fn, cfg=cfg, header=header)
 
     def wden(self, pref, nr, ofn, rmin=None):
         hd = self.rden(pref, header='')

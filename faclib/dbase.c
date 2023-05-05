@@ -55,6 +55,7 @@ static int mem_en_table_size = 0;
 static EN_SRECORD *mem_enf_table = NULL;
 static int mem_enf_table_size = 0;
 static int iground;
+static double _eground[200];
 static int iuta = 0;
 static int utaci = 1;
 static int euta = 0;
@@ -73,7 +74,8 @@ static FORM_FACTOR bform = {0.0, -1, NULL, NULL, NULL};
 
 static IDXMAP _idxmap = {0, 0, 0, NULL};
 static double _cmpetol = 0.25;
-static double _cmpnbm = 1;
+static double _cmpnbm = -1;
+static int _remove_closed = 0;
 static int _ncombex[N_ELEMENTS1];
 static char **_pcombex[N_ELEMENTS1];
 static char _scombex[N_ELEMENTS1][2048];
@@ -758,6 +760,7 @@ int InitDBase(void) {
   mem_enf_table = NULL;
   mem_enf_table_size = 0;
   iground = 0;
+  for (i = 0; i < 200; i++) _eground[i] = 0.0;
   itrf = 0;
 
   if (_idxmap.imap == NULL) {
@@ -813,6 +816,7 @@ int ReinitDBase(int m) {
     return InitDBase();
   } else {
     iground = 0;
+    for (i = 0; i < 200; i++) _eground[i] = 0.0;
     itrf = 0;
     if (m > NDB) return -1;
     i = m-1;
@@ -2632,8 +2636,94 @@ int ReadENRecord(TFILE *f, EN_RECORD *r, int swp) {
     RSF1(r->name, sizeof(char), LNAME);    
   }
   if (swp) SwapEndianENRecord(r);
-  
+
+  if (r->j < 0) iuta = 1;
+  else iuta = 0;
+  if (_remove_closed) RemoveClosedShell(r);
   return m;
+}
+
+void RemoveClosedShell(EN_RECORD *r) {
+  int ns, n, i, j, q, ic[16];
+  char *s, b[LNAME], *c, *p, *d;
+  
+  p = r->ncomplex;
+  strncpy(b, r->ncomplex, LNCOMPLEX);
+  ns = StrSplit(b, '.');
+  s = b;
+  j = 0;
+  n = 0;
+  for (i = 0; i < 16; i++) ic[i] = 0;
+  for (i = 0; i < ns; i++) {
+    while (*s == ' ' || *s == '\t') s++;
+    c = s;
+    d = s;
+    while (*s != '*') s++;
+    s++;
+    n = atoi(c);
+    q = atoi(s);
+    if (q < 2*n*n) {
+      while (*c) {
+	p[j++] = *(c++);
+      }
+      p[j++] = '.';
+    } else {
+      ic[n-1] = 1;
+    }
+    while (*s) s++;
+    s++;
+  }
+  if (j > 0) p[j-1] = '\0';
+  else {
+    if (n == 0) p[j] = '\0';
+    else {
+      ic[n-1] = 0;
+      while (*d) {
+	p[j++] = *(d++);
+      }
+      p[j] = '\0';
+    }
+  }    
+  
+  p = r->sname;
+  strncpy(b, r->sname, LSNAME);
+  ns = StrSplit(b, '.');
+  s = b;
+  j = 0;
+  for (i = 0; i < ns; i++) {
+    while (*s == ' ' || *s == '\t') s++;
+    n = atoi(s);
+    if (ic[n-1] == 0) {
+      while (*s) {
+	p[j++] = *(s++);
+      }
+      p[j++] = '.';
+    }
+    while (*s) s++;
+    s++;
+  }
+  if (j > 0) p[j-1] = '\0';
+  else p[j] = '\0';
+  
+  p = r->name;
+  strncpy(b, r->name, LNAME);
+  ns = StrSplit(b, '.');
+  s = b;
+  j = 0;
+  for (i = 0; i < ns; i++) {
+    while (*s == ' ' || *s == '\t') s++;
+    n = atoi(s);
+    if (ic[n-1] == 0) {
+      while (*s) {
+	p[j++] = *(s++);
+      }
+      p[j++] = '.';
+    }
+    while (*s) s++;
+    s++;
+  }
+  if (j > 0) p[j-1] = '\0';
+  else p[j] = '\0';
 }
 
 int ReadENFRecord(TFILE *f, ENF_RECORD *r, int swp) {
@@ -3881,7 +3971,8 @@ int PrintTable(char *ifn, char *ofn, int v0) {
   F_HEADER fh;
   TFILE *f1;
   FILE *f2;
-  int n, swp, v, vs;
+  char tfn[1024];
+  int n, swp, v, vs, i;
 
   f1 = FOPEN(ifn, "r");
   if (f1 == NULL) return -1;
@@ -3916,6 +4007,10 @@ int PrintTable(char *ifn, char *ofn, int v0) {
 	f1 = FOPEN(ifn, "r");
 	n = ReadFHeader(f1, &fh, &swp);
       } else {
+	ConstructFileNameEN(ifn, tfn);
+	MemENTable(tfn);
+      }
+      if (mem_en_table == NULL) {
 	printf("Energy table has not been built in memory.\n");
 	goto DONE;
       }
@@ -3930,6 +4025,10 @@ int PrintTable(char *ifn, char *ofn, int v0) {
 	f1 = FOPEN(ifn, "r");
 	n = ReadFHeader(f1, &fh, &swp);
       } else {
+	ConstructFileNameEN(ifn, tfn);
+	MemENFTable(tfn);
+      }
+      if (mem_enf_table == NULL) {
 	printf("Field dependent energy table has not been built in memory.\n");
 	goto DONE;
       }
@@ -4148,7 +4247,7 @@ int FindLevelByName(char *fn, int nele, char *nc, char *cnr, char *cr) {
   FCLOSE(f);
   return -1;
 }
-      
+
 int LevelInfor(char *fn, int ilev, EN_RECORD *r0) {
   F_HEADER fh;  
   EN_HEADER h;
@@ -4249,7 +4348,52 @@ EN_SRECORD *GetMemENTable(int *s) {
   return mem_en_table;
 }
 
+void ConstructFileNameEN(char *ifn, char *tfn) {
+  int i, n;
+
+  n = strlen(ifn);
+  n = Min(n, 1024);
+  i = 0;
+  while (i < n && ifn[i]) {
+    tfn[i] = ifn[i];
+    if (ifn[i] == '.') {
+      tfn[i+1] = 'e';
+      tfn[i+2] = 'n';
+      tfn[i+3] = '\0';
+      break;
+    }
+    i++;
+  }
+}
+
+EN_SRECORD *GetOrLoadMemENTable(int *s, char *fn) {
+  char efn[1024];
+  if (mem_en_table && mem_en_table_size > 0) {
+    *s = mem_en_table_size;
+    return mem_en_table;
+  }
+  *s = 0;
+  if (fn == NULL) return NULL;
+  ConstructFileNameEN(fn, efn);
+  MemENTable(efn);
+  *s = mem_en_table_size;
+  return mem_en_table;
+}
+
 EN_SRECORD *GetMemENFTable(int *s) {
+  *s = mem_enf_table_size;
+  return mem_enf_table;
+}
+
+
+EN_SRECORD *GetOrLoadMemENFTable(int *s, char *fn) {
+  char efn[1024];
+  if (mem_enf_table && mem_enf_table_size > 0) {
+    *s = mem_enf_table_size;
+    return mem_enf_table;
+  }
+  ConstructFileNameEN(fn, efn);
+  MemENFTable(efn);
   *s = mem_enf_table_size;
   return mem_enf_table;
 }
@@ -4311,6 +4455,7 @@ int MemENTableWC(char *fn, int k0, int *ifk, short ***nc) {
   mem_en_table = (EN_SRECORD *) malloc(sizeof(EN_SRECORD)*nlevels);
   mem_en_table_size = nlevels;
 
+  for (i = 0; i < 200; i++) _eground[i] = 0.0;
   e0 = 0.0;
   if (version_read[DB_EN-1] < 109) {
     FSEEK(f, sizeof(F_HEADER), SEEK_SET);
@@ -4327,6 +4472,7 @@ int MemENTableWC(char *fn, int k0, int *ifk, short ***nc) {
 	e0 = r.energy;
 	iground = r.ilev;
       }
+      if (r.energy < _eground[h.nele]) _eground[h.nele] = r.energy;
       mem_en_table[r.ilev].energy = r.energy;
       mem_en_table[r.ilev].p = r.p;
       mem_en_table[r.ilev].j = JFromENRecord(&r);
@@ -4358,6 +4504,10 @@ int MemENTableWC(char *fn, int k0, int *ifk, short ***nc) {
   FCLOSE(f);
   return 0;
 }    
+
+double GroundEnergy(int k) {
+  return _eground[k];
+}
 
 int MemENFTable(char *fn) {
   F_HEADER fh;  
@@ -4753,7 +4903,7 @@ int PrintCETable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
   int n, i, t, nb, nh;
   int m, k, p1, p2;
   float a, e;
-  double bte, bms, be;
+  double bte, bms, be, eu;
 
   nb = 0;
   BornFormFactorTE(&bte);
@@ -4772,7 +4922,7 @@ int PrintCETable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     fprintf(f2, "NTEGRID\t= %d\n", h.n_tegrid);
 
     for (i = 0; i < h.n_tegrid; i++) {
-      if (v) {
+      if (v && h.tegrid[0] >= 0) {
 	fprintf(f2, "\t %15.8E\n", h.tegrid[i]*HARTREE_EV);
       } else {
 	fprintf(f2, "\t %15.8E\n", h.tegrid[i]);
@@ -4782,7 +4932,7 @@ int PrintCETable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     fprintf(f2, "ETYPE\t= %d\n", h.egrid_type);
     fprintf(f2, "NEGRID\t= %d\n", h.n_egrid);
     for (i = 0; i < h.n_egrid; i++) {
-      if (v) {
+      if (v && h.tegrid[0] >= 0) {
 	fprintf(f2, "\t %15.8E\n", h.egrid[i]*HARTREE_EV);
       } else {
 	fprintf(f2, "\t %15.8E\n", h.egrid[i]);
@@ -4791,7 +4941,7 @@ int PrintCETable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     fprintf(f2, "UTYPE\t= %d\n", h.usr_egrid_type);
     fprintf(f2, "NUSR\t= %d\n", h.n_usr);
     for (i = 0; i < h.n_usr; i++) {
-      if (v) {
+      if (v && h.tegrid[0] >= 0) {
 	fprintf(f2, "\t %15.8E\n", h.usr_egrid[i]*HARTREE_EV);
       } else {
 	fprintf(f2, "\t %15.8E\n", h.usr_egrid[i]);
@@ -4851,15 +5001,16 @@ int PrintCETable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 	}
 	for (t = 0; t < h.n_usr; t++) {
 	  if (v) {
-	    a = h.usr_egrid[t];
+	    eu = h.usr_egrid[t];
+	    if (h.tegrid[0] < 0) eu *= be;
+	    a = eu;
 	    if (h.usr_egrid_type == 1) a += be;
 	    a *= 2.0*(1.0 + 0.5*FINE_STRUCTURE_CONST2 * a);
 	    a = PI * AREA_AU20/a;
 	    if (!h.msub) a /= (mem_en_table[r.lower].j+1.0);
 	    a *= r.strength[p2];
 	    fprintf(f2, "%11.4E %11.4E %11.4E\n",
-		    h.usr_egrid[t]*HARTREE_EV,
-		    r.strength[p2], a);
+		    eu*HARTREE_EV, r.strength[p2], a);
 	  } else {
 	    fprintf(f2, "%11.4E %11.4E\n", h.usr_egrid[t], r.strength[p2]);
 	  }
@@ -5349,7 +5500,7 @@ int PrintRRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
   RR_RECORD r;
   int n, i, t;
   int nb, nh, k, m;
-  float e, eph, ee, phi, rr;
+  float e, eph, ee, phi, rr, eu;
 
   nb = 0;
   while (1) {
@@ -5364,7 +5515,7 @@ int PrintRRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     fprintf(f2, "NPARAMS\t= %d\n", h.nparams);
     fprintf(f2, "NTEGRID\t= %d\n", h.n_tegrid);
     for (i = 0; i < h.n_tegrid; i++) {
-      if (v) {
+      if (v && h.tegrid[0] >= 0) {
 	fprintf(f2, "\t %15.8E\n", h.tegrid[i]*HARTREE_EV);
       } else {
 	fprintf(f2, "\t %15.8E\n", h.tegrid[i]);
@@ -5373,7 +5524,7 @@ int PrintRRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     fprintf(f2, "ETYPE\t= %d\n", h.egrid_type);
     fprintf(f2, "NEGRID\t= %d\n", h.n_egrid);
     for (i = 0; i < h.n_egrid; i++) {
-      if (v) {
+      if (v && h.tegrid[0] >= 0) {
 	fprintf(f2, "\t %15.8E\n", h.egrid[i]*HARTREE_EV);
       } else {
 	fprintf(f2, "\t %15.8E\n", h.egrid[i]);
@@ -5382,7 +5533,7 @@ int PrintRRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     fprintf(f2, "UTYPE\t= %d\n", h.usr_egrid_type);
     fprintf(f2, "NUSR\t= %d\n", h.n_usr);
     for (i = 0; i < h.n_usr; i++) {
-      if (v) {
+      if (v && h.tegrid[0] >= 0) {
 	fprintf(f2, "\t %15.8E\n", h.usr_egrid[i]*HARTREE_EV);
       } else {
 	fprintf(f2, "\t %15.8E\n", h.usr_egrid[i]);
@@ -5415,14 +5566,22 @@ int PrintRRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
       if (n == 0) break;
 
       if (v) {
-	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
-	fprintf(f2, "%6d %2d %6d %2d %11.4E %2d\n",
-		r.b, mem_en_table[r.b].j, 
-		r.f, mem_en_table[r.f].j,
-		(e*HARTREE_EV), r.kl);
-	
+	if (r.f >= 0) {
+	  e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
+	  fprintf(f2, "%6d %2d %6d %2d %11.4E %6d\n",
+		  r.b, mem_en_table[r.b].j, 
+		  r.f, mem_en_table[r.f].j,
+		  (e*HARTREE_EV), r.kl);
+	} else {
+	  e = (double)(*((float *) &r.kl));
+	  r.kl = -r.f;
+	  fprintf(f2, "%6d %2d %6d %2d %11.4E %6d\n",
+		  r.b, mem_en_table[r.b].j, 
+		  r.f, -1,
+		  (e*HARTREE_EV), r.kl);
+	}
       } else {
-	fprintf(f2, "%6d %6d %2d\n", r.b, r.f, r.kl);
+	fprintf(f2, "%6d %6d %6d\n", r.b, r.f, r.kl);
       }
       
       if (h.qk_mode == QK_FIT) {
@@ -5440,9 +5599,13 @@ int PrintRRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 	if (v) {
 	  if (h.usr_egrid_type == 0) {
 	    eph = h.usr_egrid[t];
+	    if (h.tegrid[0] < 0) eph *= e;
+	    eu = eph;
 	    ee = eph - e;
 	  } else {
 	    ee = h.usr_egrid[t];
+	    if (h.tegrid[0] < 0) ee *= e;
+	    eu = ee;
 	    eph = ee + e;
 	  }
 	  phi = 2.0*PI*FINE_STRUCTURE_CONST*r.strength[t]*AREA_AU20;
@@ -5451,7 +5614,7 @@ int PrintRRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 	  phi /= (mem_en_table[r.b].j + 1.0);
 	  rr /= (mem_en_table[r.f].j + 1.0);
 	  fprintf(f2, "%11.4E %11.4E %11.4E %11.4E\n",
-		  h.usr_egrid[t]*HARTREE_EV, rr, phi, r.strength[t]);
+		  eu*HARTREE_EV, rr, phi, r.strength[t]);
 	} else {
 	  fprintf(f2, "%11.4E %11.4E\n", h.usr_egrid[t], r.strength[t]);
 	}
@@ -5703,7 +5866,7 @@ int PrintCITable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
   CI_RECORD r;
   int n, i, t;
   int nb, nh, m;
-  float e, a;
+  float e, a, e1;
   double bte, bms, be;
 
   nb = 0;
@@ -5722,7 +5885,7 @@ int PrintCITable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     fprintf(f2, "PWTYPE\t= %d\n", h.pw_type);
     fprintf(f2, "NTEGRID\t= %d\n", h.n_tegrid);
     for (i = 0; i < h.n_tegrid; i++) {      
-      if (v) {
+      if (v && h.tegrid[0] >= 0) {
 	fprintf(f2, "\t %15.8E\n", h.tegrid[i]*HARTREE_EV);
       } else {
 	fprintf(f2, "\t %15.8E\n", h.tegrid[i]);
@@ -5731,7 +5894,7 @@ int PrintCITable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     fprintf(f2, "ETYPE\t= %d\n", h.egrid_type);
     fprintf(f2, "NEGRID\t= %d\n", h.n_egrid);
     for (i = 0; i < h.n_egrid; i++) {
-      if (v) {
+      if (v && h.tegrid[0] >= 0) {
 	fprintf(f2, "\t %15.8E\n", h.egrid[i]*HARTREE_EV);
       } else {
 	fprintf(f2, "\t %15.8E\n", h.egrid[i]);
@@ -5740,7 +5903,7 @@ int PrintCITable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     fprintf(f2, "UTYPE\t= %d\n", h.usr_egrid_type);
     fprintf(f2, "NUSR\t= %d\n", h.n_usr);
     for (i = 0; i < h.n_usr; i++) {
-      if (v) {
+      if (v && h.tegrid[0] >= 0) {
 	fprintf(f2, "\t %15.8E\n", h.usr_egrid[i]*HARTREE_EV);
       } else {
 	fprintf(f2, "\t %15.8E\n", h.usr_egrid[i]);
@@ -5789,13 +5952,17 @@ int PrintCITable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
       be = (e + bte)/bms;
       for (t = 0; t < h.n_usr; t++) {
 	if (v) {
-	  a = h.usr_egrid[t];
+	  e1 = h.usr_egrid[t];
+	  if (h.tegrid[0] < 0) {
+	    e1 *= be;
+	  }
+	  a = e1;
 	  if (h.usr_egrid_type == 1) a += be;
 	  a *= 1.0 + 0.5*FINE_STRUCTURE_CONST2*a;
 	  a = AREA_AU20/(2.0*a*(mem_en_table[r.b].j + 1.0));
 	  a *= r.strength[t];
 	  fprintf(f2, "%11.4E %11.4E %11.4E\n",
-		  h.usr_egrid[t]*HARTREE_EV, r.strength[t], a);
+		  e1*HARTREE_EV, r.strength[t], a);
 	} else {
 	  fprintf(f2, "%11.4E %11.4E\n", h.usr_egrid[t], r.strength[t]);
 	}
@@ -6861,10 +7028,10 @@ int FindLevelBlock(int n0, EN_RECORD *r0, EN_RECORD **r1p,
 		   int nele, char *ifn) {
   F_HEADER fh;
   EN_HEADER h;
-  EN_RECORD g, *r1, *r0c;
+  EN_RECORD g, *r1, *r0r, *r0c, *r1r;
   TFILE *f;
   int i, k, j, jp, nr, nb, nb0, nv, ni, nj, n1;
-  int swp, sfh;
+  int swp, sfh, utalev;
   int mk0[1024], mk1[1024];
 
   *r1p = NULL;
@@ -6883,8 +7050,9 @@ int FindLevelBlock(int n0, EN_RECORD *r0, EN_RECORD **r1p,
     mk0[i] = -1;
     mk1[i] = -1;
   }
+  utalev = 0;
   for (i = 0; i < n0; i++) {
-    r0[i].j = JFromENRecord(&r0[i]);
+    if (r0[i].j < 0) utalev = 1;
     nv = abs(r0[i].p);    
     j = nv/100;
     nv = nv%100;
@@ -6893,8 +7061,15 @@ int FindLevelBlock(int n0, EN_RECORD *r0, EN_RECORD **r1p,
 
   n1 = 2*n0;
   r1 = malloc(sizeof(EN_RECORD)*n1);
+  r1r = malloc(sizeof(EN_RECORD)*n1);
   r0c = malloc(sizeof(EN_RECORD)*n0);
-  memcpy(r0c, r0, sizeof(EN_RECORD)*n0);
+  r0r = malloc(sizeof(EN_RECORD)*n0);
+  memcpy(r0r, r0, sizeof(EN_RECORD)*n0);
+  for (i = 0; i < n0; i++) {
+    RemoveClosedShell(&r0r[i]);
+    if (r0r[i].j < 0) r0r[i].j = 1;
+  }
+  memcpy(r0c, r0r, sizeof(EN_RECORD)*n0);
   int n0c = SortUniqNComplex(n0, r0c);
   
   k = 0;
@@ -6907,9 +7082,11 @@ int FindLevelBlock(int n0, EN_RECORD *r0, EN_RECORD **r1p,
     }
     for (i = 0; i < h.nlevels; i++) {
       nr = ReadENRecord(f, &r1[k], swp);
-      r1[k].j = JFromENRecord(&r1[k]);
+      memcpy(&r1r[k], &r1[k], sizeof(EN_RECORD));
+      RemoveClosedShell(&r1r[k]);
+      if (r1r[k].j < 0) r1r[k].j = 1;
       for (j = 0; j < n0c; j++) {
-	if (strcmp(r1[k].ncomplex, r0c[j].ncomplex) == 0) {
+	if (strcmp(r1r[k].ncomplex, r0c[j].ncomplex) == 0) {
 	  break;
 	}
       }
@@ -6924,34 +7101,42 @@ int FindLevelBlock(int n0, EN_RECORD *r0, EN_RECORD **r1p,
 	  if (k == n1) {
 	    n1 += n0;
 	    r1 = ReallocNew(r1, sizeof(EN_RECORD)*n1);
+	    r1r = ReallocNew(r1r, sizeof(EN_RECORD)*n1);
 	  }
 	}
       }
     }
-    if (k > 0 && nb-nb0+1 >= _cmpnbm) break;
+    if (_cmpnbm >= 0 && k > 0 && nb-nb0+1 >= _cmpnbm) break;
   }
 
   FCLOSE(f);
   free(r0c);
-
   if (n0 <= 0 || k <= 0) {
     *r1p = r1;
+    if (n0) free(r0r);
+    if (n1) free(r1r);
     return 0;
   }
   n1 = k;
-  if (iuta) {
-    qsort(r0, n0, sizeof(EN_RECORD), CompareENName);
-    qsort(r1, n1, sizeof(EN_RECORD), CompareENName);
+  for (i = 0; i < n0; i++) {
+    r0r[i].ilev = i;
+  }
+  for (i = 0; i < n1; i++) {
+    r1r[i].ilev = i;
+  }
+  if (utalev) {
+    qsort(r0r, n0, sizeof(EN_RECORD), CompareENName);
+    qsort(r1r, n1, sizeof(EN_RECORD), CompareENName);
     i = 0;
     j = 0;
     nr = 0;
-    while (i < n0 && j < n1) {
-      k = CompareENName(&r0[i], &r1[j]);
+    while (i < n0 && j < n1) {      
+      k = CompareENName(&r0r[i], &r1r[j]);
       if (k > 0) {
-	r1[j].j = -(r1[j].j+1);
+	r1r[j].j = -(r1r[j].j+1);
 	j++;	
       } else if (k < 0) {
-	r0[i].j = -(r0[i].j+1);
+	r0r[i].j = -(r0r[i].j+1);
 	i++;
       } else {
 	i++;
@@ -6959,98 +7144,98 @@ int FindLevelBlock(int n0, EN_RECORD *r0, EN_RECORD **r1p,
 	nr++;
       }
     }
-    for (; i < n0; i++) {
-      r0[i].j = -(r0[i].j+1);
+  } else {  
+    for (i = 0; i < 1024; i++) {
+      if (mk1[i] > mk0[i]) mk1[i] = mk0[i];
     }
-    for (; j < n1; j++) {
-      r1[j].j = -(r1[j].j+1);
+    int nk0 = 0;
+    for (i = 0; i < n0; i++) {
+      nv = abs(r0r[i].p);
+      j = nv/100;
+      nv = nv%100;
+      if (nv > mk1[j]) {
+	r0r[i].j = -(r0r[i].j+1);
+      } else {      
+	nk0++;
+      }
     }
-
-    qsort(r0, n0, sizeof(EN_RECORD), CompareENRecord);
-    qsort(r1, n1, sizeof(EN_RECORD), CompareENRecord);
-
-    *r1p = r1;
-    return nr;
-  }
-  
-  for (i = 0; i < 1024; i++) {
-    if (mk1[i] > mk0[i]) mk1[i] = mk0[i];
-  }
-  int nk0 = 0;
-  for (i = 0; i < n0; i++) {
-    nv = abs(r0[i].p);
-    j = nv/100;
-    nv = nv%100;
-    if (nv > mk1[j]) {
-      r0[i].j = -(r0[i].j+1);
-    } else {      
-      nk0++;
+    int nk1 = 0;
+    for (i = 0; i < n1; i++) {
+      nv = abs(r1r[i].p);
+      j = nv/100;
+      nv = nv%100;
+      if (nv > mk1[j]) {
+	r1r[i].j = -(r1r[i].j+1);
+      } else {
+	nk1++;
+      }
     }
-  }
-  int nk1 = 0;
-  for (i = 0; i < n1; i++) {
-    nv = abs(r1[i].p);
-    j = nv/100;
-    nv = nv%100;
-    if (nv > mk1[j]) {
-      r1[i].j = -(r1[i].j+1);
-    } else {
-      nk1++;
-    }
-  }
-  qsort(r0, n0, sizeof(EN_RECORD), CompareENRecord);
-  qsort(r1, n1, sizeof(EN_RECORD), CompareENRecord);
-
-  i = 0;
-  j = 0;
-  nr = 0;
-  while (i < nk0 && j < nk1) {
-    for (k = i+1; k < nk0; k++) {
-      if (r0[k].j != r0[i].j ||
-	  r0[k].p*r0[i].p < 0) break;
-    }
-    ni = k-i;
-    k = 0;
-    for (jp = j; jp < nk1; jp++) {
-      if (r1[jp].j < r0[i].j) break;
-      if (r1[jp].j == r0[i].j) {
-	if (r1[jp].p < 0 && r0[i].p > 0) break;
-	if (r1[jp].p*r0[i].p > 0) {
-	  k = 1;
-	  break;
+    qsort(r0r, n0, sizeof(EN_RECORD), CompareENRecord);
+    qsort(r1r, n1, sizeof(EN_RECORD), CompareENRecord);
+    
+    i = 0;
+    j = 0;
+    nr = 0;
+    while (i < nk0 && j < nk1) {
+      for (k = i+1; k < nk0; k++) {
+	if (r0r[k].j != r0r[i].j ||
+	    r0r[k].p*r0r[i].p < 0) break;
+      }
+      ni = k-i;
+      k = 0;
+      for (jp = j; jp < nk1; jp++) {
+	if (r1r[jp].j < r0r[i].j) break;
+	if (r1r[jp].j == r0r[i].j) {
+	  if (r1r[jp].p < 0 && r0r[i].p > 0) break;
+	  if (r1r[jp].p*r0r[i].p > 0) {
+	    k = 1;
+	    break;
+	  }
 	}
       }
-    }
-    if (k == 0) {
-      k = i+ni;
-      for (; i < k; i++) {
-	r0[i].j = -(r0[i].j+1);
+      if (k == 0) {
+	k = i+ni;
+	for (; i < k; i++) {
+	  r0r[i].j = -(r0r[i].j+1);
+	}
+	continue;
       }
-      continue;
+      for (; j < jp; j++) {
+	r1r[j].j = -(r1r[j].j+1);
+      }
+      for (k = j+1; k < nk1; k++) {
+	if (r1r[k].j != r1r[j].j ||
+	    r1r[k].p*r1r[j].p < 0) break;
+      }
+      nj = k-j;
+      nr += MatchLevelsPJ(ni, &r0r[i], nj, &r1r[j]);
+      i += ni;
+      j += nj;
     }
-    for (; j < jp; j++) {
-      r1[j].j = -(r1[j].j+1);
+    n0 = nk0;
+    n1 = nk1;
+  }
+  for (; i < n0; i++) {
+    r0r[i].j = -(r0r[i].j+1);
+  }
+  for (; j < n1; j++) {
+    r1r[j].j = -(r1r[j].j+1);
+  }  
+  qsort(r0r, n0, sizeof(EN_RECORD), CompareENRecord);
+  qsort(r1r, n1, sizeof(EN_RECORD), CompareENRecord);
+  if (utalev) {
+    for (i = 0; i < n1; i++) r1[i].j = -1;
+  }
+  if (nr > 0) {
+    for (i = 0; i < nr; i++) {
+      memcpy(&r0r[i], &r0[r0r[i].ilev], sizeof(EN_RECORD));
+      memcpy(&r1r[i], &r1[r1r[i].ilev], sizeof(EN_RECORD));
     }
-    for (k = j+1; k < nk1; k++) {
-      if (r1[k].j != r1[j].j ||
-	  r1[k].p*r1[j].p < 0) break;
-    }
-    nj = k-j;
-    nr += MatchLevelsPJ(ni, &r0[i], nj, &r1[j]);
-    i += ni;
-    j += nj;
+    memcpy(r0, r0r, sizeof(EN_RECORD)*nr);
+    memcpy(r1, r1r, sizeof(EN_RECORD)*nr);
   }
-
-  for (; i < nk0; i++) {
-    r0[i].j = -(r0[i].j+1);
-  }
-  for (; j < nk1; j++) {
-    r1[j].j = -(r1[j].j+1);
-  }
-
-  qsort(r0, nk0, sizeof(EN_RECORD), CompareENRecord);
-  qsort(r1, nk1, sizeof(EN_RECORD), CompareENRecord);
-
+  free(r0r);
+  free(r1r);
   *r1p = r1;
   return nr;
 }
@@ -7149,9 +7334,10 @@ void CombineDBase(char *pref, int k0, int k1, int nexc0, int ic) {
   RC_RECORD r6;
   char ext[7][3] = {"en", "tr", "ce", "rr", "ci", "ai", "rc"};
   int types[7] = {DB_EN, DB_TR, DB_CE, DB_RR, DB_CI, DB_AI, DB_RC};
-  TFILE *f0, *f1[7];
+  TFILE *f0, *fr, *f1[7];
   int swp, *im, *imp, **ima, nim, nk, nilevs, *nplevs, nth;
   double e0, e1, e0p, e1p, tde, *de, *ei, **eai;
+  float fde;
   int ilow2ph[3], iup2ph[3];
   double elow2ph[3], eup2ph[3];
   int nexc, ncap, nt, nd, ix, ibx, ifx, ib, cn0, cn1, cn2;
@@ -7257,6 +7443,8 @@ void CombineDBase(char *pref, int k0, int k1, int nexc0, int ic) {
       }
       nlevs += h0.nlevels;
     }
+    
+    printf("check levels: %d %d %s %d\n", z, k, ifn, nlevs);
     if (k < k1) {
       de[k-k0] = de[k+1-k0]+ (e1p - e0);
     }
@@ -7265,6 +7453,37 @@ void CombineDBase(char *pref, int k0, int k1, int nexc0, int ic) {
     ima[k-k0] = im;
     nplevs[k-k0] = nlevs;
     FCLOSE(f0);
+    for (i = 0; i < nlevs; i++) im[i] = 0;
+    sprintf(ifn, "%s%02db.rr", pref, k);
+    f0 = OpenFileRO(ifn, &fh, &swp);
+    if (f0 != NULL && fh.type == DB_RR) {
+      for (nb = 0; nb < fh.nblocks; nb++) {
+	n = ReadRRHeader(f0, &h3, swp);
+	if (n == 0) break;
+	for (i = 0; i < h3.ntransitions; i++) {
+	  n = ReadRRRecord(f0, &r3, swp, &h3);
+	  if (n == 0) break;
+	  im[r3.b]++;
+	  free(r3.params);
+	  free(r3.strength);
+	}
+      }
+    }
+    if (f0) FCLOSE(f0);
+    sprintf(ifn, "%s%02db.ai", pref, k);
+    f0 = OpenFileRO(ifn, &fh, &swp);
+    if (f0 != NULL && fh.type == DB_AI) {
+      for (nb = 0; nb < fh.nblocks; nb++) {
+	n = ReadAIHeader(f0, &h5, swp);
+	if (n == 0) break;
+	for (i = 0; i < h5.ntransitions; i++) {
+	  n = ReadAIRecord(f0, &r5, swp);
+	  if (n == 0) break;
+	  im[r5.b]++;
+	}
+      }
+    }
+    if (f0) FCLOSE(f0);
   }  
   for (k = k1; k >= k0; k--) {
     de[k-k0] -= de[0];
@@ -7291,7 +7510,8 @@ void CombineDBase(char *pref, int k0, int k1, int nexc0, int ic) {
     FCLOSE(f0);
     
     sprintf(ifn, "%s%02db.en", pref, k);
-    printf("rebuild level indices %d %d %s %d %d\n", z, k, ifn, nexc, ncap);
+    printf("rebuild level indices %d %d %s %d %d\n",
+	   z, k, ifn, nexc, ncap);
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 == NULL) {
       printf("cannot open file %s\n", ifn);
@@ -7305,7 +7525,13 @@ void CombineDBase(char *pref, int k0, int k1, int nexc0, int ic) {
     nlevs = nplevs[k-k0];
     im = ima[k-k0];
     nilevs = 0;
-    for (i = 0; i < nlevs; i++) im[i] = -1;
+    for (i = 0; i < nlevs; i++) {
+      if (im[i] > 0) {
+	im[i] = -1;
+      } else {
+	im[i] = -2;
+      }
+    }
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = ReadENHeader(f0, &h0, swp);
       if (n == 0) break;
@@ -7323,6 +7549,9 @@ void CombineDBase(char *pref, int k0, int k1, int nexc0, int ic) {
 	  }
 	  if ((nexc > 0 && vn > nexc) ||
 	      (ncap > 0 && vn > ncap && r0.energy > e1)) {
+	    continue;
+	  }
+	  if (im[r0.ilev] == -2) {
 	    continue;
 	  }
 	  im[r0.ilev] = clevs;
@@ -7489,10 +7718,14 @@ void CombineDBase(char *pref, int k0, int k1, int nexc0, int ic) {
   CloseFile(f1[0], &fh1[0]);
   sprintf(ifn, "%s%02d%02db.en", pref, k0, k1);
   MemENTableWC(ifn, k0, ifk, nc);
-
+  int mesize = mem_en_table_size;
+  EN_SRECORD *metable = malloc(sizeof(EN_SRECORD)*mesize);
+  memcpy(metable, mem_en_table, sizeof(EN_SRECORD)*mesize);
   for (k = k1; k >= k0; k--) {
     printf("processing %d %d\n", z, k);
     im = ima[k-k0];
+    sprintf(ifn, "%s%02db.en", pref, k);
+    MemENTable(ifn);
     sprintf(ifn, "%s%02db.tr", pref, k);
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 != NULL && fh.type == DB_TR) {
@@ -7574,29 +7807,26 @@ void CombineDBase(char *pref, int k0, int k1, int nexc0, int ic) {
 	InitFile(f1[3], &fh1[3], &h3);
 	for (i = 0; i < h3.ntransitions; i++) {
 	  n = ReadRRRecord(f0, &r3, swp, &h3);
+	  if (n == 0) break;
 	  ibx = r3.b;
 	  ifx = r3.f;
-	  if (n == 0) break;
-	  if (im[r3.b] >= 0 && im[r3.f] >= 0) {
-	    r3.b = im[r3.b];
-	    r3.f = im[r3.f];
-	    tde = mem_en_table[r3.f].energy - mem_en_table[r3.b].energy;
-	    /*
-	    double eh = 81.0*h3.egrid[h3.n_egrid-1];
-	    double x1 = (eh+r3.params[3])/r3.params[3];
-	    double y1 = (1+r3.params[2])/(sqrt(x1)+r3.params[2]);
-	    double tc = (-3.5-r3.kl+0.5*r3.params[1])*log(x1)+r3.params[1]*log(y1);
-	    if (r3.params[0] > 0) {
-	      tc = tc + log(r3.params[0]*(eh+tde)/(eh+r3.params[3]));
-	      tc = exp(tc);
-	      tc = 2.0*PI*FINE_STRUCTURE_CONST*tc*AREA_AU20*1e-20;
+	  if (im[r3.b] >= 0) {
+	    if (im[r3.f] >= 0) {
+	      r3.b = im[r3.b];
+	      r3.f = im[r3.f];
+	      tde = metable[r3.f].energy - metable[r3.b].energy;
+	      if (tde > 0) {
+		WriteRRRecord(f1[3], &r3);
+	      }
 	    } else {
-	      tc = 0.0;
-	    }
-	    if (tde > 0 && ((float)tc) > 0) {
-	    */
-	    if (tde > 0) {
-	      WriteRRRecord(f1[3], &r3);
+	      tde = mem_en_table[r3.f].energy - mem_en_table[r3.b].energy;
+	      if (tde > 0) {
+		r3.b = im[r3.b];
+		r3.f = -r3.kl;
+		fde = tde;
+		r3.kl = *((int *) &fde);
+		WriteRRRecord(f1[3], &r3);
+	      }
 	    }
 	  }
 	  free(r3.params);
@@ -7623,7 +7853,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc0, int ic) {
 	  if (im[r4.b] >= 0 && im[r4.f] >= 0) {
 	    r4.b = im[r4.b];
 	    r4.f = im[r4.f];
-	    tde = mem_en_table[r4.f].energy-mem_en_table[r4.b].energy;
+	    tde = metable[r4.f].energy-metable[r4.b].energy;
 	    if (tde > 0) {
 	      WriteCIRecord(f1[4], &r4);
 	    }
@@ -7652,7 +7882,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc0, int ic) {
 	  if (im[r5.b] >= 0 && im[r5.f] >= 0) {
 	    r5.b = im[r5.b];
 	    r5.f = im[r5.f];
-	    tde = mem_en_table[r5.b].energy - mem_en_table[r5.f].energy;
+	    tde = metable[r5.b].energy - metable[r5.f].energy;
 	    if (tde > 0 && r5.rate > 0) {
 	      WriteAIRecord(f1[5], &r5);
 	      if (k > k0 && k > 2 && _nc_iai > 0) {
@@ -7695,7 +7925,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc0, int ic) {
 	  if (im[r6.lower] >= 0 && im[r6.upper] >= 0) {
 	    r6.lower = im[r6.lower];
 	    r6.upper = im[r6.upper];
-	    tde = mem_en_table[r6.upper].energy - mem_en_table[r6.lower].energy;
+	    tde = metable[r6.upper].energy - metable[r6.lower].energy;
 	    if (tde > 0) {
 	      WriteRCRecord(f1[6], &r6);
 	    }
@@ -7723,7 +7953,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc0, int ic) {
 	InitFile(f1[5], &fh1[5], &h5); 
 	for (i = 0; i < nklevs[kk1]; i++) {
 	  j = i + ifk[kk1];
-	  ib = mem_en_table[j].ibase;
+	  ib = metable[j].ibase;
 	  if (ib >= 0) {
 	    d0 = pai[kk][ib-ifk[kk]][ia];
 	    if (!pai[kk1][i][ia] && d0) {
@@ -7768,6 +7998,7 @@ void CombineDBase(char *pref, int k0, int k1, int nexc0, int ic) {
   free(igk);
   free(ifk);
   free(egk);
+  free(metable);
   if (ic > 0) {
     n = ic;
     k = 0;
@@ -8201,8 +8432,16 @@ void SetOptionDBase(char *s, char *sp, int ip, double dp) {
     _cmpetol = dp;
     return;
   }
+  if (0 == strcmp(s, "dbase:cmpnbm")) {
+    _cmpnbm = ip;
+    return;
+  }  
   if (0 == strcmp(s, "dbase:inner_ai")) {
     SetInnerAI(sp);
+    return;
+  }
+  if (0 == strcmp(s, "dbase:remove_closed")) {
+    _remove_closed = ip;
     return;
   }
 }

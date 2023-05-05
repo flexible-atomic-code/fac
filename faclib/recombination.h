@@ -101,8 +101,8 @@ double AsymmetryPI(int k0, int k0p, double e, double te,
 		   int mp, int mx0, int *mx1,
 		   int m, double *b, double *pqa, double *pqa2);
 int SaveAsymmetry(char *fn, char *s, int mx, double te);
-int AIRadial1E(double *pk, int kb, int kappaf);
-int AIRadialPk(double **pk, int k0, int k1, int kb, int kappaf,
+int AIRadial1E(double *pk, int kb, int kappaf, double pe);
+int AIRadialPk(double **pk, double pe, int k0, int k1, int kb, int kappaf,
 	       int k, int trylock);
 int AutoionizeRateUTA(double *rate, double *e, int rec, int f);
 int AutoionizeRate(double *rate, double *e, int rec, int f, int msub);

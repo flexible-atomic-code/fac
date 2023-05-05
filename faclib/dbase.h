@@ -611,8 +611,11 @@ int FreeMemENTable(void);
 int MemENTable(char *fn);
 int MemENTableWC(char *fn, int k0, int *ifk, short ***nc);
 int MemENFTable(char *fn);
+void ConstructFileNameEN(char *ifn, char *efn);
 EN_SRECORD *GetMemENTable(int *s);
 EN_SRECORD *GetMemENFTable(int *s);
+EN_SRECORD *GetOrLoadMemENTable(int *s, char *fn);
+EN_SRECORD *GetOrLoadMemENFTable(int *s, char *fn);
 int WriteENRecord(TFILE *f, EN_RECORD *r);
 int WriteENFRecord(TFILE *f, ENF_RECORD *r);
 int PrintENTable(TFILE *f1, FILE *f2, int v, int vs, int swp);
@@ -750,8 +753,8 @@ int GetNComplex(NCOMPLEX *c, char *s);
 int ChannelAI(int b, int nmb, short *ncb,
 	      int f, int nmf, short *ncf,
 	      int *cn0, int *cn1, int *cn2);
-
+void RemoveClosedShell(EN_RECORD *r);
 void SetInnerAI(char *s);
-
+double GroundEnergy(int k);
 #endif
 

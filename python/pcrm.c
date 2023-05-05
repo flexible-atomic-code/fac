@@ -1764,6 +1764,22 @@ static PyObject *PDRSupFactor(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", r);
 }
 
+static PyObject *PMemENTable(PyObject *self, PyObject *args) { 
+  char *fn;
+  
+  if (scrm_file) {
+    SCRMStatement("MemENTable", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  if (!PyArg_ParseTuple(args, "s", &fn)) return NULL;
+  MemENTable(fn);
+
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PRateCoefficients(PyObject *self, PyObject *args) {
   char *s;
   int k0, k1, nexc, ncap, nt, nd, md;
@@ -1882,6 +1898,7 @@ static struct PyMethodDef crm_methods[] = {
   {"SetCXLDist", PSetCXLDist, METH_VARARGS},
   {"Voigt", PVoigt, METH_VARARGS},
   {"DRSupFactor", PDRSupFactor, METH_VARARGS},
+  {"MemENTable", PMemENTable, METH_VARARGS},
   {"RateCoefficients", PRateCoefficients, METH_VARARGS},
   {NULL, NULL}
 };

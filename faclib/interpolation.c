@@ -645,11 +645,19 @@ void PrepCECrossHeader(CE_HEADER *h, double *data) {
   x = data+2+m1;
   BornFormFactorTE(&bte);
   bms = BornMass();
-  data[0] = (h->te0*HARTREE_EV+bte)/bms;
-  for (j = 0; j < m; j++) {
-    x[j] = log((data[0] + eusr[j]*HARTREE_EV)/data[0]);
+  if (h->tegrid[0] < 0) {
+    data[0] = -1.0;
+    for (j = 0; j < m; j++) {
+      x[j] = log(1 + eusr[j]);
+    }
+    x[m] = eusr[m-1]/(1 + eusr[m-1]);
+  } else {
+    data[0] = (h->te0*HARTREE_EV+bte)/bms;
+    for (j = 0; j < m; j++) {
+      x[j] = log((data[0] + eusr[j]*HARTREE_EV)/data[0]);
+    }
+    x[m] = eusr[m-1]/(data[0]/HARTREE_EV+eusr[m-1]);
   }
-  x[m] = eusr[m-1]/(data[0]/HARTREE_EV+eusr[m-1]);
 }
 
 void PrepCEFCrossRecord(CEF_RECORD *r, CEF_HEADER *h, double *data) {
@@ -745,7 +753,7 @@ double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
   double a, b, x0, y0, eth, e0, c, d, b0, b1;
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
-  double bte, bms, eth1;
+  double bte, bms, eth1, et0;
 
   mem_en_table = GetMemENFTable(&mem_en_table_size);
 
@@ -756,15 +764,18 @@ double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
 
   if (e < 0.0) return a;
 
+  BornFormFactorTE(&bte);
+  bms = BornMass();
+  eth1 = (eth + bte*HARTREE_EV)/bms;
+  
   m = h->n_egrid;
   m1 = m + 1;
-  x0 = log((data[0]+e)/data[0]);
+  et0 = data[0];
+  x0 = log((et0+e)/et0);
   y = data + 2;
   x = y + m1;
   w = x + m1;
 
-  BornFormFactorTE(&bte);
-  bms = BornMass();
   if (x0 < x[m-1]) {
     n = 2;
     one = 1;
@@ -775,11 +786,10 @@ double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
       a = y[0] * pow(exp(x0-x[0]), 2.5);
     }
   } else {
-    eth1 = (eth + bte*HARTREE_EV)/bms;
-    x0 = e/(data[0] + e);
+    x0 = e/(et0 + e);
     y0 = y[m-1];
     if (data[1] > 0) {
-      e0 = ((x[m]*data[0]/(1.0-x[m]))+eth1)/HARTREE_EV;
+      e0 = ((x[m]*et0/(1.0-x[m]))+eth1)/HARTREE_EV;
       b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
       b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth1/HARTREE_EV);
       y0 /= b0*b1;
@@ -797,7 +807,7 @@ double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
       b1 = 1.0 + FINE_STRUCTURE_CONST2*e/HARTREE_EV;
       a *= b0*b1;
     } else if (data[1]+1.0 == 1.0) {
-      e0 = ((x[m]*data[0]/(1.0-x[m]))+eth1)/HARTREE_EV;
+      e0 = ((x[m]*et0/(1.0-x[m]))+eth1)/HARTREE_EV;
       b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
       b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth1/HARTREE_EV);
       y0 /= b0*b1;
@@ -820,7 +830,7 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
   double a, b, x0, y0, eth, e0, c, d, b0, b1;
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
-  double bte, bms, eth1;
+  double bte, bms, eth1, et0;
 
   mem_en_table = GetMemENTable(&mem_en_table_size);
 
@@ -832,15 +842,21 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
 
   if (e < 0.0) return a;
 
+  BornFormFactorTE(&bte);
+  bms = BornMass();
+  eth1 = (eth + bte*HARTREE_EV)/bms;
+  if (data[0] > 0) {
+    et0 = data[0];
+  } else {
+    et0 = eth1;
+  }
   m = h->n_usr;
   m1 = m + 1;
-  x0 = log((data[0]+e)/data[0]);
+  x0 = log((et0+e)/et0);
   y = data + 2;
   x = y + m1;
   w = x + m1;
 
-  BornFormFactorTE(&bte);
-  bms = BornMass();
   if (x0 < x[m-1]) {
     n = 2;
     one = 1;
@@ -857,11 +873,10 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
       *ratio = b;
     }
   } else {
-    x0 = e/(data[0] + e);
+    x0 = e/(et0 + e);
     y0 = y[m-1];
-    eth1 = (eth + bte*HARTREE_EV)/bms;
     if (data[1] > 0) {
-      e0 = ((x[m]*data[0]/(1.0-x[m]))+eth1)/HARTREE_EV;
+      e0 = ((x[m]*et0/(1.0-x[m]))+eth1)/HARTREE_EV;
       b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
       b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth1/HARTREE_EV);
       y0 /= b0*b1;
@@ -879,7 +894,7 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
       b1 = 1.0 + FINE_STRUCTURE_CONST2*e/HARTREE_EV;
       a *= b0*b1;
     } else if (data[1]+1.0 == 1.0) {
-      e0 = ((x[m]*data[0]/(1.0-x[m]))+eth1)/HARTREE_EV;
+      e0 = ((x[m]*et0/(1.0-x[m]))+eth1)/HARTREE_EV;
       b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
       b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth1/HARTREE_EV);
       y0 /= b0*b1;
@@ -924,7 +939,7 @@ int CEMFCross(char *ifn, char *ofn, int i0, int i1,
   }
 
   f2 = NULL;
-  mem_en_table = GetMemENFTable(&mem_en_table_size);
+  mem_en_table = GetOrLoadMemENFTable(&mem_en_table_size, ifn);
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
     return -1;
@@ -1075,7 +1090,7 @@ int CEFCross(char *ifn, char *ofn, int i0, int i1,
     goto DONE;
   }
 
-  mem_en_table = GetMemENFTable(&mem_en_table_size);
+  mem_en_table = GetOrLoadMemENFTable(&mem_en_table_size, ifn);
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
     return -1;
@@ -1212,7 +1227,7 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
     goto DONE;
   }
 
-  mem_en_table = GetMemENTable(&mem_en_table_size);
+  mem_en_table = GetOrLoadMemENTable(&mem_en_table_size, ifn);
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
     return -1;
@@ -1353,7 +1368,7 @@ int CEMFMaxwell(char *ifn, char *ofn, int i0, int i1,
   f2 = NULL;
   double bms = BornMass();
   double tms;
-  mem_en_table = GetMemENFTable(&mem_en_table_size);
+  mem_en_table = GetOrLoadMemENFTable(&mem_en_table_size, ifn);
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
     return -1;
@@ -1470,7 +1485,7 @@ int CEFMaxwell(char *ifn, char *ofn, int i0, int i1,
 
   double bms = BornMass();
   double tms;
-  mem_en_table = GetMemENFTable(&mem_en_table_size);
+  mem_en_table = GetOrLoadMemENFTable(&mem_en_table_size, ifn);
 
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
@@ -1571,7 +1586,7 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
 
   double bms = BornMass();
   double tms;
-  mem_en_table = GetMemENTable(&mem_en_table_size);
+  mem_en_table = GetOrLoadMemENTable(&mem_en_table_size, ifn);
 
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
@@ -1650,14 +1665,20 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
 }
 
 double InterpolateCICross(double e1, double eth, CI_RECORD *r, CI_HEADER *h) {
-  double y[MAXNE], x, a, b, tc;
+  double y[MAXNE], x, a, b, tc, emin, emax;
   int i;
 
   for (i = 0; i < h->n_usr; i++) {
     y[i] = r->strength[i];
   }
   if (e1 < 0) return 0.0;
-  if (e1 < h->usr_egrid[0] || e1 > h->usr_egrid[h->n_usr-1]) {
+  emin = h->usr_egrid[0];
+  emax = h->usr_egrid[h->n_usr-1];
+  if (h->tegrid[0] < 0) {
+    emin *= eth;
+    emax *= eth;
+  }
+  if (e1 < emin || e1 > emax) {
     x = 1.0 + e1/eth;
     a = 1.0/x;
     b = 1.0 - a;
@@ -1665,6 +1686,7 @@ double InterpolateCICross(double e1, double eth, CI_RECORD *r, CI_HEADER *h) {
     tc += r->params[2]*a*b + r->params[3]*a*a*b;
     return tc;
   } else {
+    if (h->tegrid[0] < 0) e1 /= eth;
     UVIP3P(2, h->n_usr, h->usr_egrid, y, 1, &e1, &tc);
     return tc;
   }
@@ -1706,9 +1728,9 @@ int TotalCICross(char *ifn, char *ofn, int ilev,
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
 
-  mem_en_table = GetMemENTable(&mem_en_table_size);
+  mem_en_table = GetOrLoadMemENTable(&mem_en_table_size, ifn);
 
-  if (mem_en_table == NULL) {
+  if (mem_en_table == NULL) {    
     printf("Energy table has not been built in memory.\n");
     return -1;
   }
@@ -1754,8 +1776,11 @@ int TotalCICross(char *ifn, char *ofn, int ilev,
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadCIRecord(f1, &r, swp, &h);
       if (n == 0) break;
-      if (r.b != ilev) continue;
-      if (r.f < imin || r.f > imax) continue;
+      if (r.b != ilev || r.f < imin || r.f > imax) {
+	free(r.params);
+	free(r.strength);
+	continue;
+      }
       e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
       be = (e + bte)/bms;
       for (t = 0; t < negy; t++) {
@@ -1809,7 +1834,7 @@ int CICross(char *ifn, char *ofn, int i0, int i1,
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
 
-  mem_en_table = GetMemENTable(&mem_en_table_size);
+  mem_en_table = GetOrLoadMemENTable(&mem_en_table_size, ifn);
 
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
@@ -1924,7 +1949,7 @@ int CIMaxwell(char *ifn, char *ofn, int i0, int i1,
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
 
-  mem_en_table = GetMemENTable(&mem_en_table_size);
+  mem_en_table = GetOrLoadMemENTable(&mem_en_table_size, ifn);
 
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
@@ -2032,7 +2057,7 @@ int CIMCross(char *ifn, char *ofn, int i0, int i1,
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
 
-  mem_en_table = GetMemENTable(&mem_en_table_size);
+  mem_en_table = GetOrLoadMemENTable(&mem_en_table_size, ifn);
 
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
@@ -2144,7 +2169,7 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
 
-  mem_en_table = GetMemENTable(&mem_en_table_size);
+  mem_en_table = GetOrLoadMemENTable(&mem_en_table_size, ifn);
 
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
@@ -2193,13 +2218,25 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadRRRecord(f1, &r, swp, &h);
       if (n == 0) break;
-      if (r.b != ilev) continue;
-      if (r.f < imin || r.f > imax) continue;
-      e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
-
+      if (r.f < 0) {
+	e = *((float *)&r.kl);
+	r.kl = -r.f;
+      }
+      if (r.b != ilev || (r.f >= 0 && (r.f < imin || r.f > imax))) {
+	if (h.qk_mode == QK_FIT) free(r.params);
+	free(r.strength);
+	continue;
+      }
+      if (r.f >= 0) {
+	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
+      }
       for (t = 0; t < h.n_usr; t++) {
 	dstrength[t] = log(r.strength[t]);
-	xusr[t] = log(1.0 + h.usr_egrid[t]/e);
+	if (h.tegrid[0] < 0) {
+	  xusr[t] = log(1+h.usr_egrid[t]);
+	} else {
+	  xusr[t] = log(1.0 + h.usr_egrid[t]/e);
+	}
       }
 
       for (t = 0; t < negy; t++) {
@@ -2213,7 +2250,7 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
 	} else {
 	  x = (ee + r.params[3])/r.params[3];
 	  y = (1 + r.params[2])/(sqrt(x) + r.params[2]);
-	  tc = (-3.5 - r.kl + 0.5*r.params[1])*log(x) + r.params[1]*log(y);
+	  tc = (-3.5-(r.kl%1000)+0.5*r.params[1])*log(x)+r.params[1]*log(y);
 	  if (r.params[0] > 0.0) {
 	    tc = tc + log(r.params[0]*(eph/(ee+r.params[3])));
 	    tc = exp(tc);
@@ -2272,7 +2309,7 @@ int ICXCross(char *ifn, char *ofn, int i0, int i1,
   double x, tc, e, v;
   const double vth = 25.0;
 
-  mem_en_table = GetMemENTable(&mem_en_table_size);
+  mem_en_table = GetOrLoadMemENTable(&mem_en_table_size, ifn);
   mass = GetAtomicMassTable();
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
@@ -2398,7 +2435,7 @@ int RRCross(char *ifn, char *ofn, int i0, int i1,
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
 
-  mem_en_table = GetMemENTable(&mem_en_table_size);
+  mem_en_table = GetOrLoadMemENTable(&mem_en_table_size, ifn);
 
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
@@ -2450,7 +2487,11 @@ int RRCross(char *ifn, char *ofn, int i0, int i1,
 		e*HARTREE_EV, negy);
 	for (t = 0; t < h.n_usr; t++) {
 	  dstrength[t] = log(r.strength[t]);
-	  xusr[t] = log(1.0 + h.usr_egrid[t]/e);
+	  if (h.tegrid[0] < 0) {
+	    xusr[t] = log(1 + h.usr_egrid[t]);
+	  } else {
+	    xusr[t] = log(1.0 + h.usr_egrid[t]/e);
+	  }
 	}
 	for (t = 0; t < negy; t++) {
 	  if (mp == 0) {
@@ -2472,7 +2513,7 @@ int RRCross(char *ifn, char *ofn, int i0, int i1,
 	    } else {
 	      x = (ee + r.params[3])/r.params[3];
 	      y = (1 + r.params[2])/(sqrt(x) + r.params[2]);
-	      tc = (-3.5 - r.kl + 0.5*r.params[1])*log(x) + r.params[1]*log(y);
+	      tc = (-3.5-(r.kl%1000)+0.5*r.params[1])*log(x)+r.params[1]*log(y);
 	      if (r.params[0] > 0.0) {
 		tc = tc + log(r.params[0]*(eph/(ee+r.params[3])));
 		tc = exp(tc);
@@ -2544,7 +2585,7 @@ int RRMaxwell(char *ifn, char *ofn, int i0, int i1,
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
 
-  mem_en_table = GetMemENTable(&mem_en_table_size);
+  mem_en_table = GetOrLoadMemENTable(&mem_en_table_size, ifn);
 
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
@@ -2609,7 +2650,7 @@ int RRMaxwell(char *ifn, char *ofn, int i0, int i1,
 	    } else {
 	      x = (ee + r.params[3])/r.params[3];
 	      y = (1 + r.params[2])/(sqrt(x) + r.params[2]);
-	      tc = (-3.5 - r.kl + 0.5*r.params[1])*log(x) + r.params[1]*log(y);
+	      tc = (-3.5-(r.kl%1000)+0.5*r.params[1])*log(x)+r.params[1]*log(y);
 	      if (r.params[0] > 0.0) {
 		tc = tc + log(r.params[0]*(eph/(ee+r.params[3])));
 		tc = exp(tc);
@@ -2683,7 +2724,7 @@ int ICXMaxwell(char *ifn, char *ofn, int i0, int i1,
   double x, tc, e, cs, v;
   const double vth = 25.0;
 
-  mem_en_table = GetMemENTable(&mem_en_table_size);
+  mem_en_table = GetOrLoadMemENTable(&mem_en_table_size, ifn);
   mass = GetAtomicMassTable();
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
@@ -2825,7 +2866,7 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
 
-  mem_en_table = GetMemENTable(&mem_en_table_size);
+  mem_en_table = GetOrLoadMemENTable(&mem_en_table_size, ifn);
 
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
@@ -2874,13 +2915,20 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadRRRecord(f1, &r, swp, &h);
       if (n == 0) break;
-      if (r.f != ilev) continue;
-      if (r.b < imin || r.b > imax) continue;
+      if (r.f != ilev || r.b < imin || r.b > imax) {
+	if (h.qk_mode == QK_FIT) free(r.params);
+	free(r.strength);
+	continue;
+      }
       e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
 
       for (t = 0; t < h.n_usr; t++) {
 	dstrength[t] = log(r.strength[t]);
-	xusr[t] = log(1.0 + h.usr_egrid[t]/e);
+	if (h.tegrid[0] < 0) {
+	  xusr[t] = log(1 + h.usr_egrid[t]);
+	} else {
+	  xusr[t] = log(1.0 + h.usr_egrid[t]/e);
+	}
       }
 
       for (t = 0; t < negy; t++) {
@@ -2893,7 +2941,7 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
 	} else {
 	  x = (ee + r.params[3])/r.params[3];
 	  y = (1 + r.params[2])/(sqrt(x) + r.params[2]);
-	  tc = (-3.5 - r.kl + 0.5*r.params[1])*log(x) + r.params[1]*log(y);
+	  tc = (-3.5-(r.kl%1000)+0.5*r.params[1])*log(x)+r.params[1]*log(y);
 	  if (r.params[0] > 0.0) {
 	    tc = tc + log(r.params[0]*(eph/(ee+r.params[3])));
 	    tc = exp(tc);

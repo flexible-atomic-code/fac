@@ -33,6 +33,7 @@ static int egrid_type = -1;
 static int usr_egrid_type = -1;
 
 static int n_egrid = 0;
+static int uta_egrid = 0;
 static double egrid[MAXRRNE];
 static double log_egrid[MAXRRNE];
 static double egrid_min;
@@ -46,6 +47,7 @@ static double xusr[MAXRRNUSR];
 static double log_xusr[MAXRRNUSR];
 
 static int n_tegrid = 0;
+static int uta_tegrid = 0;
 static double tegrid[MAXNTE];
 static double log_te[MAXNTE];
 
@@ -82,7 +84,7 @@ static struct {
 static double _ai_cut = AICUT;
 static double _rr_cut = RRCUT;
 static int _asym_ci = 1;
-static int _progress_report = -1;
+static int _progress_report = 0;
 
 static REC_COMPLEX rec_complex[MAX_COMPLEX];
 int n_complex = 0;
@@ -157,6 +159,13 @@ int SetAICut(double c) {
 }
 
 int SetRRTEGrid(int n, double emin, double emax) {
+  if (n == -1) {
+    n_tegrid = 1;
+    uta_tegrid = 1;
+    tegrid[0] = -1;
+    return 1;
+  }
+  uta_tegrid = 0;
   n_tegrid = SetTEGrid(tegrid, log_te, n, emin, emax);
   return n_tegrid;
 }
@@ -186,7 +195,22 @@ int SetPEGridDetail(int n, double *xg) {
 }
 
 int SetPEGrid(int n, double emin, double emax, double eth) {
+  int i;
+  
+  if (n == -1) {
+    n_egrid = 1;
+    uta_egrid = 1;
+    egrid[0] = 0;
+    return 1;
+  }
+  uta_egrid = 0;
   n_egrid = SetEGrid(egrid, log_egrid, n, emin, emax, eth);
+  if (uta_tegrid) {
+    for (i = 0; i < n_egrid; i++) {
+      egrid[i] /= eth;
+      log_egrid[i] = log(egrid[i]);
+    }
+  }
   return n_egrid;
 }
 
@@ -200,11 +224,19 @@ int SetUsrPEGridDetail(int n, double *xg) {
 }
   						      
 int SetUsrPEGrid(int n, double emin, double emax, double eth) {
+  int i;
+  
   if (n > MAXRRNUSR) {
     printf("Max # of grid points reached \n");
     return -1;
   }
   n_usr = SetEGrid(usr_egrid, log_usr, n, emin, emax, eth);
+  if (uta_tegrid) {
+    for (i = 0; i < n_usr; i++) {
+      usr_egrid[i] /= eth;
+      log_usr[i] = log(usr_egrid[i]);
+    }
+  }
   return n_usr;
 }
 
@@ -636,7 +668,7 @@ int RRRadialMultipoleTable(double *qr, int k0, int k1, int m) {
   double **p, *qk;
   int kappaf, jf, klf, kf;
   int ite, ie, i;
-  double aw, e, pref;
+  double aw, e, pref, te;
   int gauge;
 
   klf = k1;
@@ -680,11 +712,20 @@ int RRRadialMultipoleTable(double *qr, int k0, int k1, int m) {
   
   qk = pd;
   /* the factor 2 comes from the conitinuum norm */
-  pref = sqrt(2.0);  
+  pref = sqrt(2.0);
+  te = 0.0;
+  if (uta_tegrid) {
+    te = fabs(GetOrbital(k0)->energy);
+    aw = FINE_STRUCTURE_CONST*te;
+  }
   for (ite = 0; ite < n_tegrid; ite++) {
-    aw = FINE_STRUCTURE_CONST * tegrid[ite];        
+    if (!uta_tegrid) aw = FINE_STRUCTURE_CONST * tegrid[ite];        
     for (ie = 0; ie < n_egrid; ie++) {
-      e = egrid[ie];
+      if (uta_tegrid) {
+	e = egrid[ie]*te;
+      } else {
+	e = egrid[ie];
+      }
       kf = OrbitalIndex(0, kappaf, e);
       qk[ie] = MultipoleRadialFR(aw, m, k0, kf, gauge);
       qk[ie] *= pref;
@@ -703,13 +744,15 @@ int RRRadialMultipoleTable(double *qr, int k0, int k1, int m) {
 
 void TopUpRRRadialQk(double *qr, int k0, int kp, int mx) {
   int ite, ie, k, mx1;
-  double r, rp, b;
+  double r, rp, b, te, e;
 
   if (mx <= 1) return;
   if (mx > 100) mx = 100;
 
+  if (uta_tegrid) te = fabs(GetOrbital(k0)->energy);
   k = 0;
   for (ite = 0; ite < n_tegrid; ite++) {
+    if (!uta_tegrid) te = tegrid[ite];
     for (ie = 0; ie < n_egrid; ie++) {
       mx1 = mx;
       /*
@@ -726,8 +769,13 @@ void TopUpRRRadialQk(double *qr, int k0, int kp, int mx) {
 	}
 	qr[k] /= r;
       }
-      */      
-      r = AsymmetryPI(k0, kp, egrid[ie], tegrid[ite], 0, 0, &mx1,
+      */
+      if (uta_tegrid) {
+	e = egrid[ie]*te;
+      } else {
+	e = egrid[ie];
+      }
+      r = AsymmetryPI(k0, kp, e, te, 0, 0, &mx1,
 		      0, &b, NULL, NULL);
       if (r > 0) qr[k] /= r;
       k++;
@@ -757,7 +805,11 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m0) {
   eb = -orb->energy;
 
   for (ie = 0; ie < n_egrid; ie++) {
-    xegrid[ie] = 1.0 + egrid[ie]/eb;
+    if (uta_tegrid) {
+      xegrid[ie] = 1 + egrid[ie];
+    } else {
+      xegrid[ie] = 1.0 + egrid[ie]/eb;
+    }
     log_xegrid[ie] = log(xegrid[ie]);
   }
 
@@ -812,12 +864,14 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m0) {
   qk = pd;
   /* the factor 2 comes from the conitinuum norm */
   pref = 2.0/((k+1.0)*(jb0+1.0));
-  
+  if (uta_tegrid) {
+    aw = FINE_STRUCTURE_CONST * eb;
+  }
   for (ite = 0; ite < n_tegrid; ite++) {
     for (ie = 0; ie < n_egrid; ie++) {
       tq[ie] = 0.0;
     }
-    aw = FINE_STRUCTURE_CONST * tegrid[ite];
+    if (!uta_tegrid) aw = FINE_STRUCTURE_CONST * tegrid[ite];
     jfmin = jb0 - k;
     jfmax = jb0 + k;
     for (jf = jfmin; jf <= jfmax; jf += 2) {
@@ -829,7 +883,11 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m0) {
 	}
 	kappaf = GetKappaFromJL(jf, klf);
 	for (ie = 0; ie < n_egrid; ie++) {
-	  e = egrid[ie];
+	  if (uta_tegrid) {
+	    e = egrid[ie]*eb;
+	  } else {
+	    e = egrid[ie];
+	  }
 	  kf = OrbitalIndex(0, kappaf, e);
 	  r0 = MultipoleRadialFR(aw, -1, k0, kf, gauge);
 	  if (k1 == k0) {
@@ -1039,7 +1097,11 @@ int BoundFreeOSUTA1(double *rqu, double *rqc, double *eb,
     z = GetResidualZ();
     RRRadialQkHydrogenicParams(NPARAMS, rqc, z, nq, nkl);
     for (ie = 0; ie < n_egrid; ie++) {
-      xegrid[ie] = 1.0 + egrid[ie]/eb0;
+      if (uta_tegrid) {
+	xegrid[ie] = 1 + egrid[ie];
+      } else {
+	xegrid[ie] = 1.0 + egrid[ie]/eb0;
+      }
       log_xegrid[ie] = log(xegrid[ie]);
     }
 
@@ -1067,12 +1129,20 @@ int BoundFreeOSUTA1(double *rqu, double *rqc, double *eb,
       tq[ie] = a*(rq[ie]/eb0);
     }
     for (ie = 0; ie < n_egrid; ie++) {
-      a = (*eb) + egrid[ie];
+      if (uta_tegrid) {
+	a = (*eb)*(1+egrid[ie]);
+      } else {
+	a = (*eb) + egrid[ie];
+      }
       rqu[ie] = tq[ie]*a;
     }
   } else {
-    for (ie = 0; ie < n_egrid; ie++) { 
-      a = *eb + egrid[ie];
+    for (ie = 0; ie < n_egrid; ie++) {
+      if (uta_tegrid) {
+	a = (*eb)*(1+egrid[ie]);
+      } else {
+	a = (*eb) + egrid[ie];
+      }
       tq[ie] *= a;
     }
     if (qk_mode == QK_INTERPOLATE) {
@@ -1113,7 +1183,11 @@ void BoundFreeOSFit(double *rqu, double *rqc,
   z = GetResidualZ();
   RRRadialQkHydrogenicParams(NPARAMS, rqc, z, nq, nkl);
   for (ie = 0; ie < n_egrid; ie++) {
-    xegrid[ie] = 1.0 + egrid[ie]/eb0;
+    if (uta_tegrid) {
+      xegrid[ie] = 1 + egrid[ie];
+    } else {
+      xegrid[ie] = 1.0 + egrid[ie]/eb0;
+    }
     log_xegrid[ie] = log(xegrid[ie]);
   }
 
@@ -1141,15 +1215,47 @@ void BoundFreeOSFit(double *rqu, double *rqc,
     tq[ie] = a*(rq0[ie]/eb0);
   }
   for (ie = 0; ie < n_egrid; ie++) {
-    a = eb + egrid[ie];
+    if (uta_tegrid) {
+      a = eb*(1+egrid[ie]);
+    } else {
+      a = eb + egrid[ie];
+    }
     rqu[ie] = tq[ie]*a;
   }
+}
+
+int BoundFreeOSUTAShell(int m0, int kgb, int kcb,
+			int kb, double *rq, int *qb) {
+  int k, i;
+  CONFIG *c;
+  ORBITAL *orb;
+  double eb;
+
+  orb = GetOrbital(kb);  
+  c = GetConfigFromGroup(kgb, kcb);
+  for (i = 0; i < c->n_shells; i++) {
+    if (c->shells[i].n == orb->n && c->shells[i].kappa == orb->kappa) {
+      break;
+    }
+  }
+  *qb = 0.0;
+  if (i == c->n_shells) return 0;
+  *qb = c->shells[i].nq;
+  k = FactorNR(c, orb->n, orb->kappa);
+  if (k > 0) {
+    *qb = k;
+  }
+  eb = -orb->energy;
+  k = RRRadialQk(rq, eb, kb, kb, m0);
+
+  return 0;
 }
 
 int BoundFreeOSUTA0(int m0, int kgf, int kgb, int kcf, int kcb,
 		    double eb, double *rq, int *kb, int *qb) {
   INTERACT_DATUM *idatum;
-  int ns, k;
+  int ns, k, ie;
+  CONFIG *c;
   
   idatum = NULL;  
   ns = GetInteract(&idatum, NULL, NULL, kgf, kgb, kcf, kcb, 0, 0, 1);  
@@ -1161,9 +1267,13 @@ int BoundFreeOSUTA0(int m0, int kgf, int kgb, int kcf, int kcb,
   }
   
   *qb = idatum->s[1].nq_ket;
+  c = GetConfigFromGroup(kgb, kcb);
+  k = FactorNR(c, idatum->s[1].n, idatum->s[1].kappa);
+  if (k > 0) {
+    *qb = k;
+  }
   *kb = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);      
   k = RRRadialQk(rq, eb, *kb, *kb, m0);
-  
   free(idatum->bra);
   free(idatum);
   return 0;
@@ -1257,8 +1367,12 @@ int BoundFreeOSUTA(double *rqu, double *rqc, double *eb,
   if (qk_mode == QK_FIT) {
     BoundFreeOSFit(rqu, rqc, tq, nq, nkl, *eb, eb0);
   } else {
-    for (ie = 0; ie < n_egrid; ie++) { 
-      a = *eb + egrid[ie];
+    for (ie = 0; ie < n_egrid; ie++) {
+      if (uta_tegrid) {
+	a = (*eb)*(1+egrid[ie]);
+      } else {
+	a = (*eb) + egrid[ie];
+      }
       tq[ie] *= a;
     }
     if (qk_mode == QK_INTERPOLATE) {
@@ -1277,7 +1391,7 @@ int BoundFreeOSUTA(double *rqu, double *rqc, double *eb,
     }
   }      
 
-  return nkl;
+  return nq*1000+nkl;
 }
     
 int RecOccupation(int **nk, double **nq, double **dn,
@@ -1471,8 +1585,12 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
   if (qk_mode == QK_FIT) {
     BoundFreeOSFit(rqu, rqc, tq, nq, nkl, *eb, eb0);
   } else {
-    for (ie = 0; ie < n_egrid; ie++) { 
-      a = *eb + egrid[ie];
+    for (ie = 0; ie < n_egrid; ie++) {
+      if (uta_tegrid) {
+	a = (*eb)*(1+egrid[ie]);
+      } else {
+	a = (*eb) + egrid[ie];
+      }
       tq[ie] *= a;
     }
     if (qk_mode == QK_INTERPOLATE) {
@@ -1493,7 +1611,7 @@ int BoundFreeOS(double *rqu, double *rqc, double *eb,
  
   free(ang);
 
-  return nkl;
+  return nq*1000+nkl;
 }
 
 int AutoionizeRateUTA0(double *rate, double *e,
@@ -1503,6 +1621,8 @@ int AutoionizeRateUTA0(double *rate, double *e,
   int k0, k1, kb, kmin, kmax, jmin, jmax;
   int jf, ik, klf, kappaf, k, np, nt, j, jm;
   double a, b, r, s, log_e, *ai_pk;
+  int ni, tp, nleft, id, nd=2500, done[2500];
+  CONFIG *cfg;
   
   *rate = 0.0;
   log_e = log(*e);
@@ -1525,7 +1645,16 @@ int AutoionizeRateUTA0(double *rate, double *e,
   q0 = idatum->s[2].nq_ket;
   q1 = idatum->s[3].nq_ket;
   qb = idatum->s[1].nq_ket;
-
+  cfg = GetConfigFromGroup(kgb, kcb);
+  tp = FactorNR(cfg, idatum->s[2].n, idatum->s[2].kappa);
+  if (tp > 0) {
+    q0 = tp;
+  }
+  tp = FactorNR(cfg, idatum->s[1].n, idatum->s[1].kappa);
+  if (tp > 0) {
+    qb = tp;
+  }
+  for (id = 0; id < nd; id++) done[id] = 0;
   if (idatum->s[1].index != idatum->s[3].index) {
     kmin = abs(j0-j1);
     kmax = j0 + j1;
@@ -1534,54 +1663,106 @@ int AutoionizeRateUTA0(double *rate, double *e,
     np = 3;
     nt = 1;
     r = 0.0;
-    for (jf = jmin; jf <= jmax; jf += 2) {
-      for (ik = -1; ik <= 1; ik += 2) {
-	klf = jf + ik;
-	kappaf = GetKappaFromJL(jf, klf);
-	for (k = kmin; k <= kmax; k += 2) {
-	  if (!Triangle(j0, j1, k) || !Triangle(jb, jf, k)) continue;
-	  AIRadialPk(&ai_pk, k0, k1, kb, kappaf, k, 0);
-	  if (n_egrid > 1) {
-	    UVIP3P(np, n_egrid, log_egrid, ai_pk, nt, &log_e, &s);
-	  } else {
-	    s = ai_pk[0];
+    ni = 0;
+    while (1) {
+      nleft = 0;
+      id = 0;
+      for (jf = jmin; jf <= jmax; jf += 2) {
+	for (ik = -1; ik <= 1; ik += 2) {
+	  klf = jf + ik;
+	  kappaf = GetKappaFromJL(jf, klf);
+	  for (k = kmin; k <= kmax; k += 2) {
+	    if (!Triangle(j0, j1, k) || !Triangle(jb, jf, k)) continue;
+	    if (id >= nd) {
+	      if (ni == 0) {
+		tp = AIRadialPk(&ai_pk, *e, k0, k1, kb, kappaf, k, 0);
+	      } else {
+		continue;
+	      }
+	    } else {
+	      if (done[id]) {
+		id++;
+		continue;
+	      }
+	      tp = AIRadialPk(&ai_pk, *e, k0, k1, kb, kappaf, k, 1);
+	      if (tp == -9999) {
+		id++;
+		nleft++;
+		continue;
+	      }
+	      id++;
+	      done[id] = 1;
+	    }
+	    if (n_egrid > 1) {
+	      UVIP3P(np, n_egrid, log_egrid, ai_pk, nt, &log_e, &s);
+	    } else {
+	      s = ai_pk[0];
+	    }
+	    s = s*s/(k + 1.0);
+	    r += s;
 	  }
-	  s = s*s/(k + 1.0);
-	  r += s;
 	}
       }
-    }  
+      if (nleft == 0) break;
+      ni++;
+    }
     r *= 4.0*(q1/(j1+1.0))*(qb/(jb+1.0))*((j0+1.0-q0)/(j0+1.0));
   } else {
     jm = 2*j1;
     r = 0.0;
     np = 3;
     nt = 1;
-    for (j = 0; j <= jm; j += 4) {
-      jmin = abs(j-j0);
-      jmax = j+j0;
-      for (jf = jmin; jf <= jmax; jf += 2) {
-	for (ik = -1; ik <= 1; ik += 2) {
-	  klf = jf + ik;
-	  kappaf = GetKappaFromJL(jf, klf);
-	  kmin = abs(j0-j1);
-	  kmax = j0 + j1;
-	  a = 0.0;
-	  for (k = kmin; k <= kmax; k += 2) {
-	    if (!Triangle(jb, jf, k)) continue;
-	    b = W6j(j, jf, j0, k, j1, j1);
-	    if (fabs(b) < EPS30) continue;
-	    AIRadialPk(&ai_pk, k0, k1, kb, kappaf, k, 0);
-	    if (n_egrid > 1) {
-	      UVIP3P(np, n_egrid, log_egrid, ai_pk, nt, &log_e, &s);
-	    } else {
-	      s = ai_pk[0];
-	    } 
-	    a += b*s;
+    ni = 0;
+    while (1) {
+      nleft = 0;
+      id = 0;      
+      for (j = 0; j <= jm; j += 4) {
+	jmin = abs(j-j0);
+	jmax = j+j0;
+	for (jf = jmin; jf <= jmax; jf += 2) {
+	  for (ik = -1; ik <= 1; ik += 2) {
+	    klf = jf + ik;
+	    kappaf = GetKappaFromJL(jf, klf);
+	    kmin = abs(j0-j1);
+	    kmax = j0 + j1;
+	    a = 0.0;
+	    for (k = kmin; k <= kmax; k += 2) {
+	      if (!Triangle(jb, jf, k)) continue;
+	      b = W6j(j, jf, j0, k, j1, j1);
+	      if (fabs(b) < EPS30) continue;
+	      if (id >= nd) {
+		if (ni == 0) {
+		  tp = AIRadialPk(&ai_pk, *e, k0, k1, kb, kappaf, k, 0);
+		} else {
+		  continue;
+		}
+	      } else {
+		if (done[id]) {
+		  id++;
+		  continue;
+		}
+		tp = AIRadialPk(&ai_pk, *e, k0, k1, kb, kappaf, k, 1);
+		if (tp == -9999) {
+		  id++;
+		  nleft++;
+		  continue;
+		}
+		id++;
+		done[id] = 1;
+	      }
+	      if (n_egrid > 1) {
+		UVIP3P(np, n_egrid, log_egrid, ai_pk, nt, &log_e, &s);
+	      } else {
+		s = ai_pk[0];
+	      } 
+	      a += b*s;
+	    }
+	    r += a*a*2.0*(j+1.0);
 	  }
-	  r += a*a*2.0*(j+1.0);
 	}
       }
+      if (nleft == 0) break;
+      ni++;
     }
     r *= 4.0*(q1/(j1+1.0))*((qb-1.0)/jb)*((j0+1.0-q0)/(j0+1.0));
   }
@@ -1694,7 +1875,7 @@ int AutoionizeRateUTA1(double *rate, double *e, int rec, int f) {
 	kappaf = GetKappaFromJL(jf, klf);
 	for (k = kmin; k <= kmax; k += 2) {
 	  if (!Triangle(j0, j1, k) || !Triangle(jb, jf, k)) continue;
-	  AIRadialPk(&ai_pk, k0, k1, kb, kappaf, k, 0);
+	  AIRadialPk(&ai_pk, *e, k0, k1, kb, kappaf, k, 0);
 	  if (n_egrid > 1) {
 	    UVIP3P(np, n_egrid, log_egrid, ai_pk, nt, &log_e, &s);
 	  } else {
@@ -1725,7 +1906,7 @@ int AutoionizeRateUTA1(double *rate, double *e, int rec, int f) {
 	    if (!Triangle(jb, jf, k)) continue;
 	    b = W6j(j, jf, j0, k, j1, j1);
 	    if (fabs(b) < EPS30) continue;
-	    AIRadialPk(&ai_pk, k0, k1, kb, kappaf, k, 0);
+	    AIRadialPk(&ai_pk, *e, k0, k1, kb, kappaf, k, 0);
 	    if (n_egrid > 1) {
 	      UVIP3P(np, n_egrid, log_egrid, ai_pk, nt, &log_e, &s);
 	    } else {
@@ -1754,7 +1935,7 @@ int AutoionizeRate(double *rate, double *e, int rec, int f, int msub) {
   STATE *st;
   int k, nz, nzfb, ik, i, j1, j2, ij, kappaf, ip;
   int jf, k0, k1, kb, njf, nkappaf, klf, jmin, jmax;
-  double *p, r, s, log_e, a;
+  double *p, r, s, log_e, a, pe;
   double *ai_pk, ai_pk0[MAXRRNE];
   int np, nt, m1, m2, m;
   int kappafp, jfp, klfp, dkl;
@@ -1769,7 +1950,7 @@ int AutoionizeRate(double *rate, double *e, int rec, int f, int msub) {
   *rate = 0.0;
   lev1 = GetLevel(rec);
   lev2 = GetLevel(f);
-  
+  if (uta_egrid) pe = *e;
   log_e = log(*e);
 
   i = lev1->pb;
@@ -1835,7 +2016,7 @@ int AutoionizeRate(double *rate, double *e, int rec, int f, int msub) {
 	    continue;
 	  }
 	  kappaf = GetKappaFromJL(jf, klf);
-	  int type = AIRadialPk(&ai_pk, k0, k1, kb, kappaf, ang[i].k, 1);
+	  int type = AIRadialPk(&ai_pk, pe, k0, k1, kb, kappaf, ang[i].k, 1);
 	  if (type == -9999) {
 	    nleft++;
 	    continue;
@@ -1870,7 +2051,7 @@ int AutoionizeRate(double *rate, double *e, int rec, int f, int msub) {
       GetJLFromKappa(kappaf, &jf, &klf);
       ij = jf - jmin;
       ik = klf - jf;
-      AIRadial1E(ai_pk0, kb, kappaf);
+      AIRadial1E(ai_pk0, kb, kappaf, *e);
       if (n_egrid > 1) {
 	UVIP3P(np, n_egrid, log_egrid, ai_pk0, nt, &log_e, &s);
       } else {
@@ -1938,8 +2119,9 @@ int AutoionizeRate(double *rate, double *e, int rec, int f, int msub) {
 	    } else {
 	      kappafp = GetKappaFromJL(jfp, klfp);
 	      for (ik = 0; ik < n_egrid; ik++) {
-		k0 = OrbitalIndex(0, kappaf, egrid[ik]);
-		k1 = OrbitalIndex(0, kappafp, egrid[ik]);
+		if (!uta_egrid) pe = egrid[ik];
+		k0 = OrbitalIndex(0, kappaf, pe);
+		k1 = OrbitalIndex(0, kappafp, pe);
 		ai_pk0[ik] = GetPhaseShift(k0);
 		ai_pk0[ik] -= GetPhaseShift(k1);
 	      }	      
@@ -1970,18 +2152,19 @@ int AutoionizeRate(double *rate, double *e, int rec, int f, int msub) {
   }
 }
 
-int AIRadial1E(double *ai_pk, int kb, int kappaf) {
+int AIRadial1E(double *ai_pk, int kb, int kappaf, double pe) {
   int kf;
   int i;
 
   for (i = 0; i < n_egrid; i++) {
-    kf = OrbitalIndex(0, kappaf, egrid[i]);
+    if (!uta_egrid) pe = egrid[i];
+    kf = OrbitalIndex(0, kappaf, pe);
     ResidualPotential(ai_pk+i, kf, kb);
   }
   return 0;
 }  
 
-int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf,
+int AIRadialPk(double **ai_pk, double pe, int k0, int k1, int kb, int kappaf,
 	       int k, int trylock) {
   int i, kf;
   int ks[4];
@@ -2021,8 +2204,9 @@ int AIRadialPk(double **ai_pk, int k0, int k1, int kb, int kappaf,
   } 
   double *pd = (double *) malloc(sizeof(double)*n_egrid);
   *ai_pk = pd;
+  if (uta_egrid) e = pe;
   for (i = 0; i < n_egrid; i++) {
-    e = egrid[i];
+    if (!uta_egrid) e = egrid[i];
     kf = OrbitalIndex(0, kappaf, e);
     ks[0] = k0;
     ks[1] = kf;
@@ -2085,7 +2269,7 @@ void ProcessAICache(int msub, int iuta, TFILE *f) {
 	    klf = jf + ik;
 	    if (IsOdd((klfp+klf)/2)) continue;
 	    kappaf = GetKappaFromJL(jf, klf);
-	    type = AIRadialPk(&ai_pk, k0, k1, kb, kappaf,
+	    type = AIRadialPk(&ai_pk, 0.0, k0, k1, kb, kappaf,
 			      aicache.az[ic][iz].k, 1);
 	  }
 	}
@@ -2106,7 +2290,7 @@ void ProcessAICache(int msub, int iuta, TFILE *f) {
 	for (iz = 0; iz < aicache.nzf[ic]; iz++) {
 	  kb = aicache.azf[ic][iz].kb;
 	  kappaf = GetOrbital(kb)->kappa;
-	  AIRadial1E(ai_pk0, kb, kappaf);
+	  AIRadial1E(ai_pk0, kb, kappaf, 0.0);
 	}
       }
     }
@@ -2194,13 +2378,25 @@ int PrepRREGrids(double e, double emax0) {
 
   if (qk_mode == QK_INTERPOLATE) {
     for (j = 0; j < n_egrid; j++) {
-      log_egrid[j] = egrid[j];
-      if (egrid_type == 1) log_egrid[j] += e;
+      log_egrid[j] = egrid[j];      
+      if (egrid_type == 1) {
+	if (uta_tegrid) {
+	  log_egrid[j] += 1.0;
+	} else {
+	  log_egrid[j] += e;
+	}
+      }
       log_egrid[j] = log(log_egrid[j]);
     }
     for (j = 0; j < n_usr; j++) {
       log_usr[j] = usr_egrid[j];
-      if (usr_egrid_type == 1) log_usr[j] += e;
+      if (usr_egrid_type == 1) {
+	if (uta_tegrid) {
+	  log_usr[j] += 1.0;
+	} else {
+	  log_usr[j] += e;
+	}
+      }
       log_usr[j] = log(log_usr[j]);
     }
   }
@@ -2531,12 +2727,14 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   int nq, nqk, qkmo;
   ARRAY subte;
   int isub, n_tegrid0, n_egrid0, n_usr0;
-  int te_set, e_set, usr_set, iuta;
+  int te_set, e_set, usr_set, iuta, auta;
   double c, e0, e1;
+  RANDIDX *rid0, *rid1;
 
   double tstart = WallTime();
 
   iuta = IsUTA();
+  auta = iuta && UTAGrid();
   emin = 1E10;
   emax = 1E-10;
   k = 0;
@@ -2548,6 +2746,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
       if (e > 0) k++;
       if (e < emin && e > 0) emin = e;
       if (e > emax) emax = e;
+      if (lev1->n_basis > 0 || lev2->n_basis > 0) auta = 0;
     }
   }
   if (k == 0) {
@@ -2580,12 +2779,14 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   }
   ArrayInit(&subte, sizeof(double), 128);
   ArrayAppend(&subte, &emin, NULL);
-  c = 1.0/TE_MIN_MAX;
-  if (!e_set || !te_set) {
-    e = c*emin;
-    while (e < emax) {
-      ArrayAppend(&subte, &e, NULL);
-      e *= c;
+  if (!auta) {
+    c = 1.0/TE_MIN_MAX;
+    if (!e_set || !te_set) {
+      e = c*emin;
+      while (e < emax) {
+	ArrayAppend(&subte, &e, NULL);
+	e *= c;
+      }
     }
   }
   ArrayAppend(&subte, &emax, NULL);
@@ -2597,57 +2798,74 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   rr_hdr.multipole = m0;
   f = OpenFile(fn, &fhdr);
 
+  if (NProcMPI() > 1) {
+    rid0 = RandList(nlow);
+    rid1 = RandList(nup);
+  } else {
+    rid0 = NULL;
+    rid1 = NULL;
+  }
   int nproc = 0, *ntrans = NULL;
-  if (_progress_report >= 0) {
+  if (_progress_report != 0) {
     ntrans = InitTransReport(&nproc);
   }
   e0 = emin*0.999;
   for (isub = 1; isub < subte.dim; isub++) {
     e1 = *((double *) ArrayGet(&subte, isub));
     if (isub == subte.dim-1) e1 = e1*1.001;
-    emin = e1;
-    emax = e0;
-    k = 0;
-    for (i = 0; i < nlow; i++) {
-      lev1 = GetLevel(low[i]);
-      for (j = 0; j < nup; j++) {
-	lev2 = GetLevel(up[j]);
-	e = lev2->energy - lev1->energy;
-	if (e < e0 || e >= e1) continue;
-	if (e < emin) emin = e;
-	if (e > emax) emax = e;
-	k++;
+    if (auta) {
+      emin = e0;
+      emax = e1;
+    } else {
+      emin = e1;
+      emax = e0;
+      k = 0;
+      for (i = 0; i < nlow; i++) {
+	lev1 = GetLevel(low[i]);
+	for (j = 0; j < nup; j++) {
+	  lev2 = GetLevel(up[j]);
+	  e = lev2->energy - lev1->energy;
+	  if (e < e0 || e >= e1) continue;
+	  if (e < emin) emin = e;
+	  if (e > emax) emax = e;
+	  k++;
+	}
+      }
+      if (k == 0) {
+	e0 = e1;
+	continue;
       }
     }
-    if (k == 0) {
-      e0 = e1;
-      continue;
-    }
-    emin = e0;
-    emax = e1;  
     e = (emax - emin)/(0.5*(emin+emax));
-    if (!te_set) {
-      if (e < 0.1) {
-	SetRRTEGrid(1, 0.5*(emin+emax), emax);
-      } else if (e < 0.5) {
-	SetRRTEGrid(2, emin, emax);
-      } else {
-	if (k == 2) n_tegrid = 2;
-	else if (n_tegrid0 == 0) n_tegrid = 3;
-	SetRRTEGrid(n_tegrid, emin, emax);
+    if (auta) {
+      SetRRTEGrid(-1, emin, emax);
+    } else {
+      if (!te_set) {
+	if (e < 0.1) {
+	  SetRRTEGrid(1, 0.5*(emin+emax), emax);
+	} else if (e < 0.5) {
+	  SetRRTEGrid(2, emin, emax);
+	} else {
+	  if (k == 2) n_tegrid = 2;
+	  else if (n_tegrid0 == 0) n_tegrid = 3;
+	  SetRRTEGrid(n_tegrid, emin, emax);
+	}
       }
     }
     FreeMultipoleArray();
     awmin = emin * FINE_STRUCTURE_CONST;
     awmax = emax * FINE_STRUCTURE_CONST;
-    if (e < 0.1) {
-      SetAWGrid(1, 0.5*(awmin+awmax), awmax);
-    } else if (e < 0.5) {
-      SetAWGrid(2, awmin, awmax);
+    if (auta) {
+      SetAWGrid(-1, awmin, awmax);
     } else {
-      SetAWGrid(3, awmin, awmax);
+      if (e < 0.1) {
+	SetAWGrid(1, 0.5*(awmin+awmax), awmax);
+      } else if (e < 0.5) {
+	SetAWGrid(2, awmin, awmax);
+      } else {
+	SetAWGrid(3, awmin, awmax);
+      }
     }
-    
     n_egrid = n_egrid0;
     n_usr = n_usr0;
     if (!usr_set) usr_egrid[0] = -1.0;
@@ -2684,22 +2902,27 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     }
     r.strength = (float *) malloc(sizeof(float)*n_usr);
     int myrank = MPIRank(NULL);
+    int ilow, iup;
     for (i = 0; i < nup; i++) {
-      lev1 = GetLevel(up[i]);
+      if (rid1) iup = up[rid1[i].i];
+      else iup = up[i];
+      lev1 = GetLevel(iup);
       for (j = 0; j < nlow; j++) {
-	lev2 = GetLevel(low[j]);
+	if (rid0) ilow = low[rid0[j].i];
+	else ilow = low[j];
+	lev2 = GetLevel(ilow);
 	e = lev1->energy - lev2->energy;
 	if (e < e0 || e >= e1) continue;
 	int skip = SkipMPI();
 	if (skip) continue;
 	if (iuta) {
-	  nq = BoundFreeOSUTA(rqu, qc, &eb, low[j], up[i], m0);
+	  nq = BoundFreeOSUTA(rqu, qc, &eb, ilow, iup, m0);
 	} else {
-	  nq = BoundFreeOS(rqu, qc, &eb, low[j], up[i], m0);
+	  nq = BoundFreeOS(rqu, qc, &eb, ilow, iup, m0);
 	}
 	if (nq < 0) continue;
-	r.b = low[j];
-	r.f = up[i];
+	r.b = ilow;
+	r.f = iup;
 	r.kl = nq;
 	
 	if (qk_mode == QK_FIT) {
@@ -2714,9 +2937,14 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
 	WriteRRRecord(f, &r);
 	if (ntrans) {
 	  ntrans[myrank]++;
-	  if (myrank == 0 && _progress_report > 0 &&
-	      ntrans[myrank]%_progress_report == 0) {
-	    PrintTransReport(nproc, tstart, ntrans, "RR", 0);
+	  if (_progress_report > 0) {
+	    if (myrank == 0 && ntrans[0]%_progress_report == 0) {
+	      PrintTransReport(nproc, tstart, ntrans, "RR", 0);
+	    }
+	  } else if (_progress_report < 0) {
+	    if (ntrans[myrank]%(-_progress_report) == 0) {
+	      PrintTransReport(-myrank, tstart, ntrans, "RR", 0);
+	    }
 	  }
 	}
       }
@@ -2737,16 +2965,17 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   }
       
   ReinitRecombination(1);
-
+  if (rid0) free(rid0);
+  if (rid1) free(rid1);
   ArrayFreeLock(&subte, NULL);
   CloseFile(f, &fhdr);
-  if (_progress_report >= 0) {
+  if (_progress_report != 0) {
     PrintTransReport(nproc, tstart, ntrans, "RR", 1);
   }
 
   return 0;
 }
-      
+
 int SaveAI(int nlow, int *low, int nup, int *up, char *fn, 
 	   double eref, int msub) {
 #ifdef PERFORM_STATISTICS
@@ -2768,11 +2997,13 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   ARRAY subte;
   double c, e0, e1, b;
   int isub, n_egrid0;
-  int e_set, iuta;
+  int e_set, iuta, auta;
+  RANDIDX *rid0, *rid1;
 
   double tstart = WallTime();
   
   iuta = IsUTA();
+  auta = iuta && UTAGrid();
   if (iuta && msub) {
     printf("cannot call AITableMSub with UTA mode\n");
     return -1;
@@ -2793,6 +3024,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
       if (a > 0) k++;
       if (a < emin && a > 0) emin = a;
       if (a > emax) emax = a;
+      if (lev1->n_basis > 0 || lev2->n_basis > 0) auta = 0;
     }
   }
   if (k == 0) {
@@ -2813,12 +3045,14 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
 
   ArrayInit(&subte, sizeof(double), 128);
   ArrayAppend(&subte, &emin, NULL);
-  c = 1.0/TE_MIN_MAX;
-  if (!e_set) {
-    b = c*emin;
-    while (b < emax) {
-      ArrayAppend(&subte, &b, NULL);
-      b *= c;
+  if (!auta) {
+    c = 1.0/TE_MIN_MAX;
+    if (!e_set) {
+      b = c*emin;
+      while (b < emax) {
+	ArrayAppend(&subte, &b, NULL);
+	b *= c;
+      }
     }
   }
   ArrayAppend(&subte, &emax, NULL);
@@ -2839,52 +3073,67 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   }
   f = OpenFile(fn, &fhdr);
 
+  if (NProcMPI() > 1) {
+    rid0 = RandList(nlow);
+    rid1 = RandList(nup);
+  } else {
+    rid0 = NULL;
+    rid1 = NULL;
+  }
   int nproc = 0;
   int *ntrans = NULL;
-  if (_progress_report >= 0) {
+  if (_progress_report != 0) {
     ntrans = InitTransReport(&nproc);
   }
   e0 = emin*0.999;
   for (isub = 1; isub < subte.dim; isub++) {
     e1 = *((double *) ArrayGet(&subte, isub));
     if (isub == subte.dim-1) e1 = e1*1.001;
-    emin = e1;
-    emax = e0;
-    k = 0;
-    for (i = 0; i < nlow; i++) {
-      lev1 = GetLevel(low[i]);
-      for (j = 0; j < nup; j++) {
-	lev2 = GetLevel(up[j]);
-	a = lev1->energy - lev2->energy;
-	if (a < 0) a -= eref;
-	if (a < e0 || a >= e1) continue;
-	if (a < emin) emin = a;
-	if (a > emax) emax = a;
-	k++;
+    if (auta) {
+      emin = e0;
+      emax = e1;
+    } else {
+      emin = e1;
+      emax = e0;
+      k = 0;
+      for (i = 0; i < nlow; i++) {
+	lev1 = GetLevel(low[i]);
+	for (j = 0; j < nup; j++) {
+	  lev2 = GetLevel(up[j]);
+	  a = lev1->energy - lev2->energy;
+	  if (a < 0) a -= eref;
+	  if (a < e0 || a >= e1) continue;
+	  if (a < emin) emin = a;
+	  if (a > emax) emax = a;
+	  k++;
+	}
+      }
+      if (k == 0) {
+	e0 = e1;
+	continue;
       }
     }
-    if (k == 0) {
-      e0 = e1;
-      continue;
+    if (auta) {
+      SetPEGrid(-1, a, a, 0.0);
+    } else {
+      if (!e_set) {
+	a = (emax-emin)/(0.5*(emax+emin));
+	if (a < EPS3) {
+	  a = 0.5*(emin+emax);
+	  SetPEGrid(1, a, a, 0.0);
+	} else if (a < 0.4) {
+	  SetPEGrid(2, emin, emax, 0.0);
+	} else if (a < 1.0) {
+	  if (k == 2) n_egrid = 2;
+	  else if (n_egrid0 == 0) n_egrid = 3;
+	  SetPEGrid(n_egrid, emin, emax, 0.0);
+	} else {
+	  if (k == 2) n_egrid = 2;
+	  else if (n_egrid0 == 0) n_egrid = 4;
+	  SetPEGrid(n_egrid, emin, emax, 0.0);
+	}
+      }      
     }
-    if (!e_set) {
-      a = (emax-emin)/(0.5*(emax+emin));
-      if (a < EPS3) {
-	a = 0.5*(emin+emax);
-	SetPEGrid(1, a, a, 0.0);
-      } else if (a < 0.4) {
-	SetPEGrid(2, emin, emax, 0.0);
-      } else if (a < 1.0) {
-	if (k == 2) n_egrid = 2;
-	else if (n_egrid0 == 0)	n_egrid = 3;
-	SetPEGrid(n_egrid, emin, emax, 0.0);
-      } else {
-	if (k == 2) n_egrid = 2;
-	else if (n_egrid0 == 0) n_egrid = 4;
-	SetPEGrid(n_egrid, emin, emax, 0.0);
-      }
-    }      
-    
     if (!msub) {
       ai_hdr.n_egrid = n_egrid;
       ai_hdr.egrid = egrid;
@@ -2898,11 +3147,14 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
 #pragma omp parallel default(shared) private(i, j, lev1, lev2, e, k, s, r, r1, s1, t, rt)
     {
     int myrank = MPIRank(NULL);
+    int ilow, iup;
     for (i = 0; i < nlow; i++) {
-      int ilow = low[i];
+      if (rid0) ilow = low[rid0[i].i];
+      else ilow = low[i];
       lev1 = GetLevel(ilow);
       for (j = 0; j < nup; j++) {
-	int iup = up[j];
+	if (rid1) iup = up[rid1[j].i];
+	else iup = up[j];
 	lev2 = GetLevel(iup);	
 	int skip = SkipMPI();
 	if (skip) continue;
@@ -2912,14 +3164,14 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
 	
 	if (!msub) {
 	  if (iuta) {
-	    k = AutoionizeRateUTA(&s, &e, low[i], up[j]);
+	    k = AutoionizeRateUTA(&s, &e, ilow, iup);
 	  } else {
-	    k = AutoionizeRate(&s, &e, low[i], up[j], msub);
+	    k = AutoionizeRate(&s, &e, ilow, iup, msub);
 	  }
 	  if (k < 0) continue;
 	  if (s < _ai_cut) continue;
-	  r.b = low[i];
-	  r.f = up[j];
+	  r.b = ilow;
+	  r.f = iup;
 	  r.rate = s;
 	  WriteAIRecord(f, &r);
 	} else {
@@ -2932,16 +3184,21 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
 	    s += s1[t];
 	  }
 	  if (s < _ai_cut) continue;
-	  r1.b = low[i];
-	  r1.f = up[j];
+	  r1.b = ilow;
+	  r1.f = iup;
 	  r1.nsub = k;
 	  WriteAIMRecord(f, &r1);
 	}
 	if (ntrans) {
 	  ntrans[myrank]++;
-	  if (_progress_report > 0 && myrank == 0 &&
-	      ntrans[myrank]%_progress_report == 0) {
-	    PrintTransReport(nproc, tstart, ntrans, "AI", 0);
+	  if (_progress_report > 0) {
+	    if ( myrank == 0 && ntrans[0]%_progress_report == 0) {
+	      PrintTransReport(nproc, tstart, ntrans, "AI", 0);
+	    }
+	  } else if (_progress_report < 0) {
+	    if (ntrans[myrank]%(-_progress_report) == 0) {
+	      PrintTransReport(-myrank, tstart, ntrans, "AI", 0);
+	    }
 	  }
 	} 
       }
@@ -2972,7 +3229,9 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
     e0 = e1;
   }
 
-  if (_progress_report >= 0) {
+  if (rid0) free(rid0);
+  if (rid1) free(rid1);
+  if (_progress_report != 0) {
     PrintTransReport(nproc, tstart, ntrans, "AI", 1);
   }
   ReinitRecombination(1);

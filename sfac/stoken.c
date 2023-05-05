@@ -357,3 +357,36 @@ void ErrorOcurred(int ierr, int loc) {
   }
 }
 
+void ParseArgs(int argc, char *argv[], METHOD *methods) {
+  int i;
+  FILE *f;
+  
+  if (argc == 1) {
+    EvalFile(stdin, 1, methods);
+  } else if (argc == 3 && 0 == strcmp(argv[1], "-e")) {
+    ARRAY statements;
+    ARRAY variables;
+    STATEMENT *st;
+    
+    ArrayInit(&statements, sizeof(STATEMENT), 1024);
+    ArrayInit(&variables, sizeof(VARIABLE), 1024);
+    i = TokenizeLine(0, argv[2], methods, &statements, &variables);
+    st = (STATEMENT *) ArrayGet(&statements, statements.dim-1);
+    i = EvalStatement(st, methods, &variables);
+    ArrayFree(&statements, FreeStatementData);
+    ArrayFree(&variables, FreeVariableData);
+    if (i < 0) {
+      ErrorOcurred(ERR_EVAL, st->nline);
+      exit(1);
+    }
+  } else {
+    for (i = 1; i < argc; i++) {
+      f = fopen(argv[i], "r");
+      if (!f) {
+	printf("Cannot open file %s, Skipping\n", argv[i]);
+	continue;
+      }
+      EvalFile(f, 0, methods);
+    }
+  }
+}
