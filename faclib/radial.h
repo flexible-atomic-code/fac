@@ -48,6 +48,8 @@ typedef struct _orbmap_ {
   ORBITAL **onn;
   int nzn, nmax;
   ORBITAL **ozn;
+  int ifm;
+  double cfm, xfm;
 } ORBMAP;
 
 double *WLarge(ORBITAL *orb);

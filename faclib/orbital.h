@@ -35,6 +35,8 @@ typedef struct _POTENTIAL_ {
   int r_core;
   int nmax;
   int nse, mse, pse, mvp, pvp, hpvs, hlike;
+  int ifm;
+  double cfm, xfm;
   double hx0, hx1, chx;
   double hxs, ahx, ihx, rhx, dhx, bhx, ratio, asymp, rmin;
   double N; /*number of electrons*/

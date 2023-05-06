@@ -866,6 +866,9 @@ void SetOrbMap(int k, int n0, int n1, int n2) {
   _norbmap2 = n2;  
   _orbmap = malloc(sizeof(ORBMAP)*_korbmap);  
   for (i = 0; i < _korbmap; i++) {
+    _orbmap[i].ifm = 0;
+    _orbmap[i].cfm = 0.0;
+    _orbmap[i].xfm = 0.0;
     _orbmap[i].nzn = 0;
     _orbmap[i].nmax = 1000000000;
     _orbmap[i].opn = malloc(sizeof(ORBITAL *)*_norbmap0);
@@ -3664,7 +3667,7 @@ int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
 	AllocWorkSpace(k);
       }
     }
-    SetOrbitalRGrid(potential);
+    SetOrbitalRGrid(potential);    
   }
 
   int nmax = potential->nmax-1;
@@ -4780,7 +4783,10 @@ int WaveFuncTableOrb(char *s, ORBITAL *orb) {
   fprintf(f, "#SelfEne = %15.8E\n", orb->se*HARTREE_EV);
   fprintf(f, "#     vc = %15.8E\n", MeanPotential(k, k)*HARTREE_EV);
   fprintf(f, "#  ilast = %4d\n", orb->ilast);
-  //fprintf(f, "#     im = %4d\n", orb->im);
+  i = ((abs(kappa)-1)*2)+(kappa>0);
+  fprintf(f, "#    ifm = %4d\n", _orbmap[i].ifm);
+  fprintf(f, "#    cfm = %15.8E\n", _orbmap[i].cfm);
+  fprintf(f, "#    xfm = %15.8E\n", _orbmap[i].xfm);
   fprintf(f, "#    rfn = %15.8E\n", orb->rfn);
   fprintf(f, "#    pdx = %15.8E\n", orb->pdx);
   fprintf(f, "#   bqp0 = %15.8E\n", orb->bqp0);
@@ -5026,9 +5032,49 @@ int OrbitalIndex(int n, int kappa, double energy) {
   ORBMAP *om = &_orbmap[k];
   if (n > 0) { //Case of a bound orbital
     k = n-1;
-    orb = om->opn[k];
+    if (k >= _norbmap0) {
+      printf("too many bound orbitals, enlarge norbmap0: %d >= %d\n",
+	     k, _norbmap0);
+      Abort(1);
+    }
+    orb = om->opn[k];    
+    if (potential->ib == 0 && n > potential->nmax) {
+      if (om->ifm == 0) {
+	int km = OrbitalIndex(potential->nmax, kappa, energy);
+	ORBITAL *omn = GetOrbital(km);
+	double *pp = Large(omn);
+	double *qq = Small(omn);
+	om->ifm = FirstMaximum(pp, potential->r_core,
+			      potential->maxrp-1, potential);
+	int i;
+	for (i = 0; i <= om->ifm; i++) {
+	  potential->dW2[i] = (pp[i]*pp[i] + qq[i]*qq[i])*potential->dr_drho[i];
+	}
+	om->cfm = Simpson(potential->dW2, 0, om->ifm);
+	
+	km = OrbitalIndex(potential->nmax-2, kappa, energy);
+	omn = GetOrbital(km);
+	pp = Large(omn);
+	qq = Small(omn);
+	for (i = 0; i <= om->ifm; i++) {
+	  potential->dW2[i] = (pp[i]*pp[i] + qq[i]*qq[i])*potential->dr_drho[i];
+	}
+	om->xfm = Simpson(potential->dW2, 0, om->ifm);
+	om->xfm = log(om->cfm/om->xfm);
+	om->xfm /= log((potential->nmax-2.0)/potential->nmax);
+	if (om->xfm > 3.0) om->xfm = 3.0;
+      }
+      potential->ifm = om->ifm;
+      potential->cfm = om->cfm;
+      potential->xfm = om->xfm;
+    }
   } else if (n < 0) {
     k = -n-1;
+    if (om->nzn >= _norbmap2) {
+      printf("too many free orbitals, enlarge norbmap2: %d >= %d\n",
+	     om->nzn, _norbmap2);
+      Abort(1);
+    }
     orb = om->onn[k];
   } else {
     for (k = 0; k < om->nzn; k++) {
