@@ -16,13 +16,13 @@ C     ierr error code returned by coulcc
       parameter (nx = 4)
       double precision z, e, r, p, q, p1, q1, c, ki, zp, gam
       double precision lambda, y, yh, qi, x0, b1, b2, np
-      double precision xp(nx),dp(nx),dq(nx),dp1(nx),dq1(nx)
+      double precision xp(nx),ds(nx),dp(nx),dq(nx),dp1(nx),dq1(nx)
       complex*16 x, eta, zlmin, omega, a, pp, qq, mu, nu, IONE
       complex*16 fc(1), gc(1), fcp(1), gcp(1), sig(1), clgam, lam0
       double precision SL, SL2, TSL2, ALPHA
       PARAMETER (SL=137.036D0,SL2=SL*SL,TSL2=SL2+SL2,ALPHA=1.0D0/SL)
       real*8 HALFPI, EPS
-      parameter (HALFPI = 1.5707963268D0, EPS=1D-3/(nx-1))
+      parameter (HALFPI = 1.5707963268D0, EPS=1D-4/(nx-1))
       
       inorm = ierr
       IONE = dcmplx(0.0, 1.0)
@@ -85,12 +85,18 @@ C     ierr error code returned by coulcc
             qq = (ALPHA*e/ki)*a*((mu - nu)*gc(1) + x*gcp(1))
             dp(ip) = dble(pp)
             dq(ip) = dble(qq)
+            ds(ip) = sqrt(dp(ip)*dp(ip) + dq(ip)*dq(ip))
+            dp(ip) = dp(ip)/ds(ip)
+            dq(ip) = dq(ip)/ds(ip)
             dp1(ip) = dble(omega)
             dq1(ip) = dimag(omega)
             !write(*,*) xp(ip),yh,dp(ip),dq(ip),dq(ip)/dp(ip)
          enddo
          call UVIP3P(3, nx, xp, dp, 1, 0.0, p)
          call UVIP3P(3, nx, xp, dq, 1, 0.0, q)
+         call UVIP3P(3, nx, xp, ds, 1, 0.0, a)
+         p = p*a
+         q = q*a
          call UVIP3P(3, nx, xp, dp1, 1, 0.0, p1)
          call UVIP3P(3, nx, xp, dq1, 1, 0.0, q1)
       else
