@@ -98,6 +98,7 @@ static double _sc_ewr = 0.0;
 static int _debug = 0;
 static double _matchtol = 1e-3;
 static int _veff_corr = 1;
+static int _rydnorm = 1;
 
 #define MINNKF 55
 #define MAXNKF 155
@@ -552,7 +553,7 @@ int RadialSolver(ORBITAL *orb, POTENTIAL *pot) {
 	  if (pot->pse) orb->kv = IdxVT(orb->kappa);
 	  return 0;
 	}
-	if (orb->n < pot->nmax) {
+	if (orb->n <= pot->nmax) {
 	  ierr = RadialBound(orb, pot);
 	} else {
 	  ierr = RadialRydberg(orb, pot);
@@ -1779,7 +1780,7 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
   SetPotentialW(pot, e, orb->kappa, kv);
   SetVEffective(kl, kv, pot);
   i2 = TurningPoints(orb->n, e, orb->kappa, pot, 0);
-  if (i2 < pot->maxrp - 1.5*pot->asymp) {
+  if (i2 < pot->maxrp - 3*pot->asymp) {
     return RadialBound(orb, pot);
   }
   p = malloc(sizeof(double)*2*pot->maxrp);
@@ -1864,45 +1865,49 @@ int RadialRydberg(ORBITAL *orb, POTENTIAL *pot) {
   for (i = 0; i <= i2p2; i++) {
     p[i] = p[i] * pot->dr_drho2[i];
   }
-  i2 = LastMaximum(p, pot->r_core, i2, pot);
-  //i2 = pot->r_core;
-  zp = FINE_STRUCTURE_CONST2*e;
-  x0 = pot->rad[i2];
-  ierr = 1;
-  DCOUL(z, e, orb->kappa, x0, &pp, &qq, &ppi, &qqi, &ierr);
-  norm2 = pp;
-  fact = fabs(norm2/p[i2]);
-  i2 = FirstMaximum(p, 0, i2, pot);
-  if (p[i2] < 0) {
-    fact = -fact;
+  if (_rydnorm <= 0) {
+    i2 = LastMaximum(p, pot->r_core, i2, pot);
+    zp = FINE_STRUCTURE_CONST2*e;
+    x0 = pot->rad[i2];
+    ierr = 1;
+    DCOUL(z, e, orb->kappa, x0, &pp, &qq, &ppi, &qqi, &ierr);
+    norm2 = pp;
+    fact = fabs(norm2/p[i2]);
+    i2 = FirstMaximum(p, 0, i2, pot);
+    if (p[i2] < 0) {
+      fact = -fact;
+    }
+    for (i = 0; i <= i2p2; i++) {
+      p[i] *= fact;
+    }
   }
-  for (i = 0; i <= i2p2; i++) {
-    p[i] *= fact;
-  }
-
   i = pot->maxrp-1;
   orb->ilast = i;
   orb->energy = e;
-  
+      
   e0 = InnerProduct(0, pot->maxrp-1, p, p, pot);
   orb->qr_norm = 1.0/e0;
 
   if (pot->flag == -1) {
     DiracSmall(orb, pot, -1, kv);
-    /*
-    p2 = sqrt(pp*pp + qq*qq);    
-    if (p2) {
-      i = i2 + pot->maxrp;
-      p1 = sqrt(orb->wfun[i2]*orb->wfun[i2] + orb->wfun[i]*orb->wfun[i]);    
-      fact = p2/p1;
-      if (fabs(1-fact)>EPS8) {
-	for (i = 0; i < pot->maxrp-1; i++) {
-	  orb->wfun[i] *= fact;
-	  orb->wfun[i+pot->maxrp] *= fact;
-	}
+    if (_rydnorm > 0) {
+      for (i = 0; i <= pot->ifm; i++) {
+	pp = orb->wfun[i];
+	qq = orb->wfun[i+pot->maxrp];
+	pot->dW2[i] = (pp*pp + qq*qq)*pot->dr_drho[i];
+      }
+      p2 = pot->nmax;
+      p2 /= orb->n;
+      p2 = pow(p2, 3-p2*(3.0-pot->xfm));
+      p2 /= Simpson(pot->dW2, 0, pot->ifm);
+      fact = sqrt(pot->cfm*p2);
+      i2 = FirstMaximum(p, 0, i2, pot);
+      if (p[i2] < 0) fact = -fact;
+      for (i = 0; i < pot->maxrp; i++) {
+	orb->wfun[i] *= fact;
+	orb->wfun[i+pot->maxrp] *= fact;
       }
     }
-    */
   }
 
   return 0;
@@ -6166,6 +6171,10 @@ void SetOptionOrbital(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "orbital:pwa")) {
     _pwa = ip;
+    return;
+  }
+  if (0 == strcmp(s, "orbital:rydnorm")) {
+    _rydnorm = ip;
     return;
   }
 }
