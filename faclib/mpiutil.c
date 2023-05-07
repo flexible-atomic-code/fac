@@ -283,6 +283,11 @@ void InitializeMPI(int n, int m) {
     AllocExcDWS();
   }
 #endif
+#else
+  if (n > 1) {
+    printf("FAC was not compiled with MPI or OpenMP support.\n");
+    printf("Multi-threading disabled.\n");
+  }
 #endif
 }
 
