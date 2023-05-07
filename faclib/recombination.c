@@ -2903,6 +2903,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     r.strength = (float *) malloc(sizeof(float)*n_usr);
     int myrank = MPIRank(NULL);
     int ilow, iup;
+    int ipr = 0;
     for (i = 0; i < nup; i++) {
       if (rid1) iup = up[rid1[i].i];
       else iup = up[i];
@@ -2939,11 +2940,11 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
 	  ntrans[myrank]++;
 	  if (_progress_report > 0) {
 	    if (myrank == 0 && ntrans[0]%_progress_report == 0) {
-	      PrintTransReport(nproc, tstart, ntrans, "RR", 0);
+	      PrintTransReport(nproc, tstart, ntrans, "RR", ipr++);
 	    }
 	  } else if (_progress_report < 0) {
 	    if (ntrans[myrank]%(-_progress_report) == 0) {
-	      PrintTransReport(-myrank, tstart, ntrans, "RR", 0);
+	      PrintTransReport(-myrank, tstart, ntrans, "RR", ipr++);
 	    }
 	  }
 	}
@@ -2970,7 +2971,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   ArrayFreeLock(&subte, NULL);
   CloseFile(f, &fhdr);
   if (_progress_report != 0) {
-    PrintTransReport(nproc, tstart, ntrans, "RR", 1);
+    PrintTransReport(nproc, tstart, ntrans, "RR", -1);
   }
 
   return 0;
@@ -3148,6 +3149,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
     {
     int myrank = MPIRank(NULL);
     int ilow, iup;
+    int ipr = 0;
     for (i = 0; i < nlow; i++) {
       if (rid0) ilow = low[rid0[i].i];
       else ilow = low[i];
@@ -3193,11 +3195,11 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
 	  ntrans[myrank]++;
 	  if (_progress_report > 0) {
 	    if ( myrank == 0 && ntrans[0]%_progress_report == 0) {
-	      PrintTransReport(nproc, tstart, ntrans, "AI", 0);
+	      PrintTransReport(nproc, tstart, ntrans, "AI", ipr++);
 	    }
 	  } else if (_progress_report < 0) {
 	    if (ntrans[myrank]%(-_progress_report) == 0) {
-	      PrintTransReport(-myrank, tstart, ntrans, "AI", 0);
+	      PrintTransReport(-myrank, tstart, ntrans, "AI", ipr++);
 	    }
 	  }
 	} 
@@ -3232,7 +3234,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
   if (rid0) free(rid0);
   if (rid1) free(rid1);
   if (_progress_report != 0) {
-    PrintTransReport(nproc, tstart, ntrans, "AI", 1);
+    PrintTransReport(nproc, tstart, ntrans, "AI", -1);
   }
   ReinitRecombination(1);
   //FreeAICache(0);

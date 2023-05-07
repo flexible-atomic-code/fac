@@ -1588,6 +1588,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
     r.strength = (float *) malloc(sizeof(float)*n_usr);
     r.params = (float *) malloc(sizeof(float)*nqk);
     int ilow, iup;
+    int ipr = 0;
     for (i = 0; i < nb; i++) {
       if (rid0) ilow = b[rid0[i].i];
       else ilow = b[i];
@@ -1622,11 +1623,11 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
 	  ntrans[myrank]++;
 	  if (_progress_report > 0) {	    
 	    if (myrank == 0 && ntrans[0]%_progress_report == 0) {
-	      PrintTransReport(nproc, tstart, ntrans, "CI", 0);
+	      PrintTransReport(nproc, tstart, ntrans, "CI", ipr++);
 	    }
 	  } else if (_progress_report < 0) {
 	    if (ntrans[myrank]%(-_progress_report) == 0) {
-	      PrintTransReport(-myrank, tstart, ntrans, "CI", 0);
+	      PrintTransReport(-myrank, tstart, ntrans, "CI", ipr++);
 	    }
 	  }
 	}
@@ -1654,7 +1655,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   CloseFile(file, &fhdr);
 
   if (_progress_report != 0) {
-    PrintTransReport(nproc, tstart, ntrans, "CI", 1);
+    PrintTransReport(nproc, tstart, ntrans, "CI", -1);
   }
   return 0;
 }
@@ -2047,6 +2048,7 @@ int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
 #pragma omp parallel default(shared) private(i, j, lev1, lev2, e, nq, r, qku, ie)
   {
   int myrank = MPIRank(NULL);
+  int ipr = 0;
   for (i = 0; i < nb; i++) {
     lev1 = GetLevel(b[i]);
     for (j = 0; j < nf; j++) {
@@ -2070,11 +2072,11 @@ int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
 	ntrans[myrank]++;	
 	if (_progress_report > 0) {
 	  if (myrank == 0 && ntrans[0]%_progress_report == 0) {
-	    PrintTransReport(nproc, tstart, ntrans, "CIM", 0);
+	    PrintTransReport(nproc, tstart, ntrans, "CIM", ipr++);
 	  }
 	} else if (_progress_report < 0) {
 	  if (ntrans[myrank]%(-_progress_report) == 0) {
-	    PrintTransReport(-myrank, tstart, ntrans, "CIM", 0);
+	    PrintTransReport(-myrank, tstart, ntrans, "CIM", ipr++);
 	  }
 	}
       }
@@ -2091,7 +2093,7 @@ int SaveIonizationMSub(int nb, int *b, int nf, int *f, char *fn) {
   ReinitIonization(1);
 
   if (_progress_report != 0) {
-    PrintTransReport(nproc, tstart, ntrans, "CIM", 1);
+    PrintTransReport(nproc, tstart, ntrans, "CIM", -1);
   }
   return 0;
 }
