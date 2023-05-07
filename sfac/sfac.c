@@ -4893,13 +4893,12 @@ static int PWallTime(int argc, char *argv[], int argt[],
 
 static int PInitializeMPI(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
-#ifdef USE_MPI
   int n = -1;
   if (argc > 0) {
     n = atoi(argv[0]);
   }
   InitializeMPI(n, 0);
-#endif
+
   return 0;
 }
 

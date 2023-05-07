@@ -1528,13 +1528,11 @@ static PyObject *PInitializeMPI(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-#ifdef USE_MPI
   int n = -1;
   if (!(PyArg_ParseTuple(args, "|i", &n))) {
     return NULL;
   }
   InitializeMPI(n, 1);
-#endif
   
   Py_INCREF(Py_None);
   return Py_None;
