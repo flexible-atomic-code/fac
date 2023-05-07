@@ -868,6 +868,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
     {
     imin = 0;
     int myrank = MPIRank(NULL);
+    int ipr = 0;
     for (ic0 = 0; ic0 < nic0; ic0++) {
       imax = nc0[ic0];
       jmin = 0;
@@ -999,11 +1000,11 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	    ntrans[myrank]++;
 	    if (_progress_report > 0) {
 	      if (myrank == 0 && ntrans[0]%_progress_report == 0) {
-		PrintTransReport(nproc, tstart, ntrans, "TR", 0);
+		PrintTransReport(nproc, tstart, ntrans, "TR", ipr++);
 	      }
 	    } else if (_progress_report < 0) {
 	      if (ntrans[myrank]%(-_progress_report) == 0) {
-		PrintTransReport(-myrank, tstart, ntrans, "TR", 0);
+		PrintTransReport(-myrank, tstart, ntrans, "TR", ipr++);
 	      }
 	    }
 	  }
@@ -1022,6 +1023,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 #pragma omp parallel default(shared) private(a, s, et, j, jup, trd, i, k, gf, r)
     {
       int myrank = MPIRank(NULL);
+      int ipr = 0;
       a = malloc(sizeof(double)*nlow);
       s = malloc(sizeof(double)*nlow);
       et = malloc(sizeof(double)*nlow);
@@ -1044,11 +1046,11 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	    ntrans[myrank]++;
 	    if (_progress_report > 0) {
 	      if (myrank == 0 && ntrans[0]%_progress_report == 0) {
-		PrintTransReport(nproc, tstart, ntrans, "TR", 0);
+		PrintTransReport(nproc, tstart, ntrans, "TR", ipr++);
 	      }
 	    } else if (_progress_report < 0) {
 	      if (ntrans[myrank]%(-_progress_report) == 0) {
-		PrintTransReport(-myrank, tstart, ntrans, "TR", 0);
+		PrintTransReport(-myrank, tstart, ntrans, "TR", ipr++);
 	      }
 	    }
 	  }
@@ -1071,7 +1073,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
   DeinitFile(f, &fhdr);
   CloseFile(f, &fhdr);
   if (_progress_report != 0) {
-    PrintTransReport(nproc, tstart, ntrans, "TR", 1);
+    PrintTransReport(nproc, tstart, ntrans, "TR", -1);
   }
 #ifdef PERFORM_STATISTICS
   GetStructTiming(&structt);

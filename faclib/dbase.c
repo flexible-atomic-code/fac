@@ -739,6 +739,46 @@ void PrintWallTime(char *s, int m) {
   fflush(stdout);
 }
 
+int *InitTransReport(int *nproc) {
+  int k, np;
+  k = MPIRank(&np);
+  int *n = malloc(sizeof(int)*(np));
+  for (k = 0; k < np; k++) n[k] = 0;
+  *nproc = np;
+  return n;
+}
+
+void PrintTransReport(int nproc, double t0, int *ntrans,
+		      char *sid, int ip) {
+  int k;
+  double nt;
+  int n0, n1, md;
+  if (nproc > 0) {
+    n1 = n0 = ntrans[0];
+    nt = 0;
+    for (k = 0; k < nproc; k++) {
+      nt += ntrans[k];
+      if (n0 > ntrans[k]) n0 = ntrans[k];
+      if (n1 < ntrans[k]) n1 = ntrans[k];
+    }
+    nt /= nproc;
+    md = 0;
+  } else {
+    n0 = n1 = nt = ntrans[-nproc];
+    md = -1;
+  }
+  double t1 = WallTime();
+  double dt = t1 - t0;
+  double mdt = 1e3*dt;
+  double mdta=0.0, mdt0=0.0, mdt1=0.0;
+  if (nt > 0) mdta = mdt/nt;
+  if (n1 > 0) mdt1 = mdt/n1;
+  if (n0 > 0) mdt0 = mdt/n0;
+  MPrintf(md, "%s %05d: %08d(%08d,%08d)trans in %8.2Es, %8.2E(%8.2E,%8.2E)ms/tran @ %11.4Es\n",
+	  sid, ip, ((int)(nt+0.25)), n0, n1, dt, mdta, mdt0, mdt1, ClockNow(0));
+  if (ip < 0) free(ntrans);
+}
+  
 int InitDBase(void) {
   int i;
 

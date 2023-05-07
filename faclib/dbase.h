@@ -756,5 +756,7 @@ int ChannelAI(int b, int nmb, short *ncb,
 void RemoveClosedShell(EN_RECORD *r);
 void SetInnerAI(char *s);
 double GroundEnergy(int k);
+int *InitTransReport(int *np);
+void PrintTransReport(int nproc, double t0, int *ntrans, char *sid, int isf);
 #endif
 

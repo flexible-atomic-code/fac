@@ -3720,6 +3720,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     r.strength = (float *) malloc(sizeof(float)*m);    
     //ic = 0;
     int myrank = MPIRank(NULL);
+    int ipr = 0;
     for (i = 0; i < nlow; i++) {
       if (rid0) {
 	ilow = low[rid0[i].i];
@@ -3758,11 +3759,11 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 	  if (_progress_report > 0) {
 	    if (myrank == 0 &&
 		ntrans[0]%_progress_report == 0) {
-	      PrintTransReport(nproc, tstart, ntrans, "CE", 0);
+	      PrintTransReport(nproc, tstart, ntrans, "CE", ipr++);
 	    }
 	  } else if (_progress_report < 0) {
 	    if (ntrans[0]%(-_progress_report) == 0) {
-	      PrintTransReport(-myrank, tstart, ntrans, "CE", 0);
+	      PrintTransReport(-myrank, tstart, ntrans, "CE", ipr++);
 	    }
 	  }
 	}
@@ -3846,7 +3847,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
   }
 
   if (_progress_report != 0) {
-    PrintTransReport(nproc, tstart, ntrans, "CE", 1);
+    PrintTransReport(nproc, tstart, ntrans, "CE", -1);
   }
 #ifdef PERFORM_STATISTICS
   GetStructTiming(&structt);
