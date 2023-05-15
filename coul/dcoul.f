@@ -14,7 +14,7 @@ C     ierr error code returned by coulcc
       implicit none     
       integer k, ierr, kfn, inorm, nx, ip
       parameter (nx = 4)
-      double precision z, e, r, p, q, p1, q1, c, ki, zp, gam
+      double precision z, e, r, p, q, s, p1, q1, c, ki, zp, gam
       double precision lambda, y, yh, qi, x0, b1, b2, np
       double precision xp(nx),ds(nx),dp(nx),dq(nx),dp1(nx),dq1(nx)
       complex*16 x, eta, zlmin, omega, a, pp, qq, mu, nu, IONE
@@ -94,9 +94,9 @@ C     ierr error code returned by coulcc
          enddo
          call UVIP3P(3, nx, xp, dp, 1, 0.0, p)
          call UVIP3P(3, nx, xp, dq, 1, 0.0, q)
-         call UVIP3P(3, nx, xp, ds, 1, 0.0, a)
-         p = p*a
-         q = q*a
+         call UVIP3P(3, nx, xp, ds, 1, 0.0, s)
+         p = p*s
+         q = q*s
          call UVIP3P(3, nx, xp, dp1, 1, 0.0, p1)
          call UVIP3P(3, nx, xp, dq1, 1, 0.0, q1)
       else
