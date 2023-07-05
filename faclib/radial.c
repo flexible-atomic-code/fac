@@ -8673,6 +8673,7 @@ double BreitI(int n, int k0, int k1, int k2, int k3, int m) {
   return r;
 }
 
+//mbr=2 uses freq-dep form. to calculate freq-indep values.
 int BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, int w, int mbr,
 	   double e, double *y) {
   int i;
@@ -10542,7 +10543,7 @@ int IntegrateSinCos(int j, double *x, double *y,
   double *z, *u, *w, *u1, *w1, *xi, *yi, *wi;
   double mdp[2];
   
-  w = _dwork2;
+  w = _dwork14;
   z = _dwork10;
   u = _dwork11;
   xi = _dwork15;
@@ -10798,7 +10799,7 @@ int IntegrateSinCos2(int j, double *x, double scx, double *y, double scy,
   //static double t0, dt0 = 0, dt1 = 0.0, dt2 = 0.0, dt3 = 0.0;
 
   if (t > 0) t = -t;
-  w = _dwork2;
+  w = _dwork14;
   for (i = 0; i < j; i++) {
     w[i] = potential->rho[i0+i*2];
   }
@@ -10932,7 +10933,7 @@ int IntegrateSinCos1(int j, double *x, double scx, double *y, double scy,
   double d, p, h, dr;
   double *z, *u, *w, *u1, *w1;
 
-  w = _dwork2;
+  w = _dwork14;
   z = _dwork10;
   u = _dwork11;
   if (phase[j-1] < 0) {
