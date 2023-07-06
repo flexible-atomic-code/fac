@@ -41,7 +41,7 @@ static int dipole_nmax = 0;
 static double **dipole_array = NULL;
 
 static int _cbindex[CBMULT][CBMULT+1];
-static double *_cb[MAXNE][MAXNTE][MAXNE][MAXNCB];
+static double *****_cb = NULL;
 
 void SetHydrogenicNL(int n, int kl, int nm, int klm) {
   if (n > 0) n_hydrogenic = n;
@@ -567,7 +567,9 @@ double CoulombPhaseShift(double z, double e, int kappa) {
 }
 
 double *GetCoulombBethe(int ie2, int ite, int ie1, int t, int q) {
+  if (_cb == NULL) return NULL;
   if (t > CBMULT) t = CBMULT;
+  if (q > t) q = t;
   return _cb[ie2][ite][ie1][_cbindex[t-1][q]];
 }
 
@@ -717,11 +719,30 @@ int PrepCoulombBethe(int ne2, int nte, int ne1, double z,
   for (i = 0; i < CBMULT; i++) {
     r[i] = malloc(sizeof(double)*(i+2)*(CBLMAX+1));
   }
+  if (_cb) {
+    for (ie2 = 0; ie2 < MAXNE; ie2++) {
+      for (ite = 0; ite < MAXNTE; ite++) {
+	for (ie1 = 0; ie1 < MAXNE; ie1++) {
+	  for (i = 0; i < MAXNCB; i++) {
+	    free(_cb[ie2][ite][ie1][i]);
+	  }
+	  free(_cb[ie2][ite][ie1]);
+	}
+	free(_cb[ie2][ite]);
+      }
+      free(_cb[ie2]);
+    }
+    free(_cb);
+  }
+
+  _cb = malloc(sizeof(double ****)*MAXNE);
   for (ie2 = 0; ie2 < MAXNE; ie2++) {
+    _cb[ie2] = malloc(sizeof(double ***)*MAXNTE);
     for (ite = 0; ite < MAXNTE; ite++) {
+      _cb[ie2][ite] = malloc(sizeof(double **)*MAXNE);
       for (ie1 = 0; ie1 < MAXNE; ie1++) {
+	_cb[ie2][ite][ie1] = malloc(sizeof(double *)*MAXNCB);
 	for (i = 0; i < MAXNCB; i++) {
-	  free(_cb[ie2][ite][ie1][i]);
 	  _cb[ie2][ite][ie1][i] = malloc(sizeof(double)*nkl);
 	  for (ik = 0; ik < nkl; ik++) {
 	    _cb[ie2][ite][ie1][i][ik] = 0.0;
@@ -989,15 +1010,6 @@ int CoulombMultip(char *fn, double z, double te, double e1,
 int InitCoulomb(void) {
   int i, ie1, ie2, ite;
 
-  for (ie2 = 0; ie2 < MAXNE; ie2++) {
-    for (ite = 0; ite < MAXNTE; ite++) {
-      for (ie1 = 0; ie1 < MAXNE; ie1++) {
-	for (i = 0; i < MAXNCB; i++) {
-	  _cb[ie2][ite][ie1][i] = NULL;
-	}
-      }
-    }
-  }
   PrepCBIndex();
   SetHydrogenicNL(-1, -1, -1, -1);
   InitHydrogenicDipole(150);
