@@ -4476,10 +4476,11 @@ int ReinitExcitation(int m) {
   egrid[0] = -1.0;
   SetCEEGridLimits(0.05, 8.0, 0);
   usr_egrid[0] = -1.0;
-  tegrid[0] = -1.0;  
-  SetCEQkMode(QK_DEFAULT, 1E-3);
-  SetCEPWOptions(EXCLQR, EXCLMAX, EXCLCB, EXCTOL);
-
+  tegrid[0] = -1.0;
+  if (m == 0) {
+    SetCEQkMode(QK_DEFAULT, 1E-3);
+    SetCEPWOptions(EXCLQR, EXCLMAX, EXCLCB, EXCTOL);
+  }
   return 0;
 }
 

@@ -2137,10 +2137,10 @@ int ReinitIonization(int m) {
   SetCIEGridLimits(-1.0, -1.0, 0);
   tegrid[0] = -1.0;
   usr_egrid[0] = -1.0;
-  /*
-  SetCIQkMode(QK_DEFAULT, 1E-3);
-  SetCIPWOptions(IONLQR, IONLMAX, IONLEJEC, IONLCB, IONTOL);
-  */
+  if (m == 0) {
+    SetCIQkMode(QK_DEFAULT, 1E-3);
+    SetCIPWOptions(IONLQR, IONLMAX, IONLEJEC, IONLCB, IONTOL);
+  }
   return 0;
 }
 
