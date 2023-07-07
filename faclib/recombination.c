@@ -3915,10 +3915,10 @@ int ReinitRecombination(int m) {
   n_tegrid = 0;
   tegrid[0] = -1.0;
 
+  if (m > 0) return 0;
+
   SetRecQkMode(QK_DEFAULT, 0.1);
   SetRecPWOptions(RECLMAX, RECLMAX);
-
-  if (m > 0) return 0;
 
   for (i = 0; i < n_complex; i++) {
     ArrayFree(rec_complex[i].rg, NULL);
