@@ -3673,16 +3673,6 @@ static int PSetUTA(int argc, char *argv[], int argt[],
   return 0;
 }
 
-static int PSetExpandUTA(int argc, char *argv[], int argt[], 
-			 ARRAY *variables) {
-  
-  if (argc != 1 || argt[0] != NUMBER) return -1;
-  
-  SetExpandUTA(atoi(argv[0]));
-  
-  return 0;
-}
-
 static int PSetTRF(int argc, char *argv[], int argt[], 
 		   ARRAY *variables) {
   
@@ -5363,7 +5353,6 @@ static METHOD methods[] = {
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
   {"PropogateDirection", PPropogateDirection, METH_VARARGS}, 
   {"SetUTA", PSetUTA, METH_VARARGS},  
-  {"SetExpandUTA", PSetExpandUTA, METH_VARARGS}, 
   {"SetTRF", PSetTRF, METH_VARARGS}, 
   {"SetCEPWFile", PSetCEPWFile, METH_VARARGS}, 
   {"AppendTable", PAppendTable, METH_VARARGS}, 

@@ -1331,7 +1331,8 @@ int Couple(CONFIG *cfg) {
       break;
     }
   }
-  if (TrueUTA()) {
+
+  if (TrueUTA(cfg->shells[0].n)) {
     cfg->csfs = NULL;
     cfg->n_csfs = 0;
     cfg->n_electrons = 0;
@@ -2772,7 +2773,11 @@ void ListConfig(char *fn, int n, int *kg) {
       if (c->mde < mde) mde = c->mde;
       ConstructConfigName(a, 2048, c);
       FormatConfig(s, a, g->name, kg[i], j, m, c->cth, c->mde, mde);
-      fprintf(f, "%s\n", s);
+      if (c->n_csfs > 0) {
+	fprintf(f, "%s\n", s);
+      } else {
+	fprintf(f, "%s *\n", s);
+      }
       m++;
     }
   }
@@ -2785,7 +2790,7 @@ int ReadConfig(char *fn, char *c0) {
   char buf[1024];
   char cbuf[1024];
   CONFIG *cfg;
-  int t, j, ncfg;
+  int t, j, ncfg, iuta, cuta, mci, u;
   
   if (fn == NULL) return -1;
   f = fopen(fn, "r");
@@ -2793,12 +2798,14 @@ int ReadConfig(char *fn, char *c0) {
     printf("cannot open file %s\n", fn);
     return -1;
   }
+  cuta = CurrentUTA(&iuta, &mci);
   while (1) {
     char *p = fgets(buf, 1024, f);
     if (p == NULL) break;
     p[32] = '\0';
     char *s = p;
     while(s && *s == ' ') s++;
+    u = 0;
     if (s) {
       if (c0 != NULL && strcmp(c0, s)) continue;
       int t = GroupIndex(s);
@@ -2806,6 +2813,10 @@ int ReadConfig(char *fn, char *c0) {
       char *c = &p[89];
       int i = 0;      
       while (c) {
+	if (*c == '*') {
+	  u = 1;
+	  break;
+	}
 	if (*c == '\n') {
 	  break;
 	}
@@ -2820,12 +2831,13 @@ int ReadConfig(char *fn, char *c0) {
 	c++;
       }
       cbuf[i] = '\0';
-      
-      ncfg = GetConfigFromString(&cfg, cbuf);
+      SetUTA(u, mci);
+      ncfg = GetConfigFromString(&cfg, cbuf);      
       for (j = 0; j < ncfg; j++) {
 	if (Couple(cfg+j) < 0) return -1;
 	if (AddConfigToList(t, cfg+j) < 0) return -1;
       }
+      SetUTA(iuta, mci);
       if (ncfg > 0) free(cfg);
     }
   }

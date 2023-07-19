@@ -1867,23 +1867,6 @@ static PyObject *PSetUTA(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
-
-static PyObject *PSetExpandUTA(PyObject *self, PyObject *args) {
-  int m;
-
-  if (sfac_file) {
-    SFACStatement("SetExpandUTA", args, NULL);
-    Py_INCREF(Py_None);
-    return Py_None;
-  }
-  
-  if (!PyArg_ParseTuple(args, "i", &m)) return NULL;
-  
-  SetExpandUTA(m);
-
-  Py_INCREF(Py_None);
-  return Py_None;
-}
   
 static PyObject *PSetTRF(PyObject *self, PyObject *args) {
   int m;
@@ -6580,7 +6563,6 @@ static struct PyMethodDef fac_methods[] = {
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
   {"PropogateDirection", PPropogateDirection, METH_VARARGS}, 
   {"SetUTA", PSetUTA, METH_VARARGS}, 
-  {"SetExpandUTA", PSetExpandUTA, METH_VARARGS}, 
   {"SetTRF", PSetTRF, METH_VARARGS}, 
   {"SetCEPWFile", PSetCEPWFile, METH_VARARGS}, 
   {"AppendTable", PAppendTable, METH_VARARGS}, 
