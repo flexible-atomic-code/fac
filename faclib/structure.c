@@ -2854,12 +2854,21 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
   LEVEL lev;
   SYMMETRY *sym;
   STATE *s, *s1;
-  CONFIG *c;
+  CONFIG *c, *c0;
   CONFIG_GROUP *g;
   int g0, p0;
   double *mix, a;
 
-  if (TrueUTA()) {
+  c0 = NULL;
+  if (h && h->basis && h->pj >= 0) {
+    sym = GetSymmetry(h->pj);
+    s = (STATE *) ArrayGet(&(sym->states), h->basis[0]);
+    c0 = GetConfigFromGroup(s->kgroup, s->kcfg);
+  } else if (ng > 0) {
+    c0 = GetConfigFromGroup(kg[0], 0);
+  }
+    
+  if (c0 && c0->n_csfs == 0) {
     m = n_levels;
     lev.n_basis = 0;
     lev.ibase = -1;
@@ -3235,7 +3244,7 @@ int CompareLevels(LEVEL *lev1, LEVEL *lev2) {
     else return 0;
   }
   
-  if (TrueUTA()) {
+  if (lev1->n_basis == 0 || lev2->n_basis == 0) {
     if (lev1->energy > lev2->energy) return 1;
     else if (lev1->energy < lev2->energy) return -1;
     return 0;
@@ -3602,15 +3611,8 @@ int SolveStructure(char *fn, char *hfn,
     if (fn == NULL) md = ip*1000 + 110;
     else md = ip*1000 + 111;
   }
-  int euta = 0;
-  if (IsUTA() && !ExpandUTA()) {
-    CONFIG *cfg = GetConfigFromGroup(kg[0], 0);
-    if (cfg->n_csfs > 0) {
-      SetExpandUTA(1);
-      euta = 1;
-    }
-  }
-  if (TrueUTA()) {
+  CONFIG *cfg = GetConfigFromGroup(kg[0], 0);
+  if (cfg->n_csfs == 0) {
     AddToLevels(NULL, ng0, kg);
   } else {
     double wtb = WallTime();
@@ -3851,7 +3853,7 @@ int SolveStructure(char *fn, char *hfn,
   if (fn != NULL) {
     SortLevels(nlevels, -1, 0);
     SaveLevels(fn, nlevels, -1);
-    if (!TrueUTA()) {
+    if (cfg->n_csfs > 0) {
       for (i = 0; i < ns; i++) {
 	AllocHamMem(&_allhams[i], -1, -1);
 	AllocHamMem(&_allhams[i], 0, 0);
@@ -3862,7 +3864,6 @@ int SolveStructure(char *fn, char *hfn,
     if (ngp > 0 && kgp) free(kgp);
   }
 
-  if (euta) SetExpandUTA(0);
   return 0;
 }
 
@@ -3948,7 +3949,8 @@ int SaveLevels(char *fn, int m, int n) {
   fhdr.atom = GetAtomicNumber();
   f = OpenFile(fn, &fhdr);
 
-  if (TrueUTA()) {
+  lev = GetLevel(m);
+  if (lev->n_basis == 0) {
     for (k = 0; k < n; k++) {
       i = m + k;
       lev = GetLevel(i);

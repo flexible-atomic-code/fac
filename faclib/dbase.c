@@ -58,7 +58,7 @@ static int iground;
 static double _eground[200];
 static int iuta = 0;
 static int utaci = 1;
-static int euta = 0;
+static int cuta = 0;
 static int itrf = 0;
 static double clock_start=0, clock_last=0;
 
@@ -209,24 +209,27 @@ void SetTRF(int m) {
 }
 
 void SetUTA(int m, int mci) {
-  if (m >= 0) iuta = m;
+  if (m >= 0) {
+    iuta = Max(iuta, m);
+    cuta = m;
+  }
   if (mci >= 0) utaci = mci;
 }
 
-void SetExpandUTA(int m) {
-  euta = m;
-}
-
 int IsUTA(void) {
-  return iuta;
+  return iuta > 0;
 }
 
-int ExpandUTA(void) {
-  return euta;
+int TrueUTA(int n) {
+  if (cuta <= 0) return 0;
+  if (n < cuta/10) return 0;
+  return 1;
 }
 
-int TrueUTA(void) {
-  return iuta && !euta;
+int CurrentUTA(int *iu, int *ici) {
+  *iu = iuta;
+  *ici = utaci;
+  return cuta;
 }
 
 int CheckEndian(F_HEADER *fh) {
