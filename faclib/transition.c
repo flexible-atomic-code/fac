@@ -907,6 +907,12 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	ir0 = -1;
 	for (i = imin; i < imax; i++) {
 	  for (j = jmin; j < jmax; j++) {
+	    if (IsPreloadedTR(low[i], up[j], m)) {
+	      rd[ir].r.lower = -1;
+	      rd[ir].r.upper = -1;
+	      ir++;
+	      continue;
+	    }
 	    k = TRMultipoleUTA(&gf, &(rd[ir].rx), m, low[i], up[j], rd[ir].ks);
 	    if (k == 0) {
 	      rd[ir].r.lower = -1;
