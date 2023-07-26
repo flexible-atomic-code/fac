@@ -2861,8 +2861,17 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	if (ang[i].k != 2) continue;
 	c = MultipoleRadialNR(-1, ang[i].k0, ang[i].k1, G_BABUSHKIN);
 	c1 = ang[i].coeff;
+	if (nmk >= 1 && t == 0) {
+	  c2 = AngZCorrection(nmk, mbk, &ang[i], 1);
+	  if (gauge == G_COULOMB) c2 /= aw;
+	  c2 += 1.0;
+	  if (fabs(c2*c2-1) < AngZCutMBPT()) {
+	    c1 = c1*c2;
+	  }
+	}
 	r += c1*c;
       }
+      /*
       if (nmk >= 1 && t == 0) {
 	c1 = mbk[0];
 	if (c1 + 1.0 != 1.0) {
@@ -2870,6 +2879,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	  r += c1;
 	}
       }
+      */
     }    
     if (fabs(r) > 0.0) {
       r = OscillatorStrength(-1, te, r, NULL);
@@ -3605,7 +3615,15 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     }
     e = 0.5*(emin + emax);
     ce_hdr.te0 = e;
+    if (egrid_limits_type == 0) {
+      rmin = egrid_min;
+      rmax = egrid_max;
+    } else {
+      rmin = egrid_min/e;
+      rmax = egrid_max/e;
+    }
     emin = rmin*e;
+    te0 = emax;
     if (te0 > ei) {
       emax = rmax*te0;
       //ce_hdr.te0 = te0;
