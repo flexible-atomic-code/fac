@@ -2910,7 +2910,7 @@ int GetAverageConfig(int ng, int *kg, int ic, double *weight, int wm,
 	c = &(cfg_groups[kg[i]].cfg_list);
 	for (t = 0; t < cfg_groups[kg[i]].n_cfgs; t++) {
 	  cfg = (CONFIG *) ArrayGet(c, t);
-	  acfg->weight[i] += cfg->sweight;
+	  acfg->weight[i] += fabs(cfg->sweight);
 	}	    
       }
     }
@@ -2970,9 +2970,7 @@ int GetAverageConfig(int ng, int *kg, int ic, double *weight, int wm,
       acfg->n[j] = n;
       acfg->kappa[j] = kappa;
       acfg->nq[j] = tnq[i];
-#if FAC_DEBUG      
-      fprintf(debug_log, "acfg: %d %d %lf\n", n, kappa, tnq[i]);
-#endif
+      //printf("acfg: %d %d %lf\n", n, kappa, tnq[i]);
       j++;
     }
   }

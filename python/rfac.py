@@ -1264,7 +1264,23 @@ def load_atbase(fn):
                 s[t] = a[1:]
                 t += 1
         return ilev[:t],k[:t],e[:t],j[:t],p[:t],s[:t],iup[:q],ilo[:q],ti[:q],tt[:q],te[:q],tf[:q],tm[:t],wj[:t],cn[:t]
-    
+
+def remove_closed(s):
+    b = s.split('.')
+    a = []
+    for x in b:
+        if x.rfind(')') < 0:
+            a.append(x)
+    r = ''
+    na = len(a)
+    if na == 0:
+        return r
+    for i in range(na):
+        n,l,q = nlq(a[i])
+        if (i == na-1 and r == '') or (q > 0 and q < 2*(2*l+1)):
+            r = r + '.%d%s%d'%(n,fac.SPECSYMBOL[l],q)
+    return r[1:]
+
 class FLEV:
     def sort(self):
         i = np.argsort(self.e)
@@ -1448,6 +1464,7 @@ class FLEV:
         self.s = np.array([x.decode() for x in b0['sname']])
         self.n = np.array([x.decode() for x in b0['name']])
         self.e = self.e + self.e0
+        self.e0 = min(self.e)
         self.ig = np.zeros(len(self.e), dtype=int)
         self.ilev = None
         w = np.where(self.nele == self.nele[0]-1)[0]
@@ -1489,11 +1506,12 @@ class FLEV:
             self.im[w] = -1
             self.em[w] = (self.e[w]-self.e0)+(m.ei-ei)
             self.cm[w] = b'.'
-        uc = np.unique(m.s)
+        cs = np.array([remove_closed(m.s[i]) for i in range(len(m.s))])
+        cs0 = np.array([remove_closed(self.s[i]) for i in range(len(self.s))])
+        uc = np.unique(cs)
         imd = np.zeros(len(m.s),dtype=np.int32)
         for c in uc:
             ns = len(c)
-            sn = np.array([x[-ns:] for x in self.s])
             for p in [0, 1]:
                 jmin = max(min(self.j),min(m.j))
                 jmax = min(max(self.j),max(m.j))
@@ -1501,12 +1519,12 @@ class FLEV:
                     #print([p,j,c])
                     w0 = np.where((self.p == p) &
                                   (self.j == j) &
-                                  (sn == c))[0]
+                                  (cs0 == c))[0]
                     n0 = len(w0)
                     ew0 = self.e[w0]-self.e0
                     w1 = np.where((m.p == p) &
                                   ((m.j == j)|((m.j < 0)&(imd==0))) &
-                                  (m.s == c))[0]
+                                  (cs == c))[0]
                     ew1 = m.e[w1] - m.e0
                     n1 = len(w1)
                     if (n1 == 0):
@@ -1518,7 +1536,7 @@ class FLEV:
                     while (i0 < n0 and i1 < n1):
                         wi0 = w0[i0]
                         wi1 = w1[i1]
-                        dex = min(25.0, 0.5*self.nele[0])
+                        dex = min(50.0, 5*self.nele[0])
                         if (m.j[wi1] < 0):
                             dex *= 0.05
                         dex = max(0.25, dex)

@@ -323,6 +323,7 @@ static int DecodeGroupArgs(PyObject *args, int **kg, int *n0) {
       return 0;
     }
   } else {
+    /*
     ng = GetNumGroups();
     (*kg) = malloc(sizeof(int)*ng);
     if (!(*kg)) {
@@ -330,6 +331,7 @@ static int DecodeGroupArgs(PyObject *args, int **kg, int *n0) {
       return -1;
     }
     for (i = 0; i < ng; i++) (*kg)[i] = i;
+    */
   }
   return ng;
 }
@@ -5799,7 +5801,7 @@ static PyObject *PAppendTable(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PCombineDBase(PyObject *self, PyObject *args) {
-  int k0, k1, n, c;
+  int k0, k1, kic, n, c;
   char *s;
   
   if (sfac_file) {
@@ -5807,8 +5809,9 @@ static PyObject *PCombineDBase(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
-  if (!PyArg_ParseTuple(args, "siiii", &s, &k0, &k1, &n, &c)) return NULL;
-  CombineDBase(s, k0, k1, n, c);
+  if (!PyArg_ParseTuple(args, "siiiii", &s, &k0, &k1, &kic, &n, &c))
+    return NULL;
+  CombineDBase(s, k0, k1, kic, n, c);
   
   Py_INCREF(Py_None);
   return Py_None;
@@ -6558,6 +6561,19 @@ static PyObject *PXCPotential(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", r);
 }
 
+static PyObject *PRemoveClosedShell(PyObject *self, PyObject *args) {
+  char *c, *s, *n;
+  EN_RECORD r;
+  
+  if (!PyArg_ParseTuple(args, "sss", &c, &s, &n)) return NULL;
+  strncpy(r.ncomplex, c, LNCOMPLEX);
+  strncpy(r.sname, s, LSNAME);
+  strncpy(r.name, n, LNAME);
+  RemoveClosedShell(&r);
+  
+  return Py_BuildValue("sss", r.ncomplex, r.sname, r.name);
+}
+
 static struct PyMethodDef fac_methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -6809,6 +6825,7 @@ static struct PyMethodDef fac_methods[] = {
   {"Bessel", PBessel, METH_VARARGS},
   {"FermiFun", PFermiFun, METH_VARARGS},
   {"XCPotential", PXCPotential, METH_VARARGS},
+  {"RemoveClosedShell", PRemoveClosedShell, METH_VARARGS},
   {NULL, NULL}
 };
 

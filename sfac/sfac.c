@@ -123,45 +123,49 @@ static int DecodeGroupArgs(int **kg, int n, int *n0, char *argv[], int argt[],
 	t[i] = argt[i];
       }
     }
-    (*kg) = malloc(sizeof(int)*ng);
-    n = 0;    
-    int n0p, n0q;
-    if (n0) {
-      n0p = *n0;
-      n0q = *n0;
-    } else {
-      n0p = 0;
-      n0q = 0;
-    }
-    for (i = 0; i < ng; i++) {
-      if (t[i] != STRING) {
-	printf("argument must be a group name\n");
-	free((*kg));
-	return -1;
+    if (ng > 0) {
+      (*kg) = malloc(sizeof(int)*ng);
+      n = 0;    
+      int n0p, n0q;
+      if (n0) {
+	n0p = *n0;
+	n0q = *n0;
+      } else {
+	n0p = 0;
+	n0q = 0;
       }
-      s = v[i];
-      k = GroupExists(s);      
-      if (k < 0) {
-	//printf("group does not exist: %d %s\n", i, s);
-	if (i < n0q) n0p--;
-	continue;
+      for (i = 0; i < ng; i++) {
+	if (t[i] != STRING) {
+	  printf("argument must be a group name\n");
+	  free((*kg));
+	  return -1;
+	}
+	s = v[i];
+	k = GroupExists(s);      
+	if (k < 0) {
+	  //printf("group does not exist: %d %s\n", i, s);
+	  if (i < n0q) n0p--;
+	  continue;
+	}
+	(*kg)[n] = k;
+	n++;
       }
-      (*kg)[n] = k;
-      n++;
+      if (n0) *n0 = n0p;
+      ng = n;
+      if (ng <= 0) {
+	//printf("all cfg groups invalid\n");
+	free(*kg);
+	return ng;
+      }
     }
-    if (n0) *n0 = n0p;
-    ng = n;
-    if (ng <= 0) {
-      //printf("all cfg groups invalid\n");
-      free(*kg);
-      return ng;
-    }
-  } else {
+  }
+  /*
+  if (ng == 0) {
     ng = GetNumGroups();
     (*kg) = malloc(sizeof(int)*ng);
     for (i = 0; i < ng; i++) (*kg)[i] = i;
   }
-
+  */
   for (i = 0; i < nv; i++) free(v[i]);
   
   return ng;
@@ -4557,17 +4561,18 @@ static int PAppendTable(int argc, char *argv[], int argt[],
 
 static int PCombineDBase(int argc, char *argv[], int argt[], 
 			 ARRAY *variables) {
-  if (argc != 5) return -1;
+  if (argc != 6) return -1;
   if (argt[0] != STRING) return -1;
   
-  int k0, k1, n, ic;
+  int k0, k1, kic, n, ic;
 
   k0 = atoi(argv[1]);
   k1 = atoi(argv[2]);
-  n = atoi(argv[3]);
-  ic = atoi(argv[4]);
+  kic = atoi(argv[3]);
+  n = atoi(argv[4]);
+  ic = atoi(argv[5]);
   
-  CombineDBase(argv[0], k0, k1, n, ic);
+  CombineDBase(argv[0], k0, k1, kic, n, ic);
   
   return 0;
 }
