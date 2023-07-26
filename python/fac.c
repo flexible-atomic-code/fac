@@ -263,7 +263,7 @@ static int DecodeGroupArgs(PyObject *args, int **kg, int *n0) {
       ng = PySequence_Length(args);
     }
   } else {
-    ng = 0;
+    ng = -1;
   }
   if (ng > 0) {
     if (!ist) {
@@ -322,16 +322,15 @@ static int DecodeGroupArgs(PyObject *args, int **kg, int *n0) {
       *kg = NULL;
       return 0;
     }
-  } else {
-    /*
+  }
+  if (ng < 0) {    
     ng = GetNumGroups();
     (*kg) = malloc(sizeof(int)*ng);
     if (!(*kg)) {
       onError("not enough memory");
       return -1;
     }
-    for (i = 0; i < ng; i++) (*kg)[i] = i;
-    */
+    for (i = 0; i < ng; i++) (*kg)[i] = i;    
   }
   return ng;
 }

@@ -158,14 +158,12 @@ static int DecodeGroupArgs(int **kg, int n, int *n0, char *argv[], int argt[],
 	return ng;
       }
     }
-  }
-  /*
-  if (ng == 0) {
+  } else {
     ng = GetNumGroups();
     (*kg) = malloc(sizeof(int)*ng);
     for (i = 0; i < ng; i++) (*kg)[i] = i;
   }
-  */
+ 
   for (i = 0; i < nv; i++) free(v[i]);
   
   return ng;
