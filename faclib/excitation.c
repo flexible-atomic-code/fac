@@ -2029,6 +2029,7 @@ int CollisionStrengthUTA(double *qkt, double *params,
     DecodePJ(lev1->pj, &p, &j);
     type = -1;
     wm = 0.0;
+    be0 = 0.0;
     for (ie = 0; ie < n_egrid1; ie++) qkc[ie] = 0.0;
     for (t = 0; t < lev1->n_basis; t++) {
       s = (STATE *) ArrayGet(&(sym->states), lev1->basis[t]);
@@ -2050,6 +2051,7 @@ int CollisionStrengthUTA(double *qkt, double *params,
     DecodePJ(lev2->pj, &p, &j);
     type = -1;
     wm = 0.0;
+    be0 = 0.0;
     for (ie = 0; ie < n_egrid1; ie++) qkc[ie] = 0.0;
     for (t = 0; t < lev2->n_basis; t++) {
       s = (STATE *) ArrayGet(&(sym->states), lev2->basis[t]);

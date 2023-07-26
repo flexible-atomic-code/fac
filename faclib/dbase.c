@@ -903,7 +903,7 @@ int ReadTRHeaderOld(TFILE *f, TR_HEADER *h, int swp) {
   if (n != 1) return 0;
   if (swp) SwapEndianTRHeader(h);
   if (h->length/h->ntransitions > sizeof(TR_RECORD)) iuta = 1;
-  else iuta =0;
+  //else iuta =0;
   return sizeof(TR_HEADER);
 }
 
@@ -1343,7 +1343,7 @@ int ReadSPHeaderOld(TFILE *f, SP_HEADER *h, int swp) {
   if (n != 1) return 0;
   if (swp) SwapEndianSPHeader(h);
   if (h->length/h->ntransitions > sizeof(SP_RECORD)) iuta = 1;
-  else iuta = 0;
+  //else iuta = 0;
   return sizeof(SP_HEADER);
 }
 
@@ -1470,7 +1470,7 @@ int ReadFHeader(TFILE *f, F_HEADER *fh, int *swp) {
   }
 
   iuta = (fh->version&0x100)>>8;
-  utaci = (fh->version&0x200)>>9;  
+  utaci = (fh->version&0x200)>>9;
   fh->nthreads = (fh->version&0xFFFF0000)>>16;
   fh->version &= 0xFF;
   SetVersionRead(fh->type, fh->version*100+fh->sversion*10+fh->ssversion);
@@ -2681,7 +2681,8 @@ int ReadENRecord(TFILE *f, EN_RECORD *r, int swp) {
   if (swp) SwapEndianENRecord(r);
 
   if (r->j < 0) iuta = 1;
-  else iuta = 0;
+  //else iuta = 0;
+  
   if (_remove_closed) RemoveClosedShell(r);
   return m;
 }
@@ -2797,7 +2798,7 @@ int ReadTRHeader(TFILE *f, TR_HEADER *h, int swp) {
   if (swp) SwapEndianTRHeader(h);
 
   if (h->length/h->ntransitions > SIZE_TR_RECORD) iuta = 1;
-  else iuta =0;
+  //else iuta = 0;
   
   return m;
 }
@@ -3529,7 +3530,7 @@ int ReadSPHeader(TFILE *f, SP_HEADER *h, int swp) {
   if (swp) SwapEndianSPHeader(h);
 
   if (h->length/h->ntransitions > SIZE_SP_RECORD) iuta = 1;
-  else iuta = 0;
+  //else iuta = 0;
   
   return m;
 }
@@ -4532,6 +4533,7 @@ int MemENTableWC(char *fn, int k0, int *ifk, short ***nc) {
     }
   }
 
+  /*
   if (nlevels > 0) {
     s = r.name;
     iuta = 1;
@@ -4543,7 +4545,7 @@ int MemENTableWC(char *fn, int k0, int *ifk, short ***nc) {
       s++;
     }
   }
-
+  */
   FCLOSE(f);
   return 0;
 }    
@@ -4737,7 +4739,6 @@ int PrintTRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     fprintf(f2, "MULTIP\t= %d\n", (int)h.multipole);
     fprintf(f2, "GAUGE\t= %d\n", (int)h.gauge);
     fprintf(f2, "MODE\t= %d\n", (int)h.mode);
-
     IDX_RECORD *idx = NULL;
     if (vs && h.ntransitions > 1) {
       idx = malloc(sizeof(IDX_RECORD)*h.ntransitions);
@@ -7355,7 +7356,7 @@ int ChannelAI(int b, int nmb, short *ncb,
   return -1;
 }
 
-void CombineDBase(char *pref, int k0, int k1, int nexc0, int ic) {
+void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
   int k, i, j, n, nb, nlevs, clevs, ni0, ni1, vn, z;
   char ifn[1024], ofn[1024], buf[1024];
   char a[8];
@@ -7527,9 +7528,13 @@ void CombineDBase(char *pref, int k0, int k1, int nexc0, int ic) {
       }
     }
     if (f0) FCLOSE(f0);
-  }  
+  }
+  if (kic < k0) kic = k0;
+  if (kic > k1) kic = k1;
+  tde = de[kic-k0];
   for (k = k1; k >= k0; k--) {
-    de[k-k0] -= de[0];
+    if (k <= kic) de[k-k0] = 0;
+    else de[k-k0] -= tde;
   }
   for (k = k1; k >= k0; k--) {
     sprintf(ifn, "%s%02db.rc", pref, k);
@@ -8042,9 +8047,10 @@ void CombineDBase(char *pref, int k0, int k1, int nexc0, int ic) {
   free(ifk);
   free(egk);
   free(metable);
+  FreeMemENTable();
   if (ic > 0) {
     n = ic;
-    k = 0;
+    k = 0;    
     for (i = 0; i < 7; i++) {
       if (n < 10) {	
 	k = i < n;
@@ -8257,14 +8263,17 @@ IDXDAT *IdxMap(int i) {
 int PreloadTable(char *tfn, char *sfn, int m) {
   TFILE *f0;
   F_HEADER fh;
-  int swp;
+  int swp, iu0, iu1;
 
+  iu0 = iuta;
   f0 = OpenFileRO(sfn, &fh, &swp);
+  iu1 = iuta;
   if (f0 == NULL) {
     printf("cannot open file %s\n", sfn);
     return -1;
   }
   FCLOSE(f0);
+  iuta = iu0;
   switch(fh.type) {
   case DB_TR:
     PreloadTR(tfn, sfn, m);
@@ -8280,8 +8289,8 @@ int PreloadTable(char *tfn, char *sfn, int m) {
 
 int PreloadTR(char *tfn, char *sfn, int m) {
   TFILE *f0, *f1;
-  int ib, i, j, k, t, n, swp;
-  float *rt;
+  int ib, i, j, k, t, n, swp, iu0, iu1;
+  float *rt, *et;
   F_HEADER fh, fh1;
   TR_HEADER h;
   TR_RECORD r;
@@ -8292,7 +8301,9 @@ int PreloadTR(char *tfn, char *sfn, int m) {
     printf("index map not loaded\n");
     return -1;
   }
+  iu0 = iuta;
   f0 = OpenFileRO(sfn, &fh, &swp);
+  iu1 = iuta;
   if (f0 == NULL) {
     printf("cannot open file %s\n", sfn);
     return -1;
@@ -8304,6 +8315,7 @@ int PreloadTR(char *tfn, char *sfn, int m) {
   fh1.atom = fh.atom;
   strcpy(fh1.symbol, fh.symbol);
   fh1.type = DB_TR;
+  iuta = iu0;
   f1 = OpenFile(tfn, &fh1);
   if (f1 == NULL) {
     printf("cannot open file %s\n", tfn);
@@ -8312,42 +8324,54 @@ int PreloadTR(char *tfn, char *sfn, int m) {
   }
   if (m == 0) {
     rt = malloc(sizeof(float)*_idxmap.nij);
+    et = malloc(sizeof(float)*_idxmap.nij);
     for (i = 0; i < _idxmap.nij; i++) {
       rt[i] = 0.0;
+      et[i] = 0.0;
     }
   }
-  
+  rx.energy = 0.0;
+  rx.sdev = 0.0;
+  rx.sci = 1.0;
   for (ib = 0; ib < fh.nblocks; ib++) {
+    iuta = iu1;
     n = ReadTRHeader(f0, &h, swp);
     if (n == 0) break;
     if (m) {
+      iuta = iu0;
       InitFile(f1, &fh1, &h);
     }
     for (k = 0; k < h.ntransitions; k++) {
+      iuta = iu1;
       n = ReadTRRecord(f0, &r, &rx, swp);
       di = IdxMap(r.lower);
       dj = IdxMap(r.upper);
       if (!di || !dj) continue;
       r.lower = di->i;
-      r.upper = dj->i;
+      r.upper = dj->i;      
       if (SetPreloadedTR(r.lower, r.upper, h.multipole)) {
 	if (m == 0) {
 	  t = (r.upper-_idxmap.jm0)*_idxmap.ni + r.lower-_idxmap.im0;
 	  rt[t] += OscillatorStrength(h.multipole,
 				      dj->e-di->e, r.strength, NULL);
+	  et[t] = dj->e - di->e;
 	  SetPreloadedTR(r.lower, r.upper, 0);
 	} else {
+	  iuta = iu0;
+	  if (iu1 == 0) rx.energy = dj->e - di->e;
 	  WriteTRRecord(f1, &r, &rx);
 	}
       }
     }
     if (m) {
+      iuta = iu0;
       DeinitFile(f1, &fh1);
     }
   }
   FCLOSE(f0);
   if (m == 0) {
     h.multipole = 0;
+    iuta = iu0;
     InitFile(f1, &fh1, &h);
     for (i = _idxmap.im0; i <= _idxmap.im1; i++) {
       for (j = _idxmap.jm0; j <= _idxmap.jm1; j++) {
@@ -8356,20 +8380,24 @@ int PreloadTR(char *tfn, char *sfn, int m) {
 	  r.lower = i;
 	  r.upper = j;
 	  r.strength = rt[t];
+	  iuta = iu0;
+	  if (iu1 == 0) rx.energy = et[t];
 	  WriteTRRecord(f1, &r, &rx);
 	}
       }
     }
     DeinitFile(f1, &fh1);
     free(rt);
+    free(et);
   }
   CloseFile(f1, &fh1);
+  iuta = iu0;
   return 0;
 }
 
 int PreloadCE(char *tfn, char *sfn) {
   TFILE *f0, *f1;
-  int ib, k, n, swp;
+  int ib, k, n, swp, iu0, iu1;
   F_HEADER fh, fh1;
   CE_HEADER h;
   CE_RECORD r;
@@ -8379,7 +8407,9 @@ int PreloadCE(char *tfn, char *sfn) {
     printf("index map not loaded\n");
     return -1;
   }
+  iu0 = iuta;
   f0 = OpenFileRO(sfn, &fh, &swp);
+  iu1 = iuta;
   if (f0 == NULL) {
     printf("cannot open file %s\n", sfn);
     return -1;
@@ -8391,6 +8421,7 @@ int PreloadCE(char *tfn, char *sfn) {
   fh1.atom = fh.atom;
   strcpy(fh1.symbol, fh.symbol);
   fh1.type = DB_CE;
+  iuta = iu0;
   f1 = OpenFile(tfn, &fh1);
   if (f1 == NULL) {
     printf("cannot open file %s\n", tfn);
@@ -8399,10 +8430,13 @@ int PreloadCE(char *tfn, char *sfn) {
   }
 
   for (ib = 0; ib < fh.nblocks; ib++) {
+    iuta = iu1;
     n = ReadCEHeader(f0, &h, swp);
     if (n == 0) break;
+    iuta = iu0;
     InitFile(f1, &fh1, &h);
     for (k = 0; k < h.ntransitions; k++) {
+      iuta = iu1;
       n = ReadCERecord(f0, &r, swp, &h);
       if (n == 0) break;
       di = IdxMap(r.lower);
@@ -8411,11 +8445,13 @@ int PreloadCE(char *tfn, char *sfn) {
       r.lower = di->i;
       r.upper = dj->i;
       if (SetPreloadedCE(r.lower, r.upper)) {
+	iuta = iu0;
 	WriteCERecord(f1, &r);
       }
       if (h.qk_mode == QK_FIT) free(r.params);
       free(r.strength);
     }
+    iuta = iu0;
     DeinitFile(f1, &fh1);
     free(h.tegrid);
     free(h.egrid);
