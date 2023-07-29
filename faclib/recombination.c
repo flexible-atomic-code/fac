@@ -1620,9 +1620,10 @@ int AutoionizeRateUTA0(double *rate, double *e,
   int j0, j1, jb, ns, q0, q1, qb;
   int k0, k1, kb, kmin, kmax, jmin, jmax;
   int jf, ik, klf, kappaf, k, np, nt, j, jm;
-  double a, b, r, s, log_e, *ai_pk;
+  double a, b, r, s, pe, log_e, *ai_pk;
   int ni, tp, nleft, id, nd=2500, done[2500];
   CONFIG *cfg;
+  ORBITAL *orb0, *orb1, *orbb;
   
   *rate = 0.0;
   log_e = log(*e);
@@ -1639,6 +1640,16 @@ int AutoionizeRateUTA0(double *rate, double *e,
   kb = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
   k0 = OrbitalIndex(idatum->s[2].n, idatum->s[2].kappa, 0.0);
   k1 = OrbitalIndex(idatum->s[3].n, idatum->s[3].kappa, 0.0);
+  orb0 = GetOrbital(k0);
+  orb1 = GetOrbital(k1);
+  orbb = GetOrbital(kb);
+  pe = fabs(orb1->energy-orb0->energy) + orbb->energy;
+  if (pe <= 0) {
+    free(idatum->bra);
+    free(idatum);
+    return -1;
+  }
+  
   j0 = idatum->s[2].j;
   j1 = idatum->s[3].j;
   jb = idatum->s[1].j;
@@ -1675,7 +1686,7 @@ int AutoionizeRateUTA0(double *rate, double *e,
 	    if (!Triangle(j0, j1, k) || !Triangle(jb, jf, k)) continue;
 	    if (id >= nd) {
 	      if (ni == 0) {
-		tp = AIRadialPk(&ai_pk, *e, k0, k1, kb, kappaf, k, 0);
+		tp = AIRadialPk(&ai_pk, pe, k0, k1, kb, kappaf, k, 0);
 	      } else {
 		continue;
 	      }
@@ -1684,14 +1695,14 @@ int AutoionizeRateUTA0(double *rate, double *e,
 		id++;
 		continue;
 	      }
-	      tp = AIRadialPk(&ai_pk, *e, k0, k1, kb, kappaf, k, 1);
+	      tp = AIRadialPk(&ai_pk, pe, k0, k1, kb, kappaf, k, 1);
 	      if (tp == -9999) {
 		id++;
 		nleft++;
 		continue;
 	      }
-	      id++;
 	      done[id] = 1;
+	      id++;
 	    }
 	    if (n_egrid > 1) {
 	      UVIP3P(np, n_egrid, log_egrid, ai_pk, nt, &log_e, &s);
@@ -1732,7 +1743,7 @@ int AutoionizeRateUTA0(double *rate, double *e,
 	      if (fabs(b) < EPS30) continue;
 	      if (id >= nd) {
 		if (ni == 0) {
-		  tp = AIRadialPk(&ai_pk, *e, k0, k1, kb, kappaf, k, 0);
+		  tp = AIRadialPk(&ai_pk, pe, k0, k1, kb, kappaf, k, 0);
 		} else {
 		  continue;
 		}
@@ -1741,23 +1752,23 @@ int AutoionizeRateUTA0(double *rate, double *e,
 		  id++;
 		  continue;
 		}
-		tp = AIRadialPk(&ai_pk, *e, k0, k1, kb, kappaf, k, 1);
+		tp = AIRadialPk(&ai_pk, pe, k0, k1, kb, kappaf, k, 1);
 		if (tp == -9999) {
 		  id++;
 		  nleft++;
 		  continue;
 		}
-		id++;
 		done[id] = 1;
+		id++;
 	      }
 	      if (n_egrid > 1) {
 		UVIP3P(np, n_egrid, log_egrid, ai_pk, nt, &log_e, &s);
 	      } else {
 		s = ai_pk[0];
 	      } 
-	      a += b*s;
+	      a += pow(b*s,2);
 	    }
-	    r += a*a*2.0*(j+1.0);
+	    r += a*2.0*(j+1.0);
 	  }
 	}
       }
