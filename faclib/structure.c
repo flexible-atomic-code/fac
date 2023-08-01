@@ -64,6 +64,7 @@ static ANGULAR_FROZEN ang_frozen;
 
 static int ncorrections = 0;
 static ARRAY *ecorrections;
+static double _ref_ecorr = 0.0;
 static double _eoffset = 0.0;
 
 static int ci_level = 0;
@@ -3168,7 +3169,7 @@ int AddECorrection(int iref, int ilev, double e, int nmin) {
   c.nmin = nmin;
   ArrayAppend(ecorrections, &c, NULL);
   ncorrections += 1;
-
+  if (c.iref == c.ilev) _ref_ecorr = e;
   return 0;
 }
 
@@ -3956,6 +3957,29 @@ int SaveLevels(char *fn, int m, int n) {
     for (k = 0; k < n; k++) {
       i = m + k;
       lev = GetLevel(i);
+      int ecorr = 0;
+      if (ncorrections > 0) {
+	for (p = 0; p < ecorrections->dim; p++) {
+	  ec = (ECORRECTION *) ArrayGet(ecorrections, p);
+	  if (ec->ilev == i) {
+	    if (ec->ilev == ec->iref) {
+	      e0 = lev->energy;
+	    } else {
+	      e0 = GetLevel(ec->iref)->energy;
+	    }
+	    ec->e = e0 + ec->e - lev->energy;
+	    lev->energy += ec->e;
+	    ec->s = s;
+	    ec->ilev = -(ec->ilev+1);
+	    ncorrections -= 1;
+	    ecorr = 1;
+	    break;
+	  }
+	}
+      }
+      if (!ecorr && fabs(_ref_ecorr) > 1e-10) {
+	lev->energy += _ref_ecorr;
+      }
       sp.kgroup = lev->iham;
       sp.kcfg = lev->pb;
       sp.kstate = 0;
@@ -4061,8 +4085,7 @@ int SaveLevels(char *fn, int m, int n) {
 	}
       }
     }
-
-    if (s->kgroup > 0) {
+    if (s->kgroup >= 0) {
       cfg = GetConfig(s);
       nk = cfg->n_electrons-1;
       if (IsUTA() || nk < 0 || levels_per_ion[nk].dim == 0) {
@@ -4155,15 +4178,21 @@ int SaveLevels(char *fn, int m, int n) {
 	}
       }
 
-      if (!ecorr && lev->ibase >= 0) {
-	for (p = 0; p < ecorrections->dim; p++) {
-	  ec = (ECORRECTION *) ArrayGet(ecorrections, p);
-	  if (-(i+1) == ec->ilev) break;
-	  if (-(lev->ibase + 1) == ec->ilev && cfg->shells[0].n >= ec->nmin) {
-	    lev->energy += ec->e;
-	    break;
+      if (!ecorr) {
+	if (lev->ibase >= 0) {
+	  for (p = 0; p < ecorrections->dim; p++) {
+	    ec = (ECORRECTION *) ArrayGet(ecorrections, p);
+	    if (-(i+1) == ec->ilev) break;
+	    if (-(lev->ibase + 1) == ec->ilev && cfg->shells[0].n >= ec->nmin) {
+	      lev->energy += ec->e;
+	      ecorr = 1;
+	      break;
+	    }
 	  }
 	}
+      }
+      if (!ecorr && fabs(_ref_ecorr) > 1e-10) {
+	lev->energy += _ref_ecorr;
       }
     } else {
       lev->ibase = -(s->kgroup + 1);
