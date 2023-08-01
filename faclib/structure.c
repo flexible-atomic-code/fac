@@ -2863,7 +2863,9 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
   if (h && h->basis && h->pj >= 0) {
     sym = GetSymmetry(h->pj);
     s = (STATE *) ArrayGet(&(sym->states), h->basis[0]);
-    c0 = GetConfigFromGroup(s->kgroup, s->kcfg);
+    if (s->kgroup >= 0) {
+      c0 = GetConfigFromGroup(s->kgroup, s->kcfg);
+    }
   } else if (ng > 0) {
     c0 = GetConfigFromGroup(kg[0], 0);
   }
