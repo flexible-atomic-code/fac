@@ -2770,6 +2770,277 @@ void RemoveClosedShell(EN_RECORD *r) {
   else p[j] = '\0';
 }
 
+int FillClosedShell(int nele, EN_RECORD *r, char *nc, char *sn, char *nm) {
+  const int nmax=32;
+  const int nmax2 = (nmax*(nmax+1))/2;
+  int ncq[nmax], npq[nmax], nk[nmax];
+  int nsq[nmax2], jmq[nmax2], jpq[nmax2];
+  int nmj[nmax2], npj[nmax2], nmt[nmax2], npt[nmax2];
+  int i, i0, n, ns, nq, k, kp, ik, nqt, nst, mk, kf, dq, wk, mi, ij;
+  char c, *p0, *p1, nc0[LNCOMPLEX], sn0[LSNAME], nm0[LNAME], ss[16];
+
+  for (i = 0; i < nmax; i++) {
+    ncq[i] = 0;
+    npq[i] = 0;
+  }
+  for (i = 0; i < nmax2; i++) {
+    nsq[i] = 0;
+    jmq[i] = 0;
+    jpq[i] = 0;
+    nmj[i] = 0;
+    npj[i] = 0;
+    nmt[i] = 0;
+    npt[i] = 0;
+  }
+  i0 = 0;
+  n = 0;
+  nqt = 0;
+  p0 = r->ncomplex;
+  p1 = nc0;
+  for (i = 0; i < LNCOMPLEX; i++) {
+    if (isspace(p0[i])) continue;
+    if (p0[i] == '\0') break;
+    *p1 = p0[i];
+    p1++;
+  }
+  *p1 = '\0';
+  p0 = r->sname;
+  p1 = sn0;
+  for (i = 0; i < LSNAME; i++) {
+    if (isspace(p0[i])) continue;
+    if (p0[i] == '\0') break;
+    *p1 = p0[i];
+    p1++;
+  }
+  *p1 = '\0';
+  p0 = r->name;
+  p1 = nm0;
+  for (i = 0; i < LNAME; i++) {
+    if (isspace(p0[i])) continue;
+    if (p0[i] == '\0') break;
+    *p1 = p0[i];
+    p1++;
+  }
+  *p1 = '\0';
+  ns = strlen(nc0);
+  for (i = 0; i <= ns; i++) {
+    c = nc0[i];
+    if (c == '*') {
+      n = atoi(&nc0[i0]);
+      i0 = i+1;
+    } else if (c == '.' || c == '\0') {
+      nq = atoi(&nc0[i0]);
+      ncq[n-1] = nq;
+      nqt += nq;
+      i0 = i+1;
+      if (c == '\0') break;
+    }
+  }
+  if (nqt > nele) return 1;
+  if (nqt < nele) {
+    mk = 8;
+    mi = (1<<mk)-1;
+    for (i = 0; i < mi; i++) {
+      nst = 0;
+      for (k = 0; k < mk; k++) {
+	if ((i & (1<<k)) && ncq[k] == 0) {
+	  nst += 2*(k+1)*(k+1);
+	}
+      }
+      if (nst == nele-nqt) {
+	for (k = 0; k < mk; k++) {
+	  if ((i & (1<<k)) && ncq[k] == 0) {
+	    ncq[k] = 2*(k+1)*(k+1);
+	    nqt += ncq[k];
+	  }
+	}
+	break;
+      }
+    }
+    if (nqt != nele) return 2;
+  }
+  i0 = 0;
+  n = 0;
+  k = -1;
+  nst = 0;
+  ns = strlen(sn0);
+  for (i = 0; i <= ns; i++) {
+    c = sn0[i];
+    k = GetLFromSymbol(c);
+    if (k >= 0) {
+      n = atoi(&sn0[i0]);
+      kp = k;
+      ik = (n*(n-1))/2 + kp;
+      i0 = i+1;
+    } else if (c == '.' || c == '\0') {
+      nq = atoi(&sn0[i0]);
+      nsq[ik] = nq;
+      npq[n-1] += nq;
+      nst += nq;
+      i0 = i+1;
+      if (c == '\0') break;
+    }
+  }
+  i0 = 0;
+  n = 0;
+  k = -1;
+  ij = 0;
+  ns = strlen(nm0);  
+  for (i = 0; i <= ns; i++) {
+    c = nm0[i];
+    if (c == ')') {
+      if (ij < 0) {
+	nmj[ik] = atoi(&nm0[i0]);      
+      } else if (ij > 0) {
+	npj[ik] = atoi(&nm0[i0]);
+      }
+      i0 = i+1;
+      continue;
+    }
+    if (c == '.' || c == '\0') {
+      if (ij < 0) {
+	nmt[ik] = atoi(&nm0[i0]);
+      } else if (ij > 0) {
+	npt[ik] = atoi(&nm0[i0]);
+      } else {
+	nq = atoi(&nm0[i0]);
+	if (nq > 0) {
+	  jpq[ik] = nq;
+	} else {
+	  jmq[ik] = -nq;
+	}
+      }
+      i0 = i+1;
+      if (c == '\0') break;
+      continue;
+    }
+    k = GetLFromSymbol(c);
+    if (k >= 0) {
+      n = atoi(&nm0[i0]);
+      kp = k;
+      ik = (n*(n-1))/2 + kp;
+      i0 = i+1;
+      continue;
+    }
+    if (c == '(' || c == '\0') {
+      nq = atoi(&nm0[i0]);      
+      i0 = i+1;
+      if (nq > 0) {
+	ij = 1;
+	jpq[ik] = nq;
+      } else {
+	ij = -1;
+	jmq[ik] = -nq;
+      }
+      if (c == '\0') break;
+      continue;
+    }
+  }
+  
+  for (n = 1; n <= nmax; n++) {
+    i0 = (n*(n-1))/2;
+    if (ncq[n-1] > npq[n-1]) {
+      dq = ncq[n-1] - npq[n-1];
+      mk = -1;
+      kf = -1;
+      nqt = 0;
+      for (k = 0; k < n; k++) {
+	if (nsq[k+i0] == 0) {
+	  mk++;
+	  nk[mk] = k;
+	  wk = 2*(2*k+1);
+	  if (wk > dq) {
+	    nk[mk] = -1;
+	    mk--;
+	  }
+	  nqt += wk;
+	}
+      }
+      mk++;
+      if (nqt == dq) {
+	for (k = 0; k < mk; k++) {
+	  wk = 2*(2*nk[k]+1);
+	  nsq[nk[k]+i0] = wk;
+	}
+      } else if (nqt < dq) {
+	return 3;
+      } else {
+	mk = Min(mk,8);
+	mi = (1<<mk) - 1;
+	for (i = 0; i < mi; i++) {
+	  nst = 0;
+	  for (k = 0; k < mk; k++) {
+	    if (i&(1<<k)) {
+	      nst += 2*(2*nk[k]+1);
+	    }
+	  }
+	  if (nst == dq) {
+	    for (k = 0; k < mk; k++) {
+	      if (i&(1<<k)) {
+		nsq[nk[k]+i0] = 2*(2*nk[k]+1);
+	      }
+	    }
+	    break;
+	  }
+	}
+      }
+    }
+    for (k = 0; k < n; k++) {
+      if (nsq[i0+k] > jmq[i0+k]+jpq[i0+k]) {
+	if (jmq[i0+k] == 0 && k > 0) jmq[i0+k] = (2*k-1)+1;
+	if (jpq[i0+k] == 0) jpq[i0+k] = (2*k+1)+1;
+	if (jmq[i0+k]+jpq[i0+k] > nsq[i0+k]) {
+	  if (jmq[i0+k] == nsq[i0+k]) {
+	    jpq[i0+k] = 0;
+	  } else if (jpq[i0+k] == nsq[i0+k]) {
+	    jmq[i0+k] = 0;
+	  }
+	}
+      }
+      if (jmq[i0+k] + jpq[i0+k] != nsq[i0+k]) return 4;	
+    }
+  }
+  nc[0] = '\0';
+  sn[0] = '\0';
+  nm[0] = '\0';
+  for (n = 1; n <= nmax; n++) {
+    i0 = (n*(n-1))/2;
+    if (ncq[n-1] > 0) {
+      sprintf(nc, "%s%d*%d.", nc, n, ncq[n-1]);
+    }
+    for (k = 0; k < n; k++) {
+      if (nsq[i0+k] > 0) {
+	SpecSymbol(ss, k);
+	sprintf(sn, "%s%d%s%d.", sn, n, ss, nsq[i0+k]);
+	if (jmq[i0+k] > 0) {
+	  if (ij) {
+	    sprintf(nm, "%s%d%s-%d(%d)%d.",
+		    nm, n, ss, jmq[i0+k], nmj[i0+k], nmt[i0+k]);
+	  } else {
+	    sprintf(nm, "%s%d%s-%d.", nm, n, ss, jmq[i0+k]);
+	  }
+	}
+	if (jpq[i0+k] > 0) {
+	  if (ij) {
+	    sprintf(nm, "%s%d%s+%d(%d)%d.",
+		    nm, n, ss, jpq[i0+k], npj[i0+k], npt[i0+k]);
+	  } else {
+	    sprintf(nm, "%s%d%s+%d.", nm, n, ss, jpq[i0+k]);
+	  }
+	}
+      }
+    }
+  }
+  n = strlen(nc);
+  if (n > 0) nc[n-1] = '\0';
+  n = strlen(sn);
+  if (n > 0) sn[n-1] = '\0';
+  n = strlen(nm);
+  if (n > 0) nm[n-1] = '\0';
+  
+  return 0;
+}
+
 int ReadENFRecord(TFILE *f, ENF_RECORD *r, int swp) {
   int n, m = 0;
 

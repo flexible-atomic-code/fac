@@ -753,6 +753,7 @@ int ChannelAI(int b, int nmb, short *ncb,
 	      int f, int nmf, short *ncf,
 	      int *cn0, int *cn1, int *cn2);
 void RemoveClosedShell(EN_RECORD *r);
+int FillClosedShell(int nele, EN_RECORD *r, char *nc, char *sn, char *nm);
 void SetInnerAI(char *s);
 double GroundEnergy(int k);
 int *InitTransReport(int *np);

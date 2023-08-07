@@ -287,6 +287,7 @@ int          GetNq(SHELL *shell);
 void         GetJLFromKappa(int kappa, int *j, int *kl);
 int          GetLFromKappa(int kappa); 
 int          GetJLFromSymbol(char *s, int *j, int *kl);
+int          GetLFromSymbol(char c);
 int          GetJFromKappa(int kappa);
 int          GetKappaFromJL(int j, int kl); 
 int          CompareShell(const void *s1, const void *s2);
