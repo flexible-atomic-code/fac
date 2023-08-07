@@ -5351,6 +5351,32 @@ static int PSetSlaterScale(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PFillClosedShell(int argc, char *argv[], int argt[], 
+			    ARRAY *variables) {
+  int nele, k;
+  EN_RECORD r;
+  char nc[10*LNCOMPLEX], sn[10*LSNAME], nm[10*LNAME];
+
+  nele = atoi(argv[0]);
+  strncpy(r.ncomplex, argv[1], LNCOMPLEX);
+  strncpy(r.sname, argv[2], LSNAME);
+  strncpy(r.name, argv[3], LNAME);
+
+  k = FillClosedShell(nele, &r, nc, sn, nm);
+
+  if (k != 0) {
+    printf("error in FillClosedShell: %d\n", k);
+  } else {  
+    printf("c0: %s\n", argv[1]);
+    printf("c1: %s\n", nc);
+    printf("c0: %s\n", argv[2]);
+    printf("c1: %s\n", sn);
+    printf("c0: %s\n", argv[3]);
+    printf("c1: %s\n", nm);
+  }
+  return 0;
+}
+
 static METHOD methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -5576,6 +5602,7 @@ static METHOD methods[] = {
   {"SaveSCPot", PSaveSCPot, METH_VARARGS},
   {"LoadSCPot", PLoadSCPot, METH_VARARGS},
   {"SetSlaterScale", PSetSlaterScale, METH_VARARGS},
+  {"FillClosedShell", PFillClosedShell, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
  

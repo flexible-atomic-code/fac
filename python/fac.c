@@ -6560,6 +6560,21 @@ static PyObject *PXCPotential(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", r);
 }
 
+static PyObject *PFillClosedShell(PyObject *self, PyObject *args) {
+  char *c, *s, *n;
+  char nc[10*LNCOMPLEX], sn[10*LSNAME], nm[10*LNAME];
+  int i, k;
+  EN_RECORD r;
+  
+  if (!PyArg_ParseTuple(args, "isss", &i, &c, &s, &n)) return NULL;
+  strncpy(r.ncomplex, c, LNCOMPLEX);
+  strncpy(r.sname, s, LSNAME);
+  strncpy(r.name, n, LNAME);
+  k = FillClosedShell(i, &r, nc, sn, nm);
+  if (k != 0) return Py_BuildValue("i", k);
+  return Py_BuildValue("sss", nc, sn, nm);
+}
+
 static PyObject *PRemoveClosedShell(PyObject *self, PyObject *args) {
   char *c, *s, *n;
   EN_RECORD r;
@@ -6824,6 +6839,7 @@ static struct PyMethodDef fac_methods[] = {
   {"Bessel", PBessel, METH_VARARGS},
   {"FermiFun", PFermiFun, METH_VARARGS},
   {"XCPotential", PXCPotential, METH_VARARGS},
+  {"FillClosedShell", PFillClosedShell, METH_VARARGS},
   {"RemoveClosedShell", PRemoveClosedShell, METH_VARARGS},
   {NULL, NULL}
 };

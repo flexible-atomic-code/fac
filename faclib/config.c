@@ -105,6 +105,14 @@ char *GetSpecSymbols() {
   return spec_symbols;
 }
 
+int GetLFromSymbol(char c) {
+  int k;
+  for (k = 0; k < MAX_SPEC_SYMBOLS; k++) {
+    if (spec_symbols[k] == c) return k;
+  }
+  return -1;
+}
+
 int IsClosedComplex(int n, int nq) {
   if (n >= NCS) return 0;
   if (nq < 2*n*n) return 0;
