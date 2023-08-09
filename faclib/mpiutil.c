@@ -219,8 +219,9 @@ void ReleaseLockMPI() {
 void InitializeMPI(int n, int m) {
 #ifdef USE_MPI
   if (_initialized) {
-    printf("MPI system already initialized\n");
-    return;
+    FinalizeMPI();
+    //printf("MPI system already initialized\n");
+    //return;
   }
 #if USE_MPI == 1
   MPI_Init(NULL, NULL);
@@ -325,6 +326,7 @@ void FinalizeMPI() {
     free(_mpilock);
     _mpilock = NULL;
   }
+  _initialized = 0;
 }
 
 void Abort(int r) {

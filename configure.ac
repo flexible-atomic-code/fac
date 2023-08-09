@@ -186,7 +186,7 @@ if test "x$lapacklib" == "x"
 then
   lapacklib="-lmlapack"
 fi
-LIBS="$LIBS -lfac $lapacklib $blaslib -lpthread"
+LIBS="$LIBS -lfac $lapacklib $blaslib"
 
 fwithm=`echo "$FLIBS " | grep " -lm"`
 if test "x$fwithm" = "x"
@@ -219,12 +219,12 @@ then
     omp|2)
       if test "x$mpicompile" = "x"
       then
-  	mpicompile=-fopenmp
-	mpilink="-fopenmp -lgcc_eh"
+  	mpicompile="-fopenmp -pthread"
+	mpilink="-fopenmp -pthread -lgcc_eh"
       fi
       if test "x$mpifflag" = "x"
       then
-        mpifflag=-fopenmp
+        mpifflag="-fopenmp -pthread"
       fi
       AC_DEFINE_UNQUOTED([USE_MPI], [2])
     ;;
