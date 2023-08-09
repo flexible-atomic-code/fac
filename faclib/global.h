@@ -33,7 +33,6 @@
 #include <math.h>
 #include <unistd.h>
 #include <sys/stat.h>
-#include <pthread.h>
 
 #define PMALLOC_CHECK 2
 
@@ -50,6 +49,7 @@
 #if USE_MPI == 1
 #include <mpi.h>
 #elif USE_MPI == 2
+#include <pthread.h>
 #include <omp.h>
 #endif
 
@@ -58,6 +58,7 @@
 
 //#define OMP_STAT 1
 
+#if USE_MPI == 2
 #define LOCK pthread_mutex_t
 #define InitLock(x) pthread_mutex_init((x), NULL)
 #define SetLockNT(x) pthread_mutex_lock((x))
@@ -70,6 +71,15 @@
 #define TryLock(x) pthread_mutex_trylock((x))
 #define ReleaseLock(x) pthread_mutex_unlock((x))
 #define DestroyLock(x) pthread_mutex_destroy((x))
+#else
+#define LOCK int
+#define InitLock(x) 0
+#define SetLockNT(x) 0
+#define SetLock(x) 0
+#define TryLock(x) 0
+#define ReleaseLock(x) 0
+#define DestroyLock(x) 0
+#endif
 
 #include "mpiutil.h"
 
