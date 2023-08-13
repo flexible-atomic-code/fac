@@ -1626,11 +1626,12 @@ class MLEV:
             self.z = fac.ATOMICSYMBOL.index(fs[0])
             self.nele[:] = 1+self.z-int(fs[1].split('.')[0])
             for i in range(len(self.c)):
-                a = self.c[i].split(".")
+                a = self.c[i].split(" ")
+                a = a[0].split(".")
                 tc = ''
                 for b in a:
                     b = b.split('<')[0]
-                    if b[0] != '(':                        
+                    if b[0].isdigit():                        
                         if (not b[-1].isdigit()):
                             b += '1'
                         tc += '.'+b
