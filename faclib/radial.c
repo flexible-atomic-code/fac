@@ -1893,21 +1893,39 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
     return 0;
   }
 
-  b = (potential->N+potential->nqf)/potential->atom->atomic_number;
+  if (potential->mps <= 2 ) {
+    b = potential->N/potential->atom->atomic_number;
+    if (1+potential->N1 == 1) {
+      for (m = 0; m < potential->maxrp; m++) {
+	u[m] = 0.0;
+	ue[m] = 0.0;
+	ut[m] = 0.0;
+      }
+    }
+  } else {
+    b = (potential->N+potential->nqf)/potential->atom->atomic_number;
+  }
   b = Max(1.0, b);
   for (m = 0; m < potential->maxrp; m++) {
     u[m] = u0[m] - ue[m];
-    ut[m] = u[m] + potential->ZPS[m];
+    if (potential->mps <= 2) {
+      ut[m] = u[m];
+    } else {
+      ut[m] = u[m] + potential->ZPS[m];
+    }
     a = b*potential->Z[m];
     if (ut[m] > a) {
       ur = ut[m] - a;
       u[m] -= ur*(u[m]/ut[m]);
-      potential->ZPS[m] -= ur*(potential->ZPS[m]/ut[m]);
+      if (potential->mps > 2) {
+	potential->ZPS[m] -= ur*(potential->ZPS[m]/ut[m]);
+      }
       ut[m] = a;
     }
   }
   if (_csi > 0 && potential->ihx < 0 && (_scpot.md < 0 || _scpot.md > 1)) {
-    n0 = potential->N + potential->nqf;
+    n0 = potential->N;
+    if (potential->mps > 2) n0 += potential->nqf;
     n1 = n0 + potential->ihx;
     n2 = n0 + (1+_csi)*potential->ihx;
     n1 = Max(0, n1);
@@ -1937,8 +1955,10 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
     if (j < 10) {
       for (m = 0; m <= jmax; m++) {
 	u[m] = 0.0;
-	potential->ZPS[m] = 0.0;
 	ut[m] = 0.0;
+	if (potential->mps > 2) {
+	  potential->ZPS[m] = 0.0;
+	}
       }
     } else if (j < jm) {
       for (m = j+1; m <= jm; m++) {
@@ -1950,28 +1970,44 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
       b = ((ut[m]-ut[j])/(potential->rad[m]-potential->rad[j]))/a;
       for (m = j+1; m <= jmax; m++) {
 	ur = n2 + a*(1-exp(-(potential->rad[m]-r2)*b));
-	ut[m] = u[m] + potential->ZPS[m];	
+	if (potential->mps > 2) {
+	  ut[m] = u[m] + potential->ZPS[m];
+	} else {
+	  ut[m] = u[m];
+	}
 	u[m] += (ur-ut[m])*(u[m]/ut[m]);
-	potential->ZPS[m] += (ur-ut[m])*(potential->ZPS[m]/ut[m]);
+	if (potential->mps > 2) {
+	  potential->ZPS[m] += (ur-ut[m])*(potential->ZPS[m]/ut[m]);
+	}
 	ut[m] = ur;
       }
     } else {
       for (m = jm+1; m <= jmax; m++) {
 	ur = ut[jm];
-	ut[m] = u[m]+potential->ZPS[m];
+	if (potential->mps > 2) {
+	  ut[m] = u[m]+potential->ZPS[m];
+	} else {
+	  ut[m] = u[m];
+	}
 	u[m] += (ur-ut[m])*(u[m]/ut[m]);
-	potential->ZPS[m] += (ur-ut[m])*(potential->ZPS[m]/ut[m]);
+	if (potential->mps > 2) {
+	  potential->ZPS[m] += (ur-ut[m])*(potential->ZPS[m]/ut[m]);
+	}
 	ut[m] = ur;
       }
     }
     for (j = jmax+1; j < potential->maxrp; j++) {
       u[j] = u[jmax];
-      potential->ZPS[j] = potential->ZPS[jmax];
-    }      
-    Differential(potential->ZPS, potential->dZPS,
-		 0, potential->maxrp-1, potential);
-    Differential(potential->dZPS, potential->dZPS2,
-		 0, potential->maxrp-1, potential);
+      if (potential->mps > 2) {
+	potential->ZPS[j] = potential->ZPS[jmax];
+      }
+    }
+    if (potential->mps > 2) {
+      Differential(potential->ZPS, potential->dZPS,
+		   0, potential->maxrp-1, potential);
+      Differential(potential->dZPS, potential->dZPS2,
+		   0, potential->maxrp-1, potential);
+    }
     if (_scpot.md == 3) {
       potential->zps = potential->ZPS[potential->maxrp-1];
     }
@@ -4782,6 +4818,8 @@ int WaveFuncTableOrb(char *s, ORBITAL *orb) {
   fprintf(f, "#     dn = %15.8E\n", orb->dn);
   fprintf(f, "#SelfEne = %15.8E\n", orb->se*HARTREE_EV);
   fprintf(f, "#     vc = %15.8E\n", MeanPotential(k, k)*HARTREE_EV);
+  ResidualPotential(&a, k, k);  
+  fprintf(f, "#     vr = %15.8E\n", a*HARTREE_EV);  
   fprintf(f, "#  ilast = %4d\n", orb->ilast);
   i = ((abs(kappa)-1)*2)+(kappa>0);
   fprintf(f, "#    ifm = %4d\n", _orbmap[i].ifm);
