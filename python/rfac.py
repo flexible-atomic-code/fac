@@ -1748,3 +1748,81 @@ def NISTCorr(ff, fn, fo):
     r0.match(r1)
     r0.write(fo)
 
+def read_rp(f):
+    r = np.loadtxt(f, unpack=1, usecols=6)
+    s = np.loadtxt(f, unpack=1, usecols=5, dtype=str)
+    sn = [x[:-1] for x in s]
+    d = {}
+    for i in range(len(s)):
+        d[s[i]] = r[i]
+        if sn[i] in d:
+            d[sn[i]] = 0.5*(d[sn[i]]+r[i])
+        else:
+            d[sn[i]] = r[i]
+    return d
+
+def read_rps(fs, ds):
+    nd = len(ds)
+    d = []
+    for f in fs:
+        d.append(read_rp(f))
+
+    r = {}
+    r['ds'] = np.array(ds)
+    r['dx'] = r['ds']**(1/3.)
+    for s in d[0].keys():
+        r[s] = np.zeros(nd)
+        for i in range(nd):
+            if s in d[i]:
+                r[s][i] = d[i][s]*const.Hartree_eV
+            else:
+                r[s][i] = 0.0
+    return r
+
+def CorrCLow(r, d, eden, md=0):
+    de = np.zeros(len(r.e))
+    for j in range(len(r.e)):
+        k = r.nele[j]
+        c = r.c[j]
+        s = r.s[j]
+        n = r.n[j]
+        nc, ns, nn = fac.FillClosedShell(k, c, s, n)
+        a = nn.split('.')
+        for b in a:
+            i = b.rfind('(')
+            b = b[:i]
+            i = b.rfind('-')
+            if i < 0:
+                i = b.rfind('+')
+            q = int(b[i+1])
+            if md == 0:
+                s = b[:i+1]
+            else:
+                s = b[:i]
+            if s in d:
+                e0 = d[s][0]
+                xi = eden**(1/3.)
+                y = d[s]
+                w = np.where(d[s] < 0.0)[0]
+                if len(w) == 0:
+                    de[j] = 1e31
+                    break
+                x = d['dx'][w]
+                y = d[s][w]
+                if xi > x[-1]:
+                    if len(x) == 1:
+                        yi = y[-1] + (xi-x[-1])*(y[-1]/x[-1])
+                    else:
+                        yi = y[-1] + (xi-x[-1])*(y[-1]-y[-2])/(x[-1]-x[-2])
+                else:
+                    yi = np.interp(xi, x, y)
+                if yi >= 0:
+                    de[j] = 1e31
+                    break
+                de[j] = de[j] + q*(yi-d[s][0])
+            else:
+                de[j] = 1e31
+                break
+    return de
+
+
