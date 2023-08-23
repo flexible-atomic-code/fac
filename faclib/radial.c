@@ -2182,7 +2182,7 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
   }
   if (jmax > 0 && _scpot.md != 0) {
     if (potential->ahx) {
-      for (m = 0; m <= jmax; m++) {
+      for (m = 0; m < potential->maxrp; m++) {
 	ue1[m] = potential->NPS[m];
       }
     }
@@ -2219,7 +2219,8 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
       potential->ups = (potential->NPS[m]+potential->EPS[m]);
       potential->ups *= potential->rad[m]/3.0;
     }
-  }  
+  }
+
   if (!(potential->mps == 1 ||
 	(potential->mps == 0 && potential->tps <= 0))) {
     if (_scpot.md != 1 && _scpot.md != 3) {      

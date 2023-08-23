@@ -1716,7 +1716,13 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     }
     return -9;
   }
-
+  if (orb->energy >= 0) {
+    if (_on_error >= 0) {
+      printf("RadialBound: positive energy for bound %d %d %g\n", orb->n, orb->kappa, orb->energy);
+    }
+    return -10;
+  }
+  
   fact = 1.0/sqrt(norm2);
   for (i = 1; i < pot->maxrp; i++) {
     if (fabs(p[i]*fact) < wave_zero) continue;
@@ -4653,7 +4659,7 @@ int DensityToSZ(POTENTIAL *pot, double *d, double *z, double *zx, double *jps) {
   double nx, rx;
 
   for (im = pot->maxrp-1; im >= 0; im--) {
-    if (d[im]) break;
+    if (d[im] || zx[im]) break;
   }
   if (im <= 0) {
     for (i = 0; i < pot->maxrp; i++) {
