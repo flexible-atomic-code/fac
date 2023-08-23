@@ -26,6 +26,7 @@ from sys import version_info
 from pfac import fac
 from pfac import const
 from pfac import util
+import os
 from multiprocessing import Pool, cpu_count
 
 def k2lj(k):
@@ -1749,10 +1750,14 @@ def NISTCorr(ff, fn, fo):
     r0.write(fo)
 
 def read_rp(f):
-    r = np.loadtxt(f, unpack=1, usecols=6)
-    s = np.loadtxt(f, unpack=1, usecols=5, dtype=str)
-    sn = [x[:-1] for x in s]
     d = {}
+    if not os.path.exists(f):
+        return d
+    r = np.loadtxt(f, unpack=1, usecols=6, ndmin=1)
+    s = np.loadtxt(f, unpack=1, usecols=5, dtype=str, ndmin=1)
+    if (len(r) == 0):
+        return d
+    sn = [x[:-1] for x in s]
     for i in range(len(s)):
         d[s[i]] = r[i]
         if sn[i] in d:
@@ -1777,6 +1782,18 @@ def read_rps(fs, ds):
                 r[s][i] = d[i][s]*const.Hartree_eV
             else:
                 r[s][i] = 0.0
+    return r
+
+def read_rps_zk(z, k, i, odir):
+    p = '%s/%s/k%02d/%s%02d'%(odir,fac.ATOMICSYMBOL[z],k,fac.ATOMICSYMBOL[z],k)
+    t = np.loadtxt(p+'a.tdg', unpack=1)
+    nd = int(t[3][i])
+    ds = np.exp(np.linspace(np.log(t[1][i]), np.log(t[2][i]), nd))
+    fs = ['%sd%02dt%02db.rp'%(p,j,i) for j in range(nd)]    
+    ds = np.append([0.0], ds)
+    fs = [p+'b.rp'] + fs
+    r = read_rps(fs, ds)
+    r['ts'] = t[0]
     return r
 
 def CorrCLow(r, d, eden, md=0):
@@ -1825,4 +1842,41 @@ def CorrCLow(r, d, eden, md=0):
                 break
     return de
 
+def jsp(d, t, zp, zs):
+    zs1 = zs+1.0
+    ta = t/const.Hartree_eV
+    da = d*const.RBohr**3
+    di2 = 4*np.pi*zs1*da/ta
+    di = np.sqrt(di2)
+    k = zp*di/ta
+    j = ((3*zs1*k+1)**(2/3)-1.)/(2*zs1)
+    return j*t
 
+def jsp_zd(de, t, zp, zs):
+    ta = t/const.Hartree_eV
+    ea = de/const.Hartree_eV
+    a = 1.5*zp/ea
+    d0 = zp/(4*np.pi/3*a**3)
+    d1 = zp/ea
+    d1 = ta/(4*np.pi*(zs+1.)*d1*d1)
+    u = 1/const.RBohr**3
+    d0 = d0*u
+    d1 = d1*u
+    dmin = min(d0, d1)
+    while (jsp(dmin, t, zp, zs) > de):
+        dmin = dmin*2.0
+    dmax = max(d0, d1)
+    while (jsp(dmax, t, zp, zs) < de):
+        dmax = dmax*2.0
+
+    d = 0.5*(dmin+dmax)
+    while (dmax-dmin > 1e-5*d):
+        r = jsp(d, t, zp, zs)
+        if r > de:
+            dmax = d
+        elif r < de:
+            dmin = d
+        else:
+            break
+        d = 0.5*(dmin+dmax)
+    return d
