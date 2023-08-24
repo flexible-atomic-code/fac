@@ -2049,7 +2049,11 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
     w0 = potential->VPS;
     wx0 = potential->VXF;
     wmin = _sc_wmin;
-    jmax = potential->ips;
+    if (potential->ups > 0) {
+      jmax = potential->maxrp-1;
+    } else {
+      jmax = potential->ips;
+    }
   }
   b = 0.0;
   for (i = i0; i < i1; i++) {
@@ -3122,7 +3126,7 @@ void SetScreenConfig(int iter) {
       }
       for (iu = 0; iu < nx; iu++) {
 	ng[iu] = FreeElectronDensity(potential, potential->VT[0],
-				     etf, ug[iu], 0.0, 2);
+				     etf, ug[iu], 0.0, 2, 0);
       }
     }
     it = 0;
@@ -4081,7 +4085,7 @@ double NBoundAA(int ns, int *n, int *ka, double *nq, double *et, double *nqc,
   }
   if (nqf) {
     if (e0 < 1E31) {
-      *nqf = FreeElectronDensity(potential, potential->VT[0], e0, u, 0.0, 2);
+      *nqf = FreeElectronDensity(potential, potential->VT[0], e0, u, 0.0, 2, 0);
     }
     nb += *nqf;
   }
@@ -4204,18 +4208,18 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
     etf = potential->eth;
   }
   a = FreeElectronDensity(potential, potential->VT[0], etf,
-			  potential->bps, 0.0, 4);
+			  potential->bps, 0.0, 4, 0);
   for (k = 0; k < potential->maxrp; k++) {
     _dwork5[k] = potential->EPS[k];
     _dwork17[k] = _dwork5[k];
   }
   a = FreeElectronDensity(potential, potential->VT[0], etf,
-			  potential->bps, 0.0, 10);
+			  potential->bps, 0.0, 10, 0);
   for (k = 0; k < potential->maxrp; k++) {
     _dwork7[k] = potential->EPS[k];
   }
   double nft = FreeElectronDensity(potential, potential->VT[0],
-				   potential->efm, u, 0.0, 2);
+				   potential->efm, u, 0.0, 2, 0);
   if (nft < 1e-99) nft = 0.0;
   for (k = 0; k < potential->maxrp; k++) {
     _dwork[k] = potential->EPS[k];
@@ -4290,7 +4294,7 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
 			     potential->rad,
 			     potential->VT[0], potential->dr_drho,
 			     _dphasep, NULL, 0.0, potential->tps,
-			     potential->eth, 0.0, u1, 0.0, 2,
+			     potential->eth, 0.0, u1, 0.0, 2, 0,
 			     potential->mps, 0.0, 0.0, 0.0, 0.0, NULL);
   zb0 = 0.0;
   for (k = k0; k <= k1; k++) {

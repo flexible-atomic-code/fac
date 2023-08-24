@@ -108,13 +108,13 @@ int SetPotentialSE(POTENTIAL *pot);
 int SetPotentialPS(POTENTIAL *pot, double *vt, double *wb, int iter);
 void FreeIonDensity(POTENTIAL *pot, double *de, double *di);
 double FreeElectronDensity(POTENTIAL *pot, double *vt,
-			   double e0, double u, double zn, int md);
+			   double e0, double u, double zn, int md, int iter);
 double FreeElectronIntegral(int i0, int i1, int i2, double *rad,
 			    double *vt, double *drdx,
 			    double *eps, double *icf,
 			    double eth, double tps,
 			    double eref, double ewd,
-			    double u, double zn, int md,
+			    double u, double zn, int md, int iter,
 			    int mps, double ups, double fa,
 			    double rps, double dps, double *aps);
 double StewartPyattIntegrand(double x, double a, double fa, double y,
@@ -173,6 +173,7 @@ double InterpFermiNR(int m, double u);
 double BoundFactor(double e, double eth, double de, int mps);
 double DrRho(POTENTIAL *p, int i, double x);
 double RadRho(POTENTIAL *p, int i, double x);
+double ExpM1(double x);
 int FirstMaximum(double *p, int i1, int i2, POTENTIAL *pot);
 int LastMaximum(double *p, int i1, int i2, POTENTIAL *pot);
 #endif
