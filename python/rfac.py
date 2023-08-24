@@ -1786,7 +1786,7 @@ def read_rps(fs, ds):
 
 def read_rps_zk(z, k, i, odir):
     p = '%s/%s/k%02d/%s%02d'%(odir,fac.ATOMICSYMBOL[z],k,fac.ATOMICSYMBOL[z],k)
-    t = np.loadtxt(p+'a.tdg', unpack=1)
+    t = np.loadtxt(p+'a.tdg', unpack=1, ndmin=2)
     nd = int(t[3][i])
     ds = np.exp(np.linspace(np.log(t[1][i]), np.log(t[2][i]), nd))
     fs = ['%sd%02dt%02db.rp'%(p,j,i) for j in range(nd)]    

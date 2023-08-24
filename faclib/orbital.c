@@ -39,8 +39,7 @@ static int _relativistic_fermi0 = -1;
 static int _relativistic_fermi = 0;
 static double _fermi_abserr = 1e-7;
 static double _fermi_relerr = 1e-5;
-static double _fermi_stablizer = 0.5;
-#define NFRM1 256
+#define NFRM1 128
 #define NFRM2 (NFRM1+2)
 #define NFRM3 201
 #define NFRM4 651
@@ -68,6 +67,8 @@ static double _sp_zu = 0.0;
 static int _sp_mode = 2;
 static int _debye_mode = 0; 
 static int _sp_print = 0;
+static int _ionsph_maxiter = 1024;
+static double _interp_fermi = 1.0;
 static double _icf_tol = EPS3;
 static int _icf_maxiter = 1024;
 static int _icf_nfft = 0;
@@ -3587,7 +3588,6 @@ int SetPotentialVc(POTENTIAL *pot) {
     pot->dVc[i] = a/r2 - b/r;
     pot->dVc2[i] = 2.0*(-a/r + b)/r2 - y/r;
   }
-  
   n = pot->N1;
   if (n > 0 && (pot->a > 0 || pot->lambda > 0)) {
     if (pot->a) {
@@ -4263,7 +4263,7 @@ int SetPotentialPS(POTENTIAL *pot, double *vt, double *wb, int iter) {
 }
 
 void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb, int iter) {
-  int i;
+  int i, ii;
   double n0, r0, x;
   if (pot->mps == 1) {//debye screening
     if (vt) return;
@@ -4337,7 +4337,7 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb, int iter) {
       }
     }
     i = 0;
-    while (x1-x0 > EPS5) {
+    while (x1-x0 > EPS5) {      
       x = 0.5*(x0+x1);
       xps = StewartPyatt(pot, vt, wb, x, iter);
       if (xps < 1) {
@@ -4346,6 +4346,11 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb, int iter) {
 	x1 = x;
       } else {
 	break;
+      }
+      i++;
+      if (i > 256) {
+	printf("maxiter StewartPyatt2: %d %g %g\n", iter, x, xps);
+	Abort(1);
       }
     }
     x = 0.5*(x0+x1);
@@ -4358,40 +4363,39 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb, int iter) {
       ve1[i] = 0.0;
     }
     if (_icf_nfft > 0) {
-      int iter = 0;
       while(1) {
 	IonCF(pot, _veff0, _icf_rmax, _icf_nfft, _icf_dw);	
-	xps = StewartPyatt(pot, vt, wb, x, iter);
+	xps = StewartPyatt(pot, vt, wb, x, ii);
 	if (fabs(xps-1) < EPS3) break;
 	x0 = x;
 	x1 = x;
 	i = 0;
 	if (xps < 1) {
 	  while (1) {
-	    xps = StewartPyatt(pot, vt, wb, x1, iter);
+	    xps = StewartPyatt(pot, vt, wb, x1, ii);
 	    if (xps > 1) break;
 	    x1 *= 2.0;
 	    i++;
 	    if (i > 256) {
-	      printf("maxiter StewartPyatt1: %d %g %g\n", iter, x1, xps);
+	      printf("maxiter StewartPyatt1: %d %g %g\n", ii, x1, xps);
 	      Abort(1);
 	    }
 	  }
 	} else {
 	  while (1) {
-	    xps = StewartPyatt(pot, vt, wb, x0, iter);
+	    xps = StewartPyatt(pot, vt, wb, x0, ii);
 	    if (xps < 1) break;
 	    x0 *= 0.5;
 	    i++;
 	    if (i > 256) {
-	      printf("maxiter StewartPyatt0: %d %g %g\n", iter, x0, xps);
+	      printf("maxiter StewartPyatt0: %d %g %g\n", ii, x0, xps);
 	      Abort(1);
 	    }
 	  }
 	}
 	while (x1-x0 > EPS5) {
 	  x = 0.5*(x0+x1);
-	  xps = StewartPyatt(pot, vt, wb, x, iter);
+	  xps = StewartPyatt(pot, vt, wb, x, ii);
 	  if (xps < 1) {
 	    x0 = x;
 	  } else if (xps > 1) {
@@ -4401,9 +4405,9 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb, int iter) {
 	  }
 	}
 	x = 0.5*(x0+x1);
-	iter++;	
-	if (iter > _icf_spmi) {
-	  //printf("maxiter ioncf: %d %g\n", iter, xps);
+	ii++;	
+	if (ii > _icf_spmi) {
+	  //printf("maxiter ioncf: %d %g\n", ii, xps);
 	  break;
 	}
       }
@@ -4472,12 +4476,12 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb, int iter) {
 	fprintf(f, "#  maxrp = %d\n", potential->maxrp);
 	fprintf(f, "\n\n");
 	for (i = 0; i < potential->maxrp; i++) {
-	  fprintf(f, "%5d %14.8E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
+	  fprintf(f, "%5d %14.8E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n",
 		  i, potential->rad[i], potential->Z[i],
 		  potential->Z[i]-GetAtomicEffectiveZ(potential->rad[i]),
 		  potential->Vc[i]*potential->rad[i],
 		  potential->U[i]*potential->rad[i],
-		  ve0[i], _veff0[i], ve1[i], wb?wb[i]:0.0,
+		  _veff[i], ve0[i], _veff0[i], ve1[i], wb?wb[i]:0.0,
 		  potential->NPS[i], potential->EPS[i],
 		  potential->VXF[i], potential->ICF[i],
 		  potential->ZPS[i]);
@@ -4519,20 +4523,61 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb, int iter) {
     return;
   }
 
-  for (i = 0; i < 128; i++) {
-    n0 = pot->aps;
-    x = FreeElectronDensity(pot, vt, 0.0, n0, pot->zps, -1);
-    if (fabs(1-exp(pot->aps-n0)) < EPS5) break;
-    if (fabs(pot->aps-n0) < EPS2*fabs(pot->aps)) break;
-    if (i > 100) {
-      printf("ionsphere iter: %3d %g %g %g %g %g\n", i, pot->zps, n0, pot->aps, pot->aps-n0, x);
+  double x0, x1, dx;
+  r0 = Max(1,pot->zps)*EPS5;  
+  x = pot->aps;
+  n0 = FreeElectronDensity(pot, vt, 0.0, x, pot->zps, -1, iter);
+  if (fabs(n0-pot->zps) < r0) return;
+  dx = 0.25*fabs(pot->aps-x1);
+  if (dx < 0.1) dx = 0.1;
+  i = 0;
+  if (n0 < pot->zps) {
+    x0 = x;
+    x1 = x;
+    while (n0 < pot->zps) {
+      x0 = x1;
+      x1 = pot->aps + dx;
+      n0 = FreeElectronDensity(pot, vt, 0.0, x1, pot->zps, -1, iter);
+      i++;
+      if (fabs(n0-pot->zps) < r0) return;
     }
-    x = _fermi_stablizer;
-    pot->aps = x*n0 + (1-x)*pot->aps;
+  } else {
+    x1 = x;
+    x0 = x;
+    while (n0 > pot->zps) {
+      x1 = x0;
+      x0 = pot->aps - dx;
+      n0 = FreeElectronDensity(pot, vt, 0.0, x0, pot->zps, -1, iter);
+      i++;
+      if (fabs(n0-pot->zps) < r0) return;
+    }
   }
-  if (i == 128) {
-    printf("ionsphere maxiter: %g %g %g\n",
-	   pot->nps, pot->tps, pot->aps);
+  ii = i;
+  x = 0.5*(x0+x1);
+  while (fabs(n0-pot->zps) > r0) {
+    i++;    
+    n0 = FreeElectronDensity(pot, vt, 0.0, x, pot->zps, -1, iter);
+    if (i > _ionsph_maxiter-10 || (_sp_print > 0 && i%_sp_print == 0)) {
+      printf("ion sphere iter: %d %d %d %g %g %g %g %g %g\n",
+	     iter, i, ii, pot->zps, n0, x0, x1, x, pot->aps);
+    }
+    if (n0 < pot->zps) {
+      x0 = x;
+    } else if (n0 > pot->zps) {
+      x1 = x;
+    } else {
+      break;
+    }
+    x = 0.5*(x0+x1);
+    if (i >= _ionsph_maxiter) {
+      printf("max ion sphere iter reached: %d %g %g %g\n",
+	     i, pot->nps, pot->tps, pot->aps);
+      break;
+    }
+  }
+  if (_sp_print < 0) {
+      printf("ion sphere iter: %d %d %d %g %g %g %g %g %g\n",
+	     iter, i, ii, pot->zps, n0, x0, x1, x, pot->aps);
   }
 }
 
@@ -4730,7 +4775,8 @@ double BoundFactor(double e, double eth, double de, int mps) {
 }
 
 double FreeElectronDensity(POTENTIAL *pot, double *vt,
-			   double e0, double u, double zn, int md) {
+			   double e0, double u, double zn,
+			   int md, int iter) {
   int i;
   if (pot->ups > 0 && pot->dps > 0) {
     for (i = 0; i < pot->maxrp; i++) {
@@ -4741,7 +4787,7 @@ double FreeElectronDensity(POTENTIAL *pot, double *vt,
 				vt, pot->dr_drho,
 				pot->EPS, pot->ICF,
 				e0, pot->tps,
-				pot->eth, pot->ewd, u, zn, md,
+				pot->eth, pot->ewd, u, zn, md, iter,
 				pot->mps, pot->ups,
 				pot->fps, pot->rps,
 				pot->dps, &pot->aps);
@@ -4753,7 +4799,7 @@ double FreeElectronDensity(POTENTIAL *pot, double *vt,
 				vt, pot->dr_drho,
 				pot->EPS, NULL,
 				e0, pot->tps,
-				pot->eth, pot->ewd, u, zn, md,
+				pot->eth, pot->ewd, u, zn, md, iter,
 				pot->mps, 0.0, 0.0, 0.0, 0.0, &pot->aps);
   }
 }
@@ -4763,12 +4809,12 @@ double FreeElectronIntegral(int i0, int i1, int i2, double *rad,
 			    double *eps, double *icf,
 			    double eth, double tps,
 			    double eref, double ewd,
-			    double u, double zn, int md,
+			    double u, double zn, int md, int iter,
 			    int mps, double ups, double fa,
 			    double rps, double dps, double *aps) {
   int i, k, ii;
   double a = 4.0/PI, g, e0, x, y, ye, r2, y0, y1, xk, xj, x1;
-
+  
   if (md < 0) {
     md = _relativistic_fermi;
   }
@@ -4781,6 +4827,7 @@ double FreeElectronIntegral(int i0, int i1, int i2, double *rad,
     double eth10 = 0.0;
     if (eth > 0) eth10 = 10*eth;
     double ew5, ews, em, ep, eb, ts, ef, ef0, ef1, bf, es[8];
+    
     if (md < 10) {
       g = md-2.0;
     } else {
@@ -4904,6 +4951,17 @@ double FreeElectronIntegral(int i0, int i1, int i2, double *rad,
     a *= sqrt(2*tps)*tps;
     if (md) g = tps*FINE_STRUCTURE_CONST2;
     else g = 0;
+    int ifermi = 0;
+    y0 = 0.0;
+    if (_interp_fermi > 0 && i2-i0+1 > _interp_fermi*NFRM1) {
+      y0 = FermiIntegral(u, 0.0, g);
+      if (y0 > 1E-30) {
+	PrepFermiRM1(u, y0, tps);
+      } else {
+	y0 = 0.0;
+      }
+      ifermi = 1;
+    }
     if (ups > 0 && icf && dps > 0) {
       x = rps/dps;    
       if (x < 1e-5) {
@@ -4918,29 +4976,53 @@ double FreeElectronIntegral(int i0, int i1, int i2, double *rad,
 	x1 -= 1.0;
       }
       xk = x*x*x/(3*(ups+1.0));
-      ye = xj - x1*x1/(2*(ups+1.0));
-    }
-    for (i = i0; i <= i2; i++) {
-      e0 = eth;
-      if (e0 < vt[i]) e0 = vt[i];
-      r2 = rad[i]*rad[i];
-      y = (-vt[i])/tps;
-      y0 = e0/tps;
-      eps[i] = a*r2*FermiIntegral(y+u, y0+y, g);
-      if (ups > 0 && icf && dps > 0) {
+      ye = xj - x1*x1/(2*(ups+1.0));    
+      for (i = i0; i <= i2; i++) {
+	if (ifermi && 1+y0==1) {
+	  eps[i] = 0.0;
+	  continue;
+	}
+	r2 = rad[i]*rad[i];
+	y = (-vt[i])/tps;
 	x = rad[i]/dps;
-	if (x < x1) {
-	  y1 = xk/x - xj + x*x/(6*(ups+1.0));
+	if (_sp_mode < 2 || iter <= 2) {
+	  if (x <= x1) {
+	    y1 = xk/x - xj + x*x/(6*(ups+1.0));
+	  } else {
+	    y1 = (ye/x)*exp(x1-x);
+	  }
 	} else {
-	  y1 = (ye/x)*exp(x1-x);
-	}	
-	FERMID(0.5, u, EPS10, &y0, &ii);
-	FERMID(0.5, y1+u, EPS10, &y, &ii);
-	icf[i] = (1 - (y0/y)*exp(-ups*y1));
-	if (icf[i] < 1E-99) icf[i] = 0.0;
-	eps[i] *= icf[i];
+	  if (x <= x1) {
+	    y1 = y;
+	    ye = log(y*x) + x;
+	  } else {
+	    y1 = exp(ye-x)/x;
+	  }
+	}
+	if (ifermi) {
+	  eps[i] = InterpFermiRM1(y1, 1) - ExpM1(-ups*y1);
+	  eps[i] *= y0*a*r2;
+	} else {
+	  eps[i] = a*r2*FermiIntegral(y1+u, y1, g);
+	  FERMID(0.5, u, EPS10, &y0, &ii);
+	  FERMID(0.5, y1+u, EPS10, &y, &ii);
+	  icf[i] = (1 - (y0/y)*exp(-ups*y1));
+	  if (icf[i] < 1E-99) icf[i] = 0.0;
+	  eps[i] *= icf[i];
+	}
+	if (eps[i] < 1E-99) eps[i] = 0.0;
       }
-      if (eps[i] < 1E-99) eps[i] = 0.0;
+    } else {      
+      for (i = i0; i <= i2; i++) {
+	r2 = rad[i]*rad[i];
+	y = (-vt[i])/tps;
+	if (ifermi) {
+	  eps[i] = a*r2*(InterpFermiRM1(y, 1)+1.0)*y0;
+	} else {
+	  eps[i] = a*r2*FermiIntegral(y+u, y, g);
+	}
+	if (eps[i] < 1E-99) eps[i] = 0.0;
+      }
     }
   }
   if (drdx && i2 > i0) {
@@ -5067,7 +5149,7 @@ double FermiDegeneracy(double ne, double te, double *yi) {
       a0 -= d;
       y0 = FermiIntegral(a0, 0.0, g);
       i++;
-      if (i > 256) {
+      if (i > 1024) {
 	printf("FermiDegeneracy maxiter0: %d %g %g %g\n",
 	       i, a0, y0, x);
 	Abort(1);
@@ -5083,7 +5165,7 @@ double FermiDegeneracy(double ne, double te, double *yi) {
       a1 += d;
       y1 = FermiIntegral(a1, 0.0, g);
       i++;
-      if (i > 256) {
+      if (i > 1024) {
 	printf("FermiDegeneracy maxiter1: %d %g %g %g\n",
 	       i, a1, y1, x);
 	Abort(1);
@@ -5103,7 +5185,7 @@ double FermiDegeneracy(double ne, double te, double *yi) {
       break;
     }
     i++;
-    if (i > 256) {
+    if (i > 1024) {
       printf("FermiDegeneracy maxiter2: %d %g %g %g %g\n",
 	     i, a0, a1, y, x);
       Abort(1);
@@ -5211,6 +5293,9 @@ double InterpFermiRM1(double y0, int m) {
   a = _fermi_rm1[0][NFRM1];
   g = _fermi_rm1[0][NFRM1+1];
   double ya = fabs(y0);
+  if (1+ya == 1) {
+    return 0.0;
+  }
   y = log(ya);
   if (y < _fermi_rm1[0][0]) {
     r = FermiAsymRM1(a, y0, m);
@@ -6003,12 +6088,12 @@ void SetOptionOrbital(char *s, char *sp, int ip, double dp) {
     _fermi_relerr = dp;
     return;
   }
-  if (0 == strcmp(s, "orbital:fermi_stablizer")) {
-    _fermi_stablizer = dp;
-    return;
-  }
   if (0 == strcmp(s, "orbital:fermi_rmf")) {
     strncpy(_fermi_rmf, sp, 256);
+    return;
+  }
+  if (0 == strcmp(s, "orbital:interp_fermi")) {
+    _interp_fermi = dp;
     return;
   }
   if (0 == strcmp(s, "orbital:sp_ofn")) {
@@ -6049,6 +6134,10 @@ void SetOptionOrbital(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "orbital:icf_maxiter")) {
     _icf_maxiter = ip;
+    return;
+  }  
+  if (0 == strcmp(s, "orbital:ionsph_maxiter")) {
+    _ionsph_maxiter = ip;
     return;
   }  
   if (0 == strcmp(s, "orbital:icf_rmax")) {
