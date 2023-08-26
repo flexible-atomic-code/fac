@@ -3353,13 +3353,15 @@ int SetOrbitalRGrid(POTENTIAL *pot) {
     printf("enlarge to at least %d\n", i);
     exit(1);
   }
-  if (pot->rps > 0) {
+  /*
+  if (pot->rps > 0 && pot->mps == 0 && pot->ups+1 == 1) {
     rmax = pot->rps;
     d1 = log(rmax/rmin);
     d2 = pow(rmax, pot->qr) - pow(rmin, pot->qr);
     maxrp = (int)(1+a*d2 + b*d1);
     b = (maxrp - 1.0 - (a*d2))/d1;
   }
+  */
   d1 = b*d1;
   d2 = a*d2;
   del = (d1 + d2)/(maxrp - 1);
