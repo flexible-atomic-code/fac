@@ -263,7 +263,7 @@ extern double AMU;
 #define ORBITALS_BLOCK     8192
 #define OPTSTABLE          0.5
 #define OPTTOL             3.0
-#define OPTNITER           512
+#define OPTNITER           2048
 #define OPTPRINT           0
 #define POTMODE            0
 #define POTHXS             1.0

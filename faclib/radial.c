@@ -2031,7 +2031,7 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
     w[m] = 0.0;
     wx[m] = 0.0;
     if (md == 1) {
-      b = potential->EPS[m]*(1-potential->feps);
+      b = potential->EPS[m];
       w[m] = b;
       if (potential->vxf == 2) wx[m] = b;
     }
@@ -2193,7 +2193,7 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
   }
   jps0 = 0.0;
   if (_scpot.md != 0) {
-    jmax = DensityToSZ(potential, potential->NPS, u, ue1, &jps0);
+    jmax = DensityToSZ(potential, potential->NPS, u, ue1, &jps0, 0);
   } 
 
   if (acfg->n_cores <= 0 && potential->mps < 0 && _scpot.nr == 0) return 0;
@@ -2240,7 +2240,7 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
       }
       jps1 = 0.0;
       if (_scpot.md != 1) {
-	jmaxk = DensityToSZ(potential, potential->VPS, u2, ue2, &jps1);
+	jmaxk = DensityToSZ(potential, potential->VPS, u2, ue2, &jps1, 1);
 	if (potential->mps < 3) potential->nqf = u2[jmaxk];
 	potential->jps = jps1;
 	if (jmaxk > 0) {
@@ -2520,6 +2520,11 @@ void SetPotential(AVERAGE_CONFIG *acfg, int iter) {
     }
     SetPotentialU(potential, 0, NULL);
     SetPotentialVT(potential);
+    if (iter >= 53 && iter <= 55) {
+      char fn[128];
+      sprintf(fn, "p%d.pot", iter);
+      GetPotential(fn, 0);
+    }
   } else {
     if (potential->N < 1.0+EPS3) {
       SetPotentialVc(potential);
@@ -2970,12 +2975,7 @@ void SetScreenConfig(int iter) {
     e0 = potential->efm;
   }
   if (potential->mps <= 3) e0 = -1E31;
-  if (potential->iqf) {
-    e0 = -1E31;
-    nqf = nqf0;
-  } else {
-    nqf = 0;
-  }
+  nqf = 0;
   u = potential->bps;
   int ns = a->n_shells - a->n_cores;
   if (ns <= 0 && e0 < eth) return;
@@ -3225,6 +3225,7 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
   double tol, atol, tol0, atol0, tol1, a, b, ahx, hxs0;
   ORBITAL orb_old, *orb;
   int i, k, no_old;
+
   no_old = 0;
   tol = 1.0;
   atol = 1e1;
@@ -3238,23 +3239,21 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
   double az0 = -1.0;
   double af0 = -1.0;
   double au0 = -1.0;
-  double sta = 1.0;
+  double sta = 1.0;  
   int ierr, muconv;
   muconv = 0;
-  while (((tol > tol0*sta || atol > atol0*sta) && (tol > tol1*sta)) ||
-	 iter <= 1+NDPH || ahx > 1e-5 || muconv == 0 ||
-	 potential->feps > 1e-5) {
-    if (iter > miter) break;
+  potential->miter = -1;
+  while (1) {
+    if (((tol > tol0*sta || atol > atol0*sta) && (tol > tol1*sta)) ||
+	iter <= 1+NDPH || ahx > 1e-5 || muconv == 0) {
+      potential->miter = -1;
+    } else {
+      potential->miter = iter;
+    }
     if ((_scpot.md < 0 || _scpot.md > 1) && fabs(hxs0) > 1e-5) {
       ahx = exp(-iter*0.75);
       if (ahx < 1e-4) ahx = 0.0;
       potential->hxs = hxs0*(1-ahx);
-    }
-    if (potential->mps == 0 && potential->ups > 0) {
-      potential->feps = exp(-iter*0.75);
-      if (potential->feps < 1e-5) potential->feps = 0.0;
-    } else {
-      potential->feps = 0.0;
     }
     SetPotential(acfg, iter);
     a = Max(optimize_control.dph[0][NDPH-1], optimize_control.dph[1][NDPH-1]);
@@ -3341,8 +3340,10 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
     } else {
       muconv = 1;
     }
+    if (potential->miter > 0) break;
     sta = Min(optimize_control.sta[0], optimize_control.sta[1]);
     iter++;
+    if (iter > miter) break;
   }
   if (_print_maxiter) {
     printf("OptimizeLoop Max Iter: %4d\n", iter);
@@ -4290,12 +4291,11 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   zb1 = b*pow(potential->rps,3)/3.0;
   x = b/FOUR_PI;
   u1 = FermiDegeneracy(x, potential->tps, &u0);
-  zb0 = FreeElectronIntegral(0, potential->ips, potential->maxrp-1,
-			     potential->rad,
-			     potential->VT[0], potential->dr_drho,
-			     _dphasep, NULL, 0.0, potential->tps,
+  zb0 = FreeElectronIntegral(potential, 0, potential->ips, potential->maxrp-1,
+			     potential->VT[0], _dphasep, NULL,
+			     0.0, potential->tps,
 			     potential->eth, 0.0, u1, 0.0, 2, 0,
-			     potential->mps, 0.0, 0.0, 0.0, 0.0, NULL);
+			     0.0, 0.0, 0.0, 0.0, NULL);
   zb0 = 0.0;
   for (k = k0; k <= k1; k++) {
     x = potential->rad[k];
@@ -4375,7 +4375,7 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
     }
     ex = Simpson(_phase, 0, potential->ips)*HARTREE_EV;
   }
-  k = DensityToSZ(potential, _dwork14, _dwork10, _dwork15, &b);
+  k = DensityToSZ(potential, _dwork14, _dwork10, _dwork15, &b, 0);
   for (k = 0; k <= potential->ips; k++) {
     r = potential->rad[k];
     b = _dwork14[k]*potential->dr_drho[k];
@@ -11298,7 +11298,6 @@ int InitRadial(void) {
   potential->efm = 0.0;
   potential->eth = 0.0;
   potential->fps = 0.0;
-  potential->feps = 0.0;
   potential->jps = 0.0;
   potential->gps = 0.0;
   potential->ips = 0;
@@ -12500,15 +12499,15 @@ void PlasmaScreen(int m, int vxf,
   potential->zps = zps;
   potential->nps = nps*pow(RBOHR,3);
   potential->tps = tps/HARTREE_EV;
-  if (zps > 0) {
-    if (m == 0) {    
-      potential->rps = pow(3*potential->zps/(FOUR_PI*potential->nps),ONETHIRD);
-    } else {
-      potential->rps = sqrt(potential->tps/(FOUR_PI*potential->nps*potential->zps));
-    }
-  }
   //stewart&pyatt model, ups is the z*;
   if (ups >= 0) potential->ups = ups;
+  if (zps > 0) {
+    if (m == 0) {
+      potential->rps = pow(3*zps/(FOUR_PI*potential->nps),ONETHIRD);
+    } else {
+      potential->rps = sqrt(potential->tps/(FOUR_PI*potential->nps*zps));
+    }
+  }
 }
 
 void SetOrbNMax(int kmin, int kmax, int nmax) {
