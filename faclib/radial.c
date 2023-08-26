@@ -2520,11 +2520,6 @@ void SetPotential(AVERAGE_CONFIG *acfg, int iter) {
     }
     SetPotentialU(potential, 0, NULL);
     SetPotentialVT(potential);
-    if (iter >= 53 && iter <= 55) {
-      char fn[128];
-      sprintf(fn, "p%d.pot", iter);
-      GetPotential(fn, 0);
-    }
   } else {
     if (potential->N < 1.0+EPS3) {
       SetPotentialVc(potential);

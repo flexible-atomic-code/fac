@@ -4542,6 +4542,7 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb, int iter) {
   dx = 2*fabs(pot->aps-x);
   if (dx < 0.1) dx = 0.1;
   if (pot->ups > 0 && _ionsph_bmode == 0) {
+    pot->ewd = n0;
     goto END;
   }
   r0 = Max(1,pot->zps)*EPS7;
@@ -5024,7 +5025,7 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
       } else {
 	if (pot->iqf <= 0) {
 	  x1 = rps/dps;
-	  ye = _ionsph_yeps*pow(x1,1.5);
+	  ye = _ionsph_yeps*pow(x1,2);
 	  ye = Min(0.5, ye);
 	  x1 += 3.0;
 	  for (i = i2; i >= i0; i--) {
@@ -5050,7 +5051,7 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 	  xj = ye*exp(x1-x);
 	  xs = vt[i]*rad[i];
 	  y = (x-x1)/xk;
-	  y = Min(70., y);
+	  y = Min(75., y);
 	  y = 1/(1+exp(y));
 	  vt[i] = (xs*y + xj*(1-y))/rad[i];
 	}
@@ -5077,7 +5078,7 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 	  xs = InterpFermiRM1(y1, 1);
 	  xj = ExpM1(-ups*y1);
 	  xk = a*r2*y0;
-	  if (iter <= 1) {
+	  if (iter <= 2) {
 	    if (i <= i1) {
 	      xj = -1.0;
 	    } else {
@@ -5141,11 +5142,12 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 	eps[i] *= a;
       }
     }
-    if (pot->iqf < 0 && mps == 0 && pot->ups > 0 && pot->zps > 0) {
+    if (iter >= 10 && pot->iqf < 0 &&
+	mps == 0 && pot->ups > 0 && pot->zps > 0) {
       xk = pot->zps*0.05;
       xk = Max(0.05, xk);
-      xk = Min(0.25, xk);
-      if (fabs(y0-pot->zps) < xk) {
+      xk = Min(0.5, xk);
+      if (y0 > pot->zps-xk && y0 < pot->zps*1.5) {
 	pot->iqf = -pot->iqf;
       }
     }
