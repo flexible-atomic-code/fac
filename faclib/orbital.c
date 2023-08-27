@@ -4514,11 +4514,13 @@ void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb, int iter) {
     }
     return;
   }
-  n0 = pot->nps;
+
+  if (pot->ups > 0) vt = pot->VT[0];
   r0 = pot->rps;
+  n0 = pot->nps;
   if (pot->tps <= 0 || vt == NULL) {
-    for (i = 0; i < pot->maxrp; i++) {
-      if (i <= pot->ips) {
+    for (i = 0; i < pot->maxrp; i++) {      
+      if (pot->rad[i] <= r0) {
 	x = pot->rad[i]/r0;
 	pot->EPS[i] = FOUR_PI*pot->rad[i]*pot->rad[i]*n0;
 	pot->ZPS[i] = 0.5*x*pot->zps*(3-x*x);
@@ -5010,7 +5012,7 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
       }
     }
     if (ups > 0 && icf && dps > 0) {
-      if (_sp_mode < 2) {
+      if (_sp_mode < 2 || iter == 0) {
 	x = rps/dps;    
 	if (x < 1e-5) {
 	  x1 = x*x*x/3.0;
@@ -5069,30 +5071,22 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 	  continue;
 	}
 	r2 = rad[i]*rad[i];
-	y = (-vt[i])/tps;
-	if (y < 0) y = 0.0;
 	x = rad[i]/dps;
-	if (_sp_mode < 2) {
+	if (_sp_mode < 2 || iter == 0) {
 	  if (x <= x1) {
 	    y1 = xk/x - xj + x*x/(6*(ups+1.0));
 	  } else {
 	    y1 = (ye/x)*exp(x1-x);
 	  }
 	} else {
+	  y = (-vt[i])/tps;
+	  if (y < 0) y = 0.0;
 	  y1 = y;
 	}
 	if (ifermi) {
 	  xs = InterpFermiRM1(y1, 1);
 	  xj = ExpM1(-ups*y1);
 	  xk = a*r2*y0;
-	  if (iter <= 2) {
-	    if (i <= i1) {
-	      xj = -1.0;
-	    } else {
-	      xs = 0.0;
-	      xj = 0.0;
-	    }
-	  }
 	  if (xs > xj) {
 	    eps[i] = xk*(xs - xj);
 	  } else {
