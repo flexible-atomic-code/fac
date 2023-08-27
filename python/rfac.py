@@ -1818,25 +1818,20 @@ def CorrCLow(r, d, eden, md=0):
                 s = b[:i]
             if s in d:
                 e0 = d[s][0]
-                xi = eden**(1/3.)
+                xi = log(eden)
                 y = d[s]
-                w = np.where(d[s] < 0.0)[0]
+                w = np.where(d['ds'] > 0 & d[s] < 0.0)[0]
                 if len(w) == 0:
                     de[j] = 1e31
                     break
-                x = d['dx'][w]
-                y = d[s][w]
-                if xi > x[-1]:
-                    if len(x) == 1:
-                        yi = y[-1] + (xi-x[-1])*(y[-1]/x[-1])
-                    else:
-                        yi = y[-1] + (xi-x[-1])*(y[-1]-y[-2])/(x[-1]-x[-2])
-                else:
-                    yi = np.interp(xi, x, y)
-                if yi >= 0:
+                x = log(d['ds'][w])
+                y = log(d[s][w]-d[s][0])
+                yi = np.interp(xi, x, y)
+                de[j] = de[j] + q*yi
+                if yi >= -d[s][0]:
                     de[j] = 1e31
                     break
-                de[j] = de[j] + q*(yi-d[s][0])
+                de[j] = de[j] + q*yi
             else:
                 de[j] = 1e31
                 break
