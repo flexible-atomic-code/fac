@@ -5046,8 +5046,8 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 	}
 	x1 = rad[i]/dps;
 	ye = vt[i]*rad[i];
-	xj = 0.2*x1;
-	xk = Min(xj, 0.333);
+	xj = 0.5*x1;
+	xk = Min(xj, 0.5);
 	for (i = 0; i <= i2; i++) {
 	  x = rad[i]/dps;
 	  xj = x1-x;
