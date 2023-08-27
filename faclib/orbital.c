@@ -5031,7 +5031,6 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 	if (pot->iqf <= 0) {
 	  x1 = rps/dps;
 	  ye = _ionsph_yeps*pow(x1,2);
-	  ye = Min(0.5, ye);
 	  x1 += 5.0;
 	  for (i = i2; i >= i0; i--) {
 	    x = rad[i]/dps;
