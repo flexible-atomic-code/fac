@@ -67,6 +67,7 @@ static int _sp_mode = 2;
 static int _debye_mode = 0; 
 static int _sp_print = 0;
 static double _ionsph_yeps = EPS3;
+static int _ionsph_miniter = 10;
 static int _ionsph_maxiter = 1024;
 static double _ionsph_ifermi = 1.0;
 static int _ionsph_bmode = 0;
@@ -5050,11 +5051,15 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 	  x = rad[i]/dps;
 	  xj = x1-x;
 	  xj = Min(50., xj);
-	  xj = ye*exp(x1-x);
+	  xj = ye*exp(xj);
 	  xs = vt[i]*rad[i];
 	  y = (x-x1)/xk;
-	  y = Min(75., y);
-	  y = 1/(1+exp(y));
+	  if (y < 0) {
+	    y = 1/(1+exp(y));
+	  } else {
+	    y = exp(-y);
+	    y = y/(1+y);
+	  }
 	  vt[i] = (xs*y + xj*(1-y))/rad[i];
 	}
       }
@@ -5144,12 +5149,15 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 	eps[i] *= a;
       }
     }
-    if (iter >= 10 && pot->iqf < 0 &&
+    if (iter >= _ionsph_miniter && pot->iqf < 0 &&
 	mps == 0 && pot->ups > 0 && pot->zps > 0) {
-      xk = pot->zps*0.05;
-      xk = Max(0.05, xk);
+      xk = pot->zps*0.025;
+      xk = Max(0.025, xk);
       xk = Min(0.5, xk);
-      if (y0 > pot->zps-xk && y0 < pot->zps*1.5) {
+      xs = pot->zps*0.15;
+      xs = Max(0.15, xs);
+      xs = Min(3.0, xs);
+      if (y0 > pot->zps-xk && y0 < pot->zps+xs) {
 	pot->iqf = -pot->iqf;
       }
     }
@@ -6240,6 +6248,10 @@ void SetOptionOrbital(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "orbital:icf_maxiter")) {
     _icf_maxiter = ip;
+    return;
+  }  
+  if (0 == strcmp(s, "orbital:ionsph_miniter")) {
+    _ionsph_miniter = ip;
     return;
   }  
   if (0 == strcmp(s, "orbital:ionsph_maxiter")) {
