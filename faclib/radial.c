@@ -2150,7 +2150,7 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
     for (m = 0; m < potential->maxrp; m++) {
       ue[m] = 0.0;
       ue2[m] = 0.0;
-      u2[m] = 0.0;      
+      //u2[m] = 0.0;      
     }
     break;
   case 1:
@@ -2165,7 +2165,7 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
       ue[m] = 0.0;
       u[m] = 0.0;
       ue2[m] = 0.0;
-      u2[m] = 0.0;
+      //u2[m] = 0.0;
     }
     break;
   default:
@@ -2174,7 +2174,7 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
       ue[m] = 0.0;
       u[m] = 0.0;
       ue2[m] = 0.0;
-      u2[m] = 0.0;
+      //u2[m] = 0.0;
     }
   }
   
@@ -2207,22 +2207,7 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
     }
   }  
   if (potential->mps >= 0 && potential->mps < 3) {
-    if (iter == 0) {
-      SetPotentialPS(potential, NULL, NULL, iter);
-    } else {
-      for (m = 0; m < potential->maxrp; m++) {
-	_dwork13[m] = w[m]/(FOUR_PI*potential->rad[m]*potential->rad[m]);
-      }
-      SetPotentialPS(potential, potential->VT[0], _dwork13, iter);
-    }
-  }
-  if (potential->ips > 0 && potential->tps > 0 && potential->mps != 2 &&
-      potential->mps >= 0 && (potential->ups > 0 || SPZU())) {
-    if (SPZU() < 0) {
-      m = potential->ips;
-      potential->ups = (potential->NPS[m]+potential->EPS[m]);
-      potential->ups *= potential->rad[m]/3.0;
-    }
+    SetPotentialPS(potential, iter);
   }
 
   if (!(potential->mps == 1 ||
@@ -2722,7 +2707,7 @@ int GetPotential(char *s, int m) {
   double *vxf = potential->VXF;
   double *icf = potential->ICF;
   for (i = 0; i < potential->maxrp; i++) {
-    fprintf(f, "%5d %14.8E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E\n",
+    fprintf(f, "%5d %14.8E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %14.8E\n",
 	    i, potential->rad[i], potential->Z[i],
 	    potential->Z[i]-GetAtomicEffectiveZ(potential->rad[i]),
 	    potential->Vc[i]*potential->rad[i],
@@ -3120,8 +3105,7 @@ void SetScreenConfig(int iter) {
 	ug[iu] = ug[iu-1] + fu;
       }
       for (iu = 0; iu < nx; iu++) {
-	ng[iu] = FreeElectronDensity(potential, potential->VT[0],
-				     etf, ug[iu], 0.0, 2, 0);
+	ng[iu] = FreeElectronDensity(potential, etf, ug[iu], 0.0, 2, 0);
       }
     }
     it = 0;
@@ -4040,11 +4024,6 @@ int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
     iter = OptimizeLoop(acfg);
   }
 
-  /*
-  SetLatticePotential(potential, potential->VT[0]);
-  ClearOrbitalTable(0);
-  SetPotentialVT(potential);
-  */
   qed.se = mse;
   CopyPotentialOMP(0);
   if (wce) {
@@ -4081,7 +4060,7 @@ double NBoundAA(int ns, int *n, int *ka, double *nq, double *et, double *nqc,
   }
   if (nqf) {
     if (e0 < 1E31) {
-      *nqf = FreeElectronDensity(potential, potential->VT[0], e0, u, 0.0, 2, 0);
+      *nqf = FreeElectronDensity(potential, e0, u, 0.0, 2, 0);
     }
     nb += *nqf;
   }
@@ -4203,19 +4182,16 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   } else {
     etf = potential->eth;
   }
-  a = FreeElectronDensity(potential, potential->VT[0], etf,
-			  potential->bps, 0.0, 4, 0);
+  a = FreeElectronDensity(potential, etf, potential->bps, 0.0, 4, 0);
   for (k = 0; k < potential->maxrp; k++) {
     _dwork5[k] = potential->EPS[k];
     _dwork17[k] = _dwork5[k];
   }
-  a = FreeElectronDensity(potential, potential->VT[0], etf,
-			  potential->bps, 0.0, 10, 0);
+  a = FreeElectronDensity(potential, etf, potential->bps, 0.0, 10, 0);
   for (k = 0; k < potential->maxrp; k++) {
     _dwork7[k] = potential->EPS[k];
   }
-  double nft = FreeElectronDensity(potential, potential->VT[0],
-				   potential->efm, u, 0.0, 2, 0);
+  double nft = FreeElectronDensity(potential, potential->efm, u, 0.0, 2, 0);
   if (nft < 1e-99) nft = 0.0;
   for (k = 0; k < potential->maxrp; k++) {
     _dwork[k] = potential->EPS[k];
@@ -4287,8 +4263,7 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   x = b/FOUR_PI;
   u1 = FermiDegeneracy(x, potential->tps, &u0);
   zb0 = FreeElectronIntegral(potential, 0, potential->ips, potential->maxrp-1,
-			     potential->VT[0], _dphasep, NULL,
-			     0.0, potential->tps,
+			     _dphasep, NULL, 0.0, potential->tps,
 			     potential->eth, 0.0, u1, 0.0, 2, 0,
 			     0.0, 0.0, 0.0, 0.0, NULL);
   zb0 = 0.0;
@@ -12494,6 +12469,8 @@ void PlasmaScreen(int m, int vxf,
   potential->zps = zps;
   potential->nps = nps*pow(RBOHR,3);
   potential->tps = tps/HARTREE_EV;
+  //the old SP mode is handled by mps=0 now
+  if (potential->mps == 2) potential->mps = 0;
   //stewart&pyatt model, ups is the z*;
   if (ups >= 0) potential->ups = ups;
   if (zps > 0) {
