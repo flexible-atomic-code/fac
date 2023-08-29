@@ -105,20 +105,18 @@ int SetPotentialExtraZ(POTENTIAL *pot, int iep);
 int SetPotentialZ(POTENTIAL *pot);
 int SetPotentialVP(POTENTIAL *pot);
 int SetPotentialSE(POTENTIAL *pot);
-int SetPotentialPS(POTENTIAL *pot, double *vt, double *wb, int iter);
+int SetPotentialPS(POTENTIAL *pot, int iter);
 void FreeIonDensity(POTENTIAL *pot, double *de, double *di);
-double FreeElectronDensity(POTENTIAL *pot, double *vt,
-			   double e0, double u, double zn, int md, int iter);
+double FreeElectronDensity(POTENTIAL *pot, double e0, double u,
+			   double zn, int md, int iter);
 double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
-			    double *vt, double *eps, double *icf,
+			    double *eps, double *icf,
 			    double eth, double tps, double eref, double ewd,
 			    double u, double zn, int md, int iter,
 			    double ups, double fa, double rps,
 			    double dps, double *aps);
 double StewartPyattIntegrand(double x, double a, double fa, double y,
 			     double y0, double g, double z, double nb);
-double StewartPyatt(POTENTIAL *pot, double *vt, double *wb, double xps,
-		    int iter);
 double FermiDegeneracy(double ne, double te, double *yi);
 double FermiIntegral(double x, double y, double g);
 double InterpFermiRM1(double y, int m);
@@ -142,8 +140,7 @@ void SetOptionOrbital(char *s, char *sp, int ip, double dp);
 void PrepFermiRM1(double a, double fa, double t);
 double SetSPZW(int n, double *zw);
 void IonCF(POTENTIAL *pot, double *y, double rmax, int n, double *w);
-void SetLatticePotential(POTENTIAL *pot, double *vt);
-void SetPotentialIPS(POTENTIAL *pot, double *vt, double *wb, int iter);
+void SetPotentialIPS(POTENTIAL *pot, int iter);
 int SPMode();
 int OnErrorOrb();
 void SetOnErrorOrb(int e);
