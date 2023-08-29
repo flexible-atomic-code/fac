@@ -4770,7 +4770,7 @@ void DerivSPY(int *neq, double *t, double *y, double *yd) {
   }
   double y0 = y[0]/x;
   double y1 = 0.0;
-  if (y[11] >= 0) {
+  if (y[11] >= -1e-10) {
     y1 = y0;
   }
   double s = StewartPyattIntegrand(rho, y[2], y[3], y0, y1,
@@ -5017,10 +5017,14 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 	for (; i >= 0; i--) {
 	  x = pot->rad[i]/pot->dps;
 	  t = log(x);
-	  if (_sp_mode == 3 && pot->NC > 1) {
-	    r2 = pot->rad[i]*pot->rad[i]*FOUR_PI*pot->nps;
-	    yr = 0.5*(wb[i]+wb[i+1])*(pot->NC-1)/pot->NC;
-	    ysp[11] = yr/r2;
+	  if (_sp_mode == 3) {
+	    if (pot->NC > 1) {
+	      r2 = pot->rad[i]*pot->rad[i]*FOUR_PI*pot->nps;
+	      yr = 0.5*(wb[i]+wb[i+1])*(pot->NC-1)/pot->NC;
+	      ysp[11] = yr/r2;
+	    } else {
+	      ysp[11] = 0.0;
+	    }
 	  } else {
 	    ysp[11] = -1;
 	  }
