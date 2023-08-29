@@ -3304,7 +3304,7 @@ void InitializePS(POTENTIAL *pot) {
     if (pot->mps == 2) {
       pot->aps = FermiDegeneracy(pot->nps, pot->tps, &pot->fps);
       PrepFermiRM1(pot->aps, pot->fps, pot->tps);     
-    } else if (pot->mps == 0) {
+    } else if (pot->mps == 0 && pot->tps > 0) {
       pot->aps = FermiDegeneracy(pot->nps, pot->tps, &pot->fps);
       if (pot->ups > 0 && _ionsph_bmode == 0) {
 	PrepFermiRM1(pot->aps, pot->fps, pot->tps);     
@@ -4336,7 +4336,6 @@ void SetPotentialIPS(POTENTIAL *pot, int iter) {
 	pot->dZPS[i] = 0.0;
 	pot->dZPS2[i] = 0.0;
       }
-      _dwork1[i] = pot->EPS[i]*pot->dr_drho[i];
     }
     return;
   }
@@ -4994,7 +4993,7 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 	wb = pot->NPS;
 	for (i = pot->maxrp-1; i > 10; i--) {      
 	  x = pot->rad[i]/pot->dps;
-	  ym = pot->xps*(ye/x)*exp(b*(x1-x));
+	  ym = (ye/x)*exp(b*(x1-x));
 	  _veff[i] = ym;
 	  if (ups*ym > _sp_yeps) {
 	    break;
@@ -5018,9 +5017,9 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 	for (; i >= 0; i--) {
 	  x = pot->rad[i]/pot->dps;
 	  t = log(x);
-	  if (_sp_mode == 3 && pot->NC > 1.0) {
+	  if (_sp_mode == 3 && pot->NC > 1) {
 	    r2 = pot->rad[i]*pot->rad[i]*FOUR_PI*pot->nps;
-	    yr = 0.5*(wb[i]+wb[i+1])*(pot->NC-1.0)/pot->NC;
+	    yr = 0.5*(wb[i]+wb[i+1])*(pot->NC-1)/pot->NC;
 	    ysp[11] = yr/r2;
 	  } else {
 	    ysp[11] = -1;
@@ -5038,16 +5037,17 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 	    }
 	  }
 	  x0 = x;
+	  t0 = log(x0);
 	  _veff[i] = ysp[0]/x;
 	  if (_veff[i] > _fermi_ymx) {
 	    ib = i;
 	    if (iter > 1) {
-	      ym = -vt[i]*x/pot->tps;
+	      ym = -vt[i]/pot->tps;
 	    } else {
 	      if (x <= x1) {
-		ym = xk - xj*x + x*x*x/u6;
+		ym = xk/x - xj + x*x/u6;
 	      } else {
-		ym = ye*exp(b*(x1-x));
+		ym = (ye/x)*exp(b*(x1-x));
 	      }
 	    }
 	    kc = _veff[i]/ym;
@@ -5058,12 +5058,12 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 	for (i--; i >= 0; i--) {
 	  x = pot->rad[i]/pot->dps;
 	  if (iter > 1) {
-	    ym = -vt[i]*x/pot->tps;
+	    ym = -vt[i]/pot->tps;
 	  } else {
 	    if (x <= x1) {
-	      ym = xk - xj*x + x*x*x/u6;
+	      ym = xk/x - xj + x*x/u6;
 	    } else {
-	      ym = ye*exp(b*(x1-x));
+	      ym = (ye/x)*exp(b*(x1-x));
 	    }
 	  }
 	  _veff[i] = ym*kc;
@@ -5085,13 +5085,14 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 	  y1 = (ye/x)*exp(b*(x1-x));
 	}
 	if (_sp_mode == 1 && iter > 1) {
-	  y1 = (y1-ym)-(vt[i]-pot->ZPS[i]/rad[i])/tps;
+	  y1 = (y1-ym)-(vt[i]-pot->ZPS[i]/rad[i])/tps;	  
 	} else if (_sp_mode == 2) {
 	  y1 = _veff[i];
 	} else if (_sp_mode == 3 && iter > 1) {
 	  y1 = _veff[i];
 	}
 	y1 *= pot->xps;
+
 	if (ifermi) {
 	  xs = InterpFermiRM1(y1, 1);	  
 	  x2 = ExpM1(-ups*y1);
