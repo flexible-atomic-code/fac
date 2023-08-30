@@ -1796,6 +1796,49 @@ def read_rps_zk(z, k, i, odir):
     r['ts'] = t[0]
     return r
 
+def interp_ipd(z, k, odir, d, t, ss):
+    r = read_rps_zk(z, k, 0, odir)
+    xt = r['ts']
+    nt = len(xt)
+    w = np.where(xt > t)[0]
+    if len(w) == 0:
+        i0 = nt-1
+        i1 = i0
+    else:
+        i1 = w[0]
+        if i1 == 0:
+            i0 = 0
+        else:
+            i0 = i1-1
+    if i0 == 0:
+        r0 = r
+    else:
+        r0 = read_rps_zk(z, k, i0, odir)
+    if i1 != i0:
+        r1 = read_rps_zk(z, k, i1, odir)
+    ys = []
+    if type(ss) == type(''):
+        ss = [ss]
+    for s in ss:
+        xd = np.log(r0['ds'][1:])
+        yd = r0[s][1:] - r0[s][0]
+        w = np.where(r0[s][1:] <= 0)[0]
+        y0 = np.interp(np.log(d), xd[w], yd[w])
+        if i1 != i0:
+            xd = np.log(r1['ds'][1:])
+            yd = r1[s][1:] - r1[s][0]
+            w = np.where(r1[s][1:] <= 0)[0]
+            y1 = np.interp(np.log(d), xd[w], yd[w])
+            dt = (np.log(xt[i1]/xt[i0]))
+            dt0 = (np.log(t/xt[i0]))
+            y = y0+dt0*(y1-y0)/dt
+        else:
+            y = y0
+        ys.append(y)
+    if len(ys) == 1:
+        ys = ys[0]
+    return ys
+
 def CorrCLow(r, d, eden, md=0):
     de = np.zeros(len(r.e))
     for j in range(len(r.e)):
@@ -1818,16 +1861,15 @@ def CorrCLow(r, d, eden, md=0):
                 s = b[:i]
             if s in d:
                 e0 = d[s][0]
-                xi = log(eden)
+                xi = np.log(eden)
                 y = d[s]
-                w = np.where(d['ds'] > 0 & d[s] < 0.0)[0]
+                w = np.where((d['ds'] > 0) & (d[s] < 0.0))[0]
                 if len(w) == 0:
                     de[j] = 1e31
                     break
-                x = log(d['ds'][w])
-                y = log(d[s][w]-d[s][0])
+                x = np.log(d['ds'][w])
+                y = (d[s][w]-d[s][0])
                 yi = np.interp(xi, x, y)
-                de[j] = de[j] + q*yi
                 if yi >= -d[s][0]:
                     de[j] = 1e31
                     break
