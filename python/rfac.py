@@ -1839,6 +1839,104 @@ def interp_ipd(z, k, odir, d, t, ss):
         ys = ys[0]
     return ys
 
+def tab_ipd(z, odir, wdir='', k0=0, k1=0, md=0):
+    if k0 == 0:
+        k0 = 1
+    if k1 == 0:
+        k1 = z
+    a = fac.ATOMICSYMBOL[z]
+    if wdir == '':
+        fn = '%s/%s/%s%02d%02db.es'%(odir,a,a,k0,k1)
+    else:
+        fn = '%s/%s%02d%02db.es'%(wdir,a,k0,k1)
+    if md == 0:
+        f = open(fn, 'wb')
+    else:
+        f = open(fn, 'w')
+    for k in range(k0, k1+1):
+        print('z=%d k=%d'%(z, k))        
+        r = read_rps_zk(z, k, 0, odir)
+        if k == k0:
+            ts = r['ts']
+            nt = len(ts)
+            t0 = np.log(ts[0])
+            t1 = np.log(ts[-1])
+            dt = np.log(ts[1]/ts[0])
+            ndm = len(r['ds'])-1
+            if md == 0:
+                f.write(struct.pack('iii', z, ndm, nt))
+                f.write(struct.pack('dd', t0, dt))
+            else:
+                s = '%3d %3d %3d %15.8E %15.8E %15.8E\n'%(z, ndm, nt, t0, t1, dt)
+                f.write(s)
+        for p in range(nt):
+            r = read_rps_zk(z, k, p, odir)
+            ds = r['ds'][1:]
+            xd = np.log(ds)
+            nn = []
+            mm = []
+            kk = []
+            for ks in r.keys():
+                try:
+                    m = fac.SPECSYMBOL.index(ks[-1])
+                    n = int(ks[:-1])
+                    nn.append(n)
+                    mm.append(m)
+                    kk.append(ks)
+                except:
+                    m = -1
+                    n = 0
+            if md == 0:
+                f.write(struct.pack('i', len(nn)))
+            else:
+                s = '%3d %15.8E %3d\n'%(p, ts[p], len(nn))
+                f.write(s)
+            nm = np.array(nn)*100+np.array(mm)
+            ik = np.argsort(nm)
+            for j in range(len(ik)):
+                i = ik[j]
+                ks = kk[i]
+                n = nn[i]
+                m = mm[i]
+                y = r[ks][1:]
+                e0 = r[ks][0]
+                w = np.where(y < 0)[0]
+                if len(w) == 0:
+                    i0 = 0
+                    i1 = 0
+                    nd = 0
+                    d0 = 0
+                    dd = 0
+                else:
+                    i0 = w[0]
+                    i1 = w[-1]+1
+                    nd = i1-i0
+                    if (nd > len(w)):
+                        y[i0:i1] = np.interp(xd[i0:i1], xd[w], y[w])
+                    d0 = xd[i0]
+                    d1 = xd[i1-1]
+                    if nd <= 1:
+                        dd = 0.0
+                    else:
+                        dd = xd[i0+1]-xd[i0]
+                if md == 0:
+                    f.write(struct.pack('iii', n, m, nd))
+                    f.write(struct.pack('ddd', d0, dd, -e0))
+                else:
+                    s = '%3d %3d %2d %2d %3s %3d %15.8E %3d %15.8E %15.8E %15.8E %15.8E\n'%(z, k, n, m, ks, p, ts[p], nd, d0, d1, dd, -e0)
+                    f.write(s)
+                if nd > 0:
+                    for i in range(i0,i1):
+                        a = y[i]-e0
+                        if md == 0:
+                            f.write(struct.pack('d', a))
+                        else:
+                            if i < i1-1:
+                                f.write('%15.8E '%a)
+                            else:
+                                f.write('%15.8E\n'%a)
+    f.close()
+                    
 def CorrCLow(r, d, eden, md=0):
     de = np.zeros(len(r.e))
     for j in range(len(r.e)):
