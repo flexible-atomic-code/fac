@@ -71,7 +71,8 @@ class AA:
     def __init__(self, z=1, d=1.0, t=1.0, wm=None, dd=None, pref='',
                  nr=6, nc=0, sc=0, pmi=0, bqp=-1E12,
                  vxf=2, vxm=2, hxs=-10.0, ngrid=0, maxiter=512,
-                 ewm=0, ewf=1.0, vmin=0.25, vmax=10.0, ztol=-1.0):
+                 ewm=0, ewf=1.0, vmin=0.2, ztol=-1.0, ids='',
+                 mmiter=10, mniter=5):
         if type(z) == type(''):
             z,wm = zw4c(z)
             if len(z) == 1:
@@ -115,9 +116,13 @@ class AA:
         self.ewf = ewf
         self.maxiter = maxiter
         self.vmin = vmin
-        self.vmax = vmax
         self.ztol = ztol
         self.ngrid = ngrid
+        self.ids = ids
+        self.miter = 0
+        self.niter = 0
+        self.mmiter = mmiter
+        self.mniter = mniter
         if not dd is None:
             if not os.path.exists(dd):
                 os.system('mkdir -p %s'%dd)
@@ -144,10 +149,13 @@ class AA:
     def ploop(self, i0):
         nc = min(self.nmr,max(1,self.nc))
         for i in range(i0, self.nmr, nc):
-            print('aa1p: %2s %10.3E %10.3E %s'%(self.xs[i][0],
-                                                self.xs[i][1],
-                                                self.t,
-                                                self.xs[i][2]))
+            print('aa1p: %s %2d %2d %2s %10.3E %10.3E %s'%(self.ids,
+                                                           self.niter,
+                                                           self.miter,
+                                                           self.xs[i][0],
+                                                           self.xs[i][1],
+                                                           self.t,
+                                                           self.xs[i][2]))
             self.aa1p(self.xs[i][0], self.xs[i][1], self.t, self.xs[i][2])
 
     def run1z(self, asym):
@@ -269,8 +277,18 @@ class AA:
 
     def ida(self, k, nd):
         r = self.rvg()
-        n0 = np.max(np.min(r[k],1))
-        n1 = np.min(np.max(r[k],1))
+        n0 = np.max(np.min(r[k],1))*0.9
+        n1 = np.min(np.max(r[k],1))*1.1
+        if n0 >= n1:
+            n1,n0 = n0,n1
+            ro = 1
+        else:
+            ro = 0
+            
+        if n1/n0 < 1.05:
+            n1 = n1*1.1
+            n0 = n0*0.9
+        
         if k==1:
             n0 = np.log10(n0)
             n1 = np.log10(n1)
@@ -279,10 +297,11 @@ class AA:
         for i in range(self.nm):
             w = np.argsort(r[k,i])
             x0 = r[k,i][w]
-            if k==1:
-                x0 = np.log10(x0)
             y0 = np.log10(r[-1,i][w])
-            #yy = np.interp(xa, x0, y0)
+            if k==1:
+                u = np.where(x0 > 0)[0]
+                x0 = np.log10(x0[u])
+                y0 = y0[u]
             yy = np.array(util.UVIP3P(list(x0), list(y0), list(xa)))
             ya[i] = self.wm[i]*(10**yy)
 
@@ -298,16 +317,19 @@ class AA:
         for i in range(self.nm):
             w = np.argsort(r[k,i])
             x0 = r[k,i][w]
-            if k == 1:                
-                x0 = np.log10(x0)
-            y0 = np.log10(r[0,i])[w]
+            y0 = np.log10(r[0,i][w])
+            if k == 1:
+                u = np.where(x0 > 0)[0]
+                x0 = np.log10(x0[u])
+                y0 = y0[u]
             #yy = np.interp(xi, x0, y0)
             yy = util.UVIP3P(list(x0), list(y0), xi)
             da[i] = 10**yy
         if k==1:
             xa = 10**xa
             xi = 10**xi
-        return xi, da, xa, vt
+
+        return xi, da, xa, vt, ya, r, ro
         
     def runvg(self, v0, v1):
         self.xs = []
@@ -332,7 +354,7 @@ class AA:
                 c = 'rm -rf %s.*'%pf
                 os.system(c)
                 
-    def run(self, tol=0.05, imd=1, cvg=1):
+    def run(self, tol=0.1, imd=1, cvg=1):
         if imd <= 0:
             self.irun(tol=tol)
             return
@@ -344,31 +366,42 @@ class AA:
         v1 = v0.copy()
         for i in range(self.nm):
             v0[i] = self.vmin*self.vt
-            v1[i] = min(self.vmax,1/self.wm[i])*self.vt
+            v1[i] = (1.25/self.wm[i])*self.vt
         niter = 0
         while (True):
             niter += 1
+            miter = 0
+            self.niter = niter
+            for i in range(self.nm):
+                print('aavm: %s %2d %2d %2s %12.5E %12.5E'%(self.ids, niter, miter, self.asym[i], v0[i], v1[i]))
             self.runvg(v0, v1)
-            x,d,xa,va = self.ida(imd, self.nr*2)
+            x,d,xa,va,ya,ra,ro = self.ida(imd, self.nr*2)
             va0 = np.min(va)
             va1 = np.max(va)
-            miter = 0
-            while (self.vt < va0 or self.vt > va1):
+            while (True):
                 miter += 1
-                if miter > 10:                    
-                    print('aa vloop does not convert: %2d %10.3E %10.3E %10.3E %10.3E'%(miter,self.vt,va0,va1,time.time()-t0))
+                self.miter = miter
+                if miter >= self.mmiter:                    
+                    print('aavf: %s %2d %2d %10.3E %10.3E %10.3E %10.3E'%(self.ids,niter,miter,self.vt,va0,va1,time.time()-t0))
                     return
-                print('aa vloop: %2d %10.3E %10.3E %10.3E %10.3E'%(miter, self.vt, va0, va1, time.time()-t0))
-                if (self.vt < va0):
+                print('aavl: %s %2d %2d %10.3E %10.3E %10.3E %10.3E'%(self.ids, niter,miter,self.vt, va0, va1, time.time()-t0))
+                if ro > 0 or self.vt < va0 or self.vt > va1:
+                    x0 = np.log(va)
+                    y0 = np.log(self.vt)
+                    w = np.argsort(x0)
                     for i in range(self.nm):
-                        v1[i] = va0
-                        v0[i] = self.vmin*va0
+                        x1 = np.log(ya[i])
+                        y1 = np.exp(util.UVIP3P(list(x0[w]), list(x1[w]), y0))
+                        y1 = y1/self.wm[i]
+                        v1[i] = min(1.25*self.vt/self.wm[i],
+                                    y1/np.sqrt(self.vmin))
+                        v0[i] = v1[i]*self.vmin
                 else:
-                    for i in range(self.nm):
-                        v0[i] = va1
-                        v1[i] = min(self.vmax,1/self.wm[i])*va1
+                    break        
+                for i in range(self.nm):
+                    print('aavm: %s %2d %2d %2s %12.5E %12.5E'%(self.ids, niter, miter, self.asym[i], v0[i], v1[i]))
                 self.runvg(v0, v1)
-                x,d,xa,va = self.ida(imd, self.nr*2)
+                x,d,xa,va,ya,ra,ro = self.ida(imd, self.nr*2)
                 va0 = np.min(va)
                 va1 = np.max(va)
             self.xs = []
@@ -395,33 +428,26 @@ class AA:
                     ys[i] = h['ub']
                 vi[i] = (4*np.pi/3)*(h['rps']*const.RBohr*1e-8)**3
             ym = np.mean(ys)
-            dy = np.max(ys)-np.min(ys)
+            dy = (np.max(ys)-np.min(ys))/2.0
             if (dy <= tol*abs(ym)):
-                print('aa converged: %2d %2d %10.3E %10.3E %10.3E %10.3E %s'%(niter,miter,dy,ym,x,time.time()-t0,self.dd))
+                print('aacv: %s %2d %2d %10.3E %10.3E %10.3E %10.3E %s'%(self.ids,niter,miter,dy,ym,x,time.time()-t0,self.dd))
                 break
-            w = np.argsort(xa)
-            if imd == 1 or imd == 2:
-                x0 = np.log10(xa)
-            else:
-                x0 = xa
-            y0 = np.log10(va)
+            w = np.argsort(va)
+            x0 = np.log10(va)
             for i in range(self.nm):
-                x1 = x1+3*dy
-                if imd == 1 or imd == 2:
-                    x1 = np.log10(x1)
-                #yy = np.interp(x1, x0, y0)
-                yy = np.array(util.UVIP3P(list(x0), list(y0), x1))
-                dv = 10**yy
-                v0[i] = max(vi[i]*self.vmin,vi[i]-dv)
-                v1[i] = min(vi[i]*self.vmax,vi[i]+dv)
-            if niter > 5:
-                print('aa does not converge: %2d %2d %10.3E %10.3E %10.3E'%(niter,miter,dy,ym,x))
+                y0 = np.log10(ya[i])
+                x1 = np.log10(np.array([self.vt/2.0, self.vt*2.0]))
+                yy = np.array(util.UVIP3P(list(x0[w]), list(y0[w]), list(x1)))
+                v0[i] = 10**min(yy)/self.wm[i]
+                v1[i] = 10**max(yy)/self.wm[i]
+            if niter > self.mniter:
+                print('aacf: %s %2d %2d %10.3E %10.3E %10.3E'%(self.ids,niter,miter,dy,ym,x))
                 break
-            print('aa iter: %2d %2d %10.3E %10.3E %10.3E %10.3E'%(niter,miter,dy,ym,x,time.time()-t0))
+            print('aait: %s %2d %2d %10.3E %10.3E %10.3E %10.3E'%(self.ids,niter,miter,dy,ym,x,time.time()-t0))
         if cvg:
             self.cleanvg()
         
-    def irun(self, dtol=0.05, init=True):
+    def irun(self, dtol=0.1, init=True):
         if self.wm is None:
             self.run1z(self.asym)
             return
@@ -435,7 +461,7 @@ class AA:
             for i in range(nm):
                 self.z = self.zm[i]
                 self.d = self.ds[i]
-                print('init run: %3d %12.5E %12.5E %12.5E %10.3E'%(self.z, self.dm, self.d, self.t, time.time()-t0))
+                print('init run: %s %3d %12.5E %12.5E %12.5E %10.3E'%(self.ids,self.z, self.dm, self.d, self.t, time.time()-t0))
                 self.run1z(self.asym[i])
         self.eden = 0.0
         niter = 0
@@ -446,7 +472,7 @@ class AA:
             wst = wst0*x + wst1*(1-x)
             niter += 1
             if niter > self.maxiter:
-                print('maxiter reached in outer loop: %d'%niter)
+                print('maxiter reached in outer loop: %d %s'%(niter,self.ids))
                 return
             eden = 0.0
             vt = 0.0
@@ -464,7 +490,7 @@ class AA:
                 done = 1
             eden0 = self.eden
             self.eden = eden
-            print('eden beg: %3d %12.5E %12.5E %12.5E %12.5E %10.3E %10.3E %10.3E'%(niter, self.dm, self.t, eden0, eden, vr, wst, time.time()-t0))
+            print('eden beg: %3d %s %12.5E %12.5E %12.5E %12.5E %10.3E %10.3E %10.3E'%(niter, self.ids, self.dm, self.t, eden0, eden, vr, wst, time.time()-t0))
             if done:
                 break
             if niter > 1:
@@ -482,14 +508,14 @@ class AA:
                     wst = wst0*x + wst1*(1-x)
                     ni += 1
                     if ni > self.maxiter:
-                        print('maxiter reached in inner loop: %d %d'%(i,ni))
+                        print('maxiter reached in inner loop: %s %d %d'%(self.ids,i,ni))
                         return
                     r = self.rden('%s/%s%s'%(self.dd,self.pref, asym),
                                   header='')
                     db = abs(r['zf'])*r['dn']
                     z0 = eden/r['dn']
                     zb = db/r['dn']
-                    print('eden itr: %3d %3d %3d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E'%(niter, ni, self.z, eden, db, z0, zb, self.d, self.t, wst, time.time()-t0))
+                    print('eden itr: %3d %3d %s %3d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E'%(niter, ni, self.ids, self.z, eden, db, z0, zb, self.d, self.t, wst, time.time()-t0))
                     if abs(z0-zb)/max(1e-3,z0) < dtol2:
                         break
                     db = max(1e-3*eden,db)
