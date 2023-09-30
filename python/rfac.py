@@ -1985,7 +1985,22 @@ def jsp(d, t, zp, zs):
     di = np.sqrt(di2)
     k = zp*di/ta
     j = ((3*zs1*k+1)**(2/3)-1.)/(2*zs1)
+    
     return j*t
+
+def ipd_more(d, t, zp, zs):
+    di = d/zs
+    ra = 0.62*(1/(di*1e24))**(1./3)
+    rd = 743.4*np.sqrt(t/(d*1e24)/(1+zs))
+    r = rd/ra
+    j = zp*(((1+r**3))**(2./3)-r**2)*2.16e-7/ra
+    
+    return j
+
+def ipd_ek(d, t, zp, zs):
+    j = 6.964e-7*(zp+1.)**(2./3) * (d*1e24)**(1/3.)
+
+    return j
 
 def jsp_zd(de, t, zp, zs):
     ta = t/const.Hartree_eV
