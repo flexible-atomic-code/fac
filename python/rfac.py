@@ -101,9 +101,9 @@ def doppler_fwhm(ti, z=1, m=0.0):
 
 def voigt(alpha, x):
     v = x/1.41421
-    a=zeros(8)
-    b=zeros(8)
-    c=zeros(8)
+    a=np.zeros(8)
+    b=np.zeros(8)
+    c=np.zeros(8)
     
     a[1]=122.607931777104326
     a[2]=214.382388694706425
@@ -130,7 +130,7 @@ def voigt(alpha, x):
     c[7]=8031.468
     
     n = len(v)
-    H = zeros(n)
+    H = np.zeros(n)
     vb = 2.5
     if (alpha <= .001):
         w = np.where(abs(v) >= vb)[0]
@@ -787,10 +787,6 @@ def read_sp(filename):
             line = lines[0]
             lines = lines[1:]
 
-            if line.strip() == '':  # if empty
-                blocks = read_blocks(lines[i+1:])
-                return (block, ) + blocks
-
             block['block'][tr] = int(line[:6])
             block['level'][tr] = int(line[7:13])
             block['abs. energy'][tr] = float(line[14:27])
@@ -798,6 +794,11 @@ def read_sp(filename):
             block['Delta E'][tr] = float(line[14:27])
             block['emissivity'][tr] = float(line[28:39])
 
+        for i, line in enumerate(lines):
+            if line.strip() == '':  # if empty
+                blocks = read_blocks(lines[i+1:])
+                return (block, ) + blocks
+            
         return (block, )
 
     return header, read_blocks(lines)

@@ -694,13 +694,16 @@ int RRRadialMultipoleTable(double *qr, int k0, int k1, int m) {
   int locked = 0;
   p = (double **) MultiSet(qk_array, index, NULL, &lock,
 			   InitPointerData, FreeRecPkData);
-  if (lock && !(*p)) {
+  double *pp;
+#pragma omp atomic read
+  pp = *p;
+  if (lock && !pp) {
     SetLock(lock);
     locked = 1;
   }
-  if (*p) {
+  if (pp) {
     for (i = 0; i < nqk; i++) {
-      qr[i] = (*p)[i];
+      qr[i] = pp[i];
     }
     if (locked) ReleaseLock(lock);
     return 0;
@@ -736,6 +739,7 @@ int RRRadialMultipoleTable(double *qr, int k0, int k1, int m) {
   for (i = 0; i < nqk; i++) {
     qr[i] = pd[i];
   }
+#pragma omp atomic write
   *p = pd;
   if (locked) ReleaseLock(lock);
 #pragma omp flush
@@ -843,13 +847,16 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m0) {
   nqk = n_tegrid*n_egrid;
   p = (double **) MultiSet(qk_array, index, NULL, &lock,
 			   InitPointerData, FreeRecPkData);
-  if (lock && !(*p)) {
+  double *pp;
+#pragma omp atomic read
+  pp = *p;
+  if (lock && !pp) {
     SetLock(lock);
     locked = 1;
   }
-  if (*p) {
+  if (pp) {
     for (i = 0; i < nqk; i++) {
-      qr[i] = (*p)[i];
+      qr[i] = pp[i];
     }
     if (locked) {      
       ReleaseLock(lock);
@@ -909,6 +916,7 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m0) {
   for (i = 0; i < nqk; i++) {
     qr[i] = pd[i];
   }
+#pragma omp atomic write
   *p = pd;
   if (locked) ReleaseLock(lock);
 #pragma omp flush
@@ -2196,7 +2204,10 @@ int AIRadialPk(double **ai_pk, double pe, int k0, int k1, int kb, int kappaf,
   int locked = 0;
   p = (double **) MultiSet(pk_array, index, NULL, &lock,
 			   InitPointerData, FreeRecPkData);
-  if (lock && !(*p)) {
+  double *pp;
+#pragma omp atomic read
+  pp = *p;
+  if (lock && !pp) {
     if (trylock) {
       if (0 == TryLock(lock)) {
 	locked = 1;
@@ -2208,8 +2219,8 @@ int AIRadialPk(double **ai_pk, double pe, int k0, int k1, int kb, int kappaf,
       locked = 1;
     }
   }
-  if (*p) {
-    *ai_pk = *p;
+  if (pp) {
+    *ai_pk = pp;
     if (locked) ReleaseLock(lock);
     return 0;
   } 
@@ -2226,6 +2237,7 @@ int AIRadialPk(double **ai_pk, double pe, int k0, int k1, int kb, int kappaf,
     SlaterTotal(&sd, &se, NULL, ks, k, 0);
     (*ai_pk)[i] = sd+se;
   }
+#pragma omp atomic write
   *p = pd;
   if (locked) ReleaseLock(lock);
 #pragma omp flush
