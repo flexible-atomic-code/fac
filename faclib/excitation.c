@@ -568,7 +568,10 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k, int trylock) {
   int locked = 0;
   *pk = (CEPK *) MultiSet(pk_array, index, NULL, &lock,
 			  InitCEPK, FreeExcitationPkData);
-  if (lock && (*pk)->nkl < 0) {
+  int pnkl;
+#pragma omp atomic read
+  pnkl = (*pk)->nkl;
+  if (lock && pnkl < 0) {
     if (trylock) {
       if (0 == TryLock(lock)) {
 	locked = 1;
@@ -580,7 +583,7 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k, int trylock) {
       locked = 1;
     }
   }
-  if ((*pk)->nkl >= 0) {
+  if (pnkl >= 0) {
     if (locked) ReleaseLock(lock);
     return type;
   }
@@ -744,7 +747,8 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k, int trylock) {
     (*pk)->kappa1 = ReallocNew(kappa0, sizeof(short)*m);
   }
   (*pk)->pkd = ReallocNew(pkd, sizeof(double)*q);
-  (*pk)->pke = ReallocNew(pke, sizeof(double)*q);  
+  (*pk)->pke = ReallocNew(pke, sizeof(double)*q);
+#pragma omp atomic write
   (*pk)->nkl = t;
   
   if (locked) ReleaseLock(lock);
@@ -1124,7 +1128,10 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
   int locked = 0;
   p = (double **) MultiSet(qk_array, index, NULL, &lock,
 			   InitPointerData, FreeExcitationQkData);
-  if (lock && !(*p)) {
+  double *pp;
+#pragma omp atomic read
+  pp = *p;
+  if (lock && !pp) {
     if (trylock) {
       if (0 == TryLock(lock)) {
 	locked = 1;
@@ -1136,9 +1143,9 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
       locked = 1;
     }
   }
-  if (*p) {
+  if (pp) {
     if (locked) ReleaseLock(lock);
-    return *p;
+    return pp;
   }
   double mc = MColl();
   if (mc <= 0) mc = 1.0;
@@ -1353,7 +1360,10 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
   stop = clock();
   timing.rad_qk += stop-start;
 #endif
-  if (p) *p = pd;
+  if (p) {
+#pragma omp atomic write
+    *p = pd;
+  }
   if (locked) ReleaseLock(lock);
 #pragma omp flush
   return *p;
@@ -1397,7 +1407,10 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
   int locked = 0;
   p = (double **) MultiSet(qk_array, index, NULL, &lock,
 			   InitPointerData, FreeExcitationQkData);
-  if (lock && !(*p)) {
+  double *pp;
+#pragma omp atomic read
+  pp = *p;
+  if (lock && !pp) {
     if (trylock) {
       if (0 == TryLock(lock)) {
 	locked = 1;
@@ -1409,9 +1422,9 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
       locked = 1;
     }
   }
-  if (*p) {
+  if (pp) {
     if (locked) ReleaseLock(lock);
-    return *p;
+    return pp;
   }
 
   nq = Min(k, kp)/2 + 1;
@@ -1650,6 +1663,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
   stop = clock();
   timing.rad_qk += stop-start;
 #endif
+#pragma omp atomic write
   *p = pd;
   if (locked) ReleaseLock(lock);
 #pragma omp flush

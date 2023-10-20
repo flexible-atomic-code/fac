@@ -603,13 +603,16 @@ double *CIRadialQkIntegratedTable(int kb, int kbp) {
   int locked = 0;
   p = (double **) MultiSet(qk_array, index, NULL, &lock,
 			   InitPointerData, FreeIonizationQkData);
-  if (lock && !(*p)) {
+  double *pp;
+#pragma omp atomic read
+  pp = *p;
+  if (lock && !pp) {
     SetLock(lock);
     locked = 1;
   }
-  if (*p) {
+  if (pp) {
     if (locked) ReleaseLock(lock);
-    return (*p);
+    return pp;
   } 
 
   nqk = n_tegrid*n_egrid;
@@ -693,6 +696,7 @@ double *CIRadialQkIntegratedTable(int kb, int kbp) {
       qkc[i] = 16.0*y;
     }
   }
+#pragma omp atomic write
   *p = pd;
   if (locked) ReleaseLock(lock);
 

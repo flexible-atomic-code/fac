@@ -2203,7 +2203,7 @@ static PyObject *PTransitionMBPT(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PSetOption(PyObject *self, PyObject *args) {
-  char *s, *sp;
+  char *s, *sp, buf[1024];
   PyObject *p;
   int ip;
   double dp;
@@ -2217,11 +2217,17 @@ static PyObject *PSetOption(PyObject *self, PyObject *args) {
   if (PyLong_Check(p)) {
     ip = PyLong_AsLong(p);
     dp = (double)ip;
+    sprintf(buf, "%d", ip);
+    sp = buf;
   } else if (PyFloat_Check(p)) {
     ip = 0;
     dp = PyFloat_AsDouble(p);
+    sprintf(buf, "%g", dp);
+    sp = buf;
   } else if (PyUnicode_Check(p)) {
     sp = PyUnicode_AsString(p);
+    ip = 0;
+    dp = 0.0;
   } else {
     return NULL;
   }

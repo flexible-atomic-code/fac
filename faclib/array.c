@@ -234,7 +234,10 @@ void *ArraySet(ARRAY *a, int i, void *d,
     a->data->next = NULL;
   }
   p = a->data;
-  if (a->dim <= i) a->dim = i+1;
+  if (a->dim <= i) {
+#pragma omp atomic write
+    a->dim = i+1;
+  }
   while (i >= a->block) {
     if (!(p->next)) {
       p->next = (DATA *) malloc(sizeof(DATA));
@@ -832,7 +835,9 @@ void *NMultiGet(MULTI *ma, int *k, LOCK **lock) {
 
   h = Hash2(k, ma->ndim, 0, ma->ndim, ma->hmask);
   a = &(ma->array[h]);
+#pragma omp atomic read
   p = a->data;
+#pragma omp atomic read
   i = a->dim;
   j = 0;
   while (p) {
@@ -859,6 +864,7 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
   DATA *p, *p0;
   int myrank = MyRankMPI()+1;
   int cleanmode;
+#pragma omp atomic write
   cleanmode = ma->clean_mode;
   if (cleanmode < 0) {
     if (_maxsize > 0 && ma->cth > 0) {
@@ -892,7 +898,10 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
   h = Hash2(k, ma->ndim, 0, ma->ndim, ma->hmask);
   a = &(ma->array[h]);
   locked = 0;
-  if (a->dim == 0) {
+  int dim;
+#pragma omp atomic read
+  dim = a->dim;
+  if (dim == 0) {
     if (a->lock) {
       SetLock(a->lock);
       locked = 1;
@@ -908,13 +917,20 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
       a->data->next = NULL;
       pt = (MDATA *) a->data->dptr;
     }
-  } 
-  if (a->dim > 0) {
+  }
+#pragma omp atomic read
+  dim = a->dim;
+  if (dim > 0) {
+#pragma omp atomic read
     p = a->data;
+#pragma omp atomic read
     i = a->dim;
     j = 0;
     p0 = p;
-    pt = (MDATA *) p->dptr;
+    void * dptr;
+#pragma omp atomic read
+    dptr = p->dptr;
+    pt = (MDATA *) dptr;
     while (p && j < i) {
       for (m = 0; m < a->block && j < i; j++, m++) {
 	if (IdxCmp(pt->index, k, ma->ndim) == 0) {
@@ -931,9 +947,12 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
       }
       if (m == a->block) {
 	p0 = p;
+#pragma omp atomic read
 	p = p->next;
 	if (p) {
-	  pt = (MDATA *) p->dptr;
+#pragma omp atomic read
+	  dptr = p->dptr;
+	  pt = (MDATA *) dptr;
 	} else {
 	  break;
 	}
@@ -999,9 +1018,12 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
 #else
   pt->lock = NULL;
 #endif
+  
   pt->data = malloc(ma->esize);
   size += ma->esize + ma->isize;
+#pragma omp atomic
   ma->totalsize += size;
+#pragma omp atomic
   ma->numelem++;
   _totalsize += size;
   if (InitData) InitData(pt->data, 1);
@@ -1010,6 +1032,7 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
   int *idx = (int *) malloc(ma->isize);
   memcpy(idx, k, ma->isize);
   pt->index = idx;
+#pragma omp atomic
   (a->dim)++;  
   if (locked) {
     ReleaseLock(a->lock);
@@ -1059,6 +1082,7 @@ void SetMultiCleanFlag(MULTI *ma) {
   if (ma->clean_flag <= 0 &&
       ma->cth > 0 &&
       ma->totalsize > ma->cth*TotalArraySize()) {
+#pragma omp atomic write
     ma->clean_flag = 1;
   }
   if (ma->lock) {
@@ -1103,6 +1127,7 @@ int NMultiFreeData(MULTI *ma, void (*FreeElem)(void *)) {
     if (ma->totalsize <= 0 && ma->clean_flag <= 0) clean = 0;
   }
   if (clean) {
+#pragma omp atomic write
     ma->clean_thread = MyRankMPI();
     if (ma->iset > 0 && ma->clean_mode >= 0) {
       printf("invalid clean with iset: %s: %d %lud\n",
@@ -1116,10 +1141,14 @@ int NMultiFreeData(MULTI *ma, void (*FreeElem)(void *)) {
       if (a->lock) ReleaseLock(a->lock);
     }
     _totalsize -= ma->totalsize;
+#pragma omp atomic write
     ma->totalsize = 0;
+#pragma omp atomic write
     ma->numelem = 0;
+#pragma omp atomic write
     ma->clean_flag = 0;
   }
+#pragma omp atomic write
   ma->clean_mode = -1;
 #pragma omp flush
   if (ma->lock) ReleaseLock(ma->lock);

@@ -57,7 +57,7 @@ if test -n "$GCC"
 then
   if test -z "$copt"
   then
-    copt="-Ofast"
+    copt="-O2 -ftree-vectorize -ffast-math"
   fi
   if test -z "$cpic"
   then

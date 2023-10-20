@@ -46,7 +46,7 @@ int GetRadTiming(RAD_TIMING *t);
 typedef struct _orbmap_ {
   ORBITAL **opn;
   ORBITAL **onn;
-  int nzn, nmax;
+  volatile int nzn, nmax;
   ORBITAL **ozn;
   int ifm;
   double cfm, xfm;
