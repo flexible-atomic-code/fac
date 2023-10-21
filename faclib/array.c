@@ -972,7 +972,7 @@ void *NMultiSet(MULTI *ma, int *k, void *d, LOCK **lock,
 	pt = (MDATA *) p->dptr;
 	m = 0;
       }
-      while (p && j < a->dim) {
+      while (p && j < dim) {
 	for (; m < a->block && j < dim; j++, m++) {
 	  if (IdxCmp(pt->index, k, ma->ndim) == 0) {
 	    if (d) {
