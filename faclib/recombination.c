@@ -741,8 +741,8 @@ int RRRadialMultipoleTable(double *qr, int k0, int k1, int m) {
   }
 #pragma omp atomic write
   *p = pd;
-  if (locked) ReleaseLock(lock);
 #pragma omp flush
+  if (locked) ReleaseLock(lock);
   return 0;
 }
 
@@ -918,8 +918,8 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m0) {
   }
 #pragma omp atomic write
   *p = pd;
-  if (locked) ReleaseLock(lock);
 #pragma omp flush
+  if (locked) ReleaseLock(lock);
   return 0;
 }
   
@@ -2239,8 +2239,8 @@ int AIRadialPk(double **ai_pk, double pe, int k0, int k1, int kb, int kappaf,
   }
 #pragma omp atomic write
   *p = pd;
-  if (locked) ReleaseLock(lock);
 #pragma omp flush
+  if (locked) ReleaseLock(lock);
   return 0;
 }
 

@@ -5292,10 +5292,10 @@ void AddOrbMap(ORBITAL *orb) {
     
 #pragma omp atomic write
     om->ozn[om->nzn] = orb;  
+#pragma omp flush
     
 #pragma omp atomic
     om->nzn++;    
-
 #pragma omp flush
   }
 }
@@ -6743,6 +6743,7 @@ int ResidualPotential(double *s, int k0, int k1) {
   }
   if (p && pp) {
     *s = pp;
+#pragma omp flush
     if (locked) ReleaseLock(lock);
 #pragma omp atomic
     residual_array->iset -= myrank;
@@ -6777,6 +6778,7 @@ int ResidualPotential(double *s, int k0, int k1) {
   }
 #pragma omp atomic write
   *p = *s;
+#pragma omp flush
 
   if (locked) ReleaseLock(lock);
 #pragma omp atomic
@@ -6940,6 +6942,7 @@ double RadialMoments(int m, int k1, int k2) {
     Integrate(_yk, orb1, orb2, 1, &r, m);
 #pragma omp atomic write
     *q = r;
+#pragma omp flush
   }
   if (locked) ReleaseLock(lock);
 #pragma omp atomic
@@ -7067,6 +7070,7 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
   }
   if (pp) {
     *p0 = pp;
+#pragma omp flush
     if (locked) ReleaseLock(lock);
 #pragma omp atomic
     multipole_array->iset -= myrank;
@@ -7195,6 +7199,7 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
   *p0 = pt;
 #pragma omp atomic write
   *p1 = pt;
+#pragma omp flush
   if (locked) ReleaseLock(lock);
 #pragma omp atomic
     multipole_array->iset -= myrank;
@@ -7464,6 +7469,7 @@ double MultipoleRadialFR0(double aw, int m, int k1, int k2, int gauge) {
 #endif
 #pragma omp atomic write
   *p1 = pt;
+#pragma omp flush
   if (locked) ReleaseLock(lock);
 #pragma omp atomic
     multipole_array->iset -= myrank;
@@ -7523,6 +7529,7 @@ double *GeneralizedMoments(int k1, int k2, int m) {
     }
 #pragma omp atomic write
     *p = pt;
+#pragma omp flush
     if (locked) ReleaseLock(lock);
 #pragma omp atomic
     gos_array->iset -= myrank;
@@ -7598,6 +7605,7 @@ double *GeneralizedMoments(int k1, int k2, int m) {
     }
   }
   *p = pt;
+#pragma omp flush
   if (locked) ReleaseLock(lock);
 #pragma omp atomic
   gos_array->iset -= myrank;
@@ -8369,6 +8377,7 @@ double QED1E(int k0, int k1) {
   }
 #pragma omp atomic write
   *p = r;
+#pragma omp flush
   if (locked) ReleaseLock(lock);
 #pragma omp atomic
   qed1e_array->iset -= myrank;
@@ -8442,6 +8451,7 @@ double *Vinti(int k0, int k1) {
   if (qed.sms == 1) {
 #pragma omp atomic write
     *p = r;
+#pragma omp flush
     if (locked) ReleaseLock(lock);
 #pragma omp atomic
     vinti_array->iset -= myrank;
@@ -8500,6 +8510,7 @@ double *Vinti(int k0, int k1) {
   r[2] = -Simpson(_yk, 0, m1);
 #pragma omp atomic write
   *p = r;
+#pragma omp flush
   if(locked) ReleaseLock(lock);
 #pragma omp atomic
   vinti_array->iset -= myrank;
@@ -8640,8 +8651,10 @@ int BreitSYK(int k0, int k1, int k, double *z) {
       for (i = 0; i < npts; i++) {	
 	byk->yk[i] = z[i];
       }
+#pragma omp flush
 #pragma omp atomic write
       byk->npts = npts;
+#pragma omp flush
     }
   }
   if (xlocked) ReleaseLock(xlock);
@@ -8693,6 +8706,7 @@ double BreitS(int k0, int k1, int k2, int k3, int k) {
     if (!r) r = 1e-100;
 #pragma omp atomic write
     *p0 = r;
+#pragma omp flush
     if (locked) ReleaseLock(lock);
 #pragma omp atomic
     breit_array->iset -= myrank;
@@ -8869,8 +8883,10 @@ int BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, int w, int mbr,
     for (i = 0; i < npts; i++) {
       byk->yk[i] = y[i];
     }
+#pragma omp flush
 #pragma omp atomic write
     byk->npts = npts;
+#pragma omp flush
 #pragma omp atomic
     xbreit_array[m]->iset -= myrank;
   }
@@ -9174,6 +9190,7 @@ double BreitWW(int k0, int k1, int k2, int k3, int k,
     if (!r) r = 1e-100;
 #pragma omp atomic write
     *p = r;
+#pragma omp flush
     if (locked) ReleaseLock(lock);
 #pragma omp atomic
     wbreit_array->iset -= myrank;
@@ -9318,6 +9335,7 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
     if (p) {
 #pragma omp atomic write
       *p = *s;
+#pragma omp flush
     }
   }
   if (locked) ReleaseLock(lock);
@@ -9690,8 +9708,10 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2,
       if (syk->yk[ic1] >= 0) {
 	syk->yk[ic1] = -10.0/(potential->rad[i1]-potential->rad[i0]);
       }
+#pragma omp flush
 #pragma omp atomic write
       syk->npts = npts+2;
+#pragma omp flush
     }
   }
   if (locked) ReleaseLock(lock);  

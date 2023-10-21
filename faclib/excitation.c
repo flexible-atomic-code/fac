@@ -750,9 +750,9 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k, int trylock) {
   (*pk)->pke = ReallocNew(pke, sizeof(double)*q);
 #pragma omp atomic write
   (*pk)->nkl = t;
-  
+#pragma omp flush  
   if (locked) ReleaseLock(lock);
-#pragma omp flush
+  
 #ifdef PERFORM_STATISTICS
   stop = clock();
   timing.rad_qk += stop-start;
@@ -1363,9 +1363,9 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
   if (p) {
 #pragma omp atomic write
     *p = pd;
+#pragma omp flush
   }
   if (locked) ReleaseLock(lock);
-#pragma omp flush
   return *p;
 }
 
@@ -1665,8 +1665,8 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
 #endif
 #pragma omp atomic write
   *p = pd;
-  if (locked) ReleaseLock(lock);
 #pragma omp flush
+  if (locked) ReleaseLock(lock);
   return rqc;
 } 	
   
