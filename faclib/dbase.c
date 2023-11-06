@@ -1837,6 +1837,9 @@ int WriteENRecord(TFILE *f, EN_RECORD *r) {
 		sizeof(r->energy)+
 		sizeof(char)*(LNCOMPLEX+LSNAME+LNAME));
 #endif
+  if (isnan(r->energy) || isinf(r->energy)) {
+    MPrintf(-1, "WriteENRecord invalid energy: %d %g\n", r->ilev, r->energy);
+  }
   WSF0(r->p);
   WSF0(r->j);
   WSF0(r->ilev);
@@ -1893,6 +1896,11 @@ int WriteENFRecord(TFILE *f, ENF_RECORD *r) {
 		sizeof(r->energy)+
 		sizeof(r->pbasis));
 #endif
+
+  if (isnan(r->energy) || isinf(r->energy)) {
+    MPrintf(-1, "WriteENFRecord invalid energy: %d %d %g\n",
+	    r->ilev, r->pbasis, r->energy);
+  }
   WSF0(r->ilev);
   WSF0(r->energy);
   WSF0(r->pbasis);
@@ -1938,6 +1946,11 @@ int WriteTRRecord(TFILE *f, TR_RECORD *r, TR_EXTRA *rx) {
 		  sizeof(rx->sci));
   }
 #endif
+
+  if (isnan(r->strength) || isinf(r->strength)) {
+    MPrintf(-1, "WriteTRRecord invalid strength: %d %d %g\n",
+	    r->lower, r->upper, r->strength);
+  }
   WSF0(r->lower);
   WSF0(r->upper);
   WSF0(r->strength);
@@ -1955,7 +1968,7 @@ int WriteTRRecord(TFILE *f, TR_RECORD *r, TR_EXTRA *rx) {
 }
 
 int WriteTRFRecord(TFILE *f, TRF_RECORD *r) {
-  int n, m = 0;
+  int n, i, m = 0;
 
   if (trf_header.ntransitions == 0) {
     SetLockMPI();
@@ -1979,6 +1992,12 @@ int WriteTRFRecord(TFILE *f, TRF_RECORD *r) {
 		sizeof(r->upper)+
 		sizeof(float)*(2*abs(trf_header.multipole)+1));
 #endif
+  for (i = 0; i < 2*abs(trf_header.multipole)+1; i++) {
+    if (isnan(r->strength[i]) || isinf(r->strength[i])) {
+      MPrintf(-1, "WriteTRFRecord invalid strength: %d %d %d %g\n",
+	      r->lower, r->upper, i, r->strength[i]);
+    }
+  }
   WSF0(r->lower);
   WSF0(r->upper);
   WSF1(r->strength, sizeof(float), 2*abs(trf_header.multipole)+1);
@@ -1990,7 +2009,7 @@ int WriteTRFRecord(TFILE *f, TRF_RECORD *r) {
 }
 
 int WriteCERecord(TFILE *f, CE_RECORD *r) {
-  int n;
+  int n, i;
   int m0, m = 0;
     
   if (ce_header.ntransitions == 0) {
@@ -2028,11 +2047,35 @@ int WriteCERecord(TFILE *f, CE_RECORD *r) {
   WSF0(r->lower);
   WSF0(r->upper);
   WSF0(r->nsub);
+  if (isnan(r->bethe) || isinf(r->bethe)) {
+    MPrintf(-1, "WriteCERecord invalid bethe: %d %d %g\n",
+	    r->lower, r->upper, r->bethe);
+  }
   WSF0(r->bethe);
+  if (isnan(r->born[0]) || isinf(r->born[0])) {
+    MPrintf(-1, "WriteCERecord invalid born0: %d %d %g\n",
+	    r->lower, r->upper, r->born[0]);
+  }
+  if (isnan(r->born[1]) || isinf(r->born[1])) {
+    MPrintf(-1, "WriteCERecord invalid born1: %d %d %g\n",
+	    r->lower, r->upper, r->born[1]);
+  }    
   WSF1(r->born, sizeof(float), 2);
 
   if (m0) {
+    for (i = 0; i < m0; i++) {
+      if (isnan(r->params[i]) || isinf(r->params[i])) {
+	MPrintf(-1, "WriteCERecord invalid param: %d %d %d %g\n",
+		r->lower, r->upper, i, r->params[i]);
+      }
+    }    
     WSF1(r->params, sizeof(float), m0);
+  }
+  for (i = 0; i < m1; i++) {
+    if (isnan(r->strength[i]) || isinf(r->strength[i])) {
+      MPrintf(-1, "WriteCERecord invalid strength: %d %d %d %g\n",
+	      r->lower, r->upper, i, r->strength[i]);
+    }
   }
   WSF1(r->strength, sizeof(float), m1);
 
@@ -2043,7 +2086,7 @@ int WriteCERecord(TFILE *f, CE_RECORD *r) {
 }
 
 int WriteCEFRecord(TFILE *f, CEF_RECORD *r) {
-  int n;
+  int n, i;
   int m0, m = 0;
 
   if (cef_header.ntransitions == 0) {
@@ -2072,8 +2115,26 @@ int WriteCEFRecord(TFILE *f, CEF_RECORD *r) {
 #endif
   WSF0(r->lower);
   WSF0(r->upper);
+  if (isnan(r->bethe) || isinf(r->bethe)) {
+    MPrintf(-1, "WriteCEFRecord invalid bethe: %d %d %g\n",
+	    r->lower, r->upper, r->bethe);
+  }
   WSF0(r->bethe);
+  if (isnan(r->born[0]) || isinf(r->born[0])) {
+    MPrintf(-1, "WriteCEFRecord invalid born0: %d %d %g\n",
+	    r->lower, r->upper, r->born[0]);
+  }
+  if (isnan(r->born[1]) || isinf(r->born[1])) {
+    MPrintf(-1, "WriteCEFRecord invalid born1: %d %d %g\n",
+	    r->lower, r->upper, r->born[1]);
+  }
   WSF1(r->born, sizeof(float), 2);
+  for (i = 0; i < m0; i++) {
+    if (isnan(r->strength[i]) || isinf(r->strength[i])) {
+      MPrintf(-1, "WriteCEFRecord invalid strength: %d %d %d %g\n",
+	      r->lower, r->upper, i, r->strength[i]);
+    }
+  }
   WSF1(r->strength, sizeof(float), m0);
   
 #pragma omp atomic
@@ -2083,7 +2144,7 @@ int WriteCEFRecord(TFILE *f, CEF_RECORD *r) {
 }
 
 int WriteCEMFRecord(TFILE *f, CEMF_RECORD *r) {
-  int n;
+  int n, i;
   int m0, m = 0;
 
   if (cemf_header.ntransitions == 0) {
@@ -2113,9 +2174,26 @@ int WriteCEMFRecord(TFILE *f, CEMF_RECORD *r) {
   WSF0(r->lower);
   WSF0(r->upper);
   
+  for (i = 0; i < m0; i++) {
+    if (isnan(r->bethe[i]) || isinf(r->bethe[i])) {
+      MPrintf(-1, "WriteCEMFRecord invalid bethe: %d %d %d %g\n",
+	      r->lower, r->upper, i, r->bethe[i]);
+    }
+  }
   WSF1(r->bethe, sizeof(float), m0);
+  for (i = 0; i <= m0; i++) {
+    if (isnan(r->born[i]) || isinf(r->born[i])) {
+      MPrintf(-1, "WriteCEMFRecord invalid strength: %d %d %d %g\n",
+	      r->lower, r->upper, i, r->born[i]);
+    }
+  }
   WSF1(r->born, sizeof(float), m0+1);
-
+  for (i = 0; i < m1; i++) {
+    if (isnan(r->strength[i]) || isinf(r->strength[i])) {
+      MPrintf(-1, "WriteCEFRecord invalid strength: %d %d %d %g\n",
+	      r->lower, r->upper, i, r->strength[i]);
+    }
+  }
   WSF1(r->strength, sizeof(float), m1);
   
 #pragma omp atomic
@@ -2165,7 +2243,7 @@ int WriteRORecord(TFILE *f, RO_RECORD *r) {
 }
 
 int WriteCXRecord(TFILE *f, CX_RECORD *r) {
-  int n;
+  int n, i;
   int m = 0;
 
   if (cx_header.ntransitions == 0) {
@@ -2194,6 +2272,13 @@ int WriteCXRecord(TFILE *f, CX_RECORD *r) {
   WSF0(r->b);
   WSF0(r->f);
   WSF0(r->vnl);
+  
+  for (i = 0; i < cx_header.ne0; i++) {
+    if (isnan(r->cx[i]) || isinf(r->cx[i])) {
+      MPrintf(-1, "WriteCXRecord invalid cx: %d %d %d %g\n",
+	      r->b, r->f, i, r->cx[i]);
+    }
+  }
   WSF1(r->cx, sizeof(double), cx_header.ne0);
 #pragma omp atomic
   cx_header.length += m;
@@ -2202,7 +2287,7 @@ int WriteCXRecord(TFILE *f, CX_RECORD *r) {
 }
 
 int WriteRCRecord(TFILE *f, RC_RECORD *r) {
-  int n, m0;
+  int n, i, m0;
   int m = 0;
 
   if (rc_header.ntransitions == 0) {
@@ -2230,6 +2315,12 @@ int WriteRCRecord(TFILE *f, RC_RECORD *r) {
 #endif
   WSF0(r->lower);
   WSF0(r->upper);
+  for (i = 0; i < m0; i++) {
+    if (isnan(r->rc[i]) || isinf(r->rc[i])) {
+      MPrintf(-1, "WriteRCRecord invalid strength: %d %d %d %g\n",
+	      r->lower, r->upper, i, r->rc[i]);
+    }
+  }
   WSF1(r->rc, sizeof(float), m0);
   
 #pragma omp atomic
@@ -2239,7 +2330,7 @@ int WriteRCRecord(TFILE *f, RC_RECORD *r) {
 }
 
 int WriteRRRecord(TFILE *f, RR_RECORD *r) {
-  int n;
+  int n, i;
   int m = 0, m0;
 
   if (rr_header.ntransitions == 0) {
@@ -2279,9 +2370,21 @@ int WriteRRRecord(TFILE *f, RR_RECORD *r) {
 
   if (rr_header.qk_mode == QK_FIT) {
     m0 = rr_header.nparams;
+    for (i = 0; i < m0; i++) {
+      if (isnan(r->params[i]) || isinf(r->params[i])) {
+	MPrintf(-1, "WriteRRRecord invalid param: %d %d %d %g\n",
+		r->b, r->f, i, r->params[i]);
+      }
+    }
     WSF1(r->params, sizeof(float), m0);
   }
   m0 = rr_header.n_usr;
+  for (i = 0; i < m0; i++) {
+    if (isnan(r->strength[i]) || isinf(r->strength[i])) {
+      MPrintf(-1, "WriteRRRecord invalid strength: %d %d %d %g\n",
+	      r->b, r->f, i, r->strength[i]);
+    }
+  }
   WSF1(r->strength, sizeof(float), m0);
 
 #pragma omp atomic
@@ -2316,6 +2419,10 @@ int WriteAIRecord(TFILE *f, AI_RECORD *r) {
 #endif
   WSF0(r->b);
   WSF0(r->f);
+  if (isnan(r->rate) || isinf(r->rate)) {
+    MPrintf(-1, "WriteAIRecord invalid rate: %d %d %g\n",
+	    r->b, r->f, r->rate);
+  }
   WSF0(r->rate);
 
 #pragma omp atomic
@@ -2324,7 +2431,7 @@ int WriteAIRecord(TFILE *f, AI_RECORD *r) {
 }
 
 int WriteAIMRecord(TFILE *f, AIM_RECORD *r) {
-  int n, m = 0;
+  int i, n, m = 0;
 
   if (aim_header.ntransitions == 0) {
     SetLockMPI();
@@ -2351,6 +2458,13 @@ int WriteAIMRecord(TFILE *f, AIM_RECORD *r) {
   WSF0(r->b);
   WSF0(r->f);
   WSF0(r->nsub);
+  
+  for (i = 0; i < r->nsub; i++) {
+    if (isnan(r->rate[i]) || isinf(r->rate[i])) {
+      MPrintf(-1, "WriteAIMRecord invalid rate: %d %d %d %g\n",
+	      r->b, r->f, i, r->rate[i]);
+    }
+  }
   WSF1(r->rate, sizeof(float), r->nsub);
   
 #pragma omp atomic
@@ -2360,7 +2474,7 @@ int WriteAIMRecord(TFILE *f, AIM_RECORD *r) {
 }
 
 int WriteCIRecord(TFILE *f, CI_RECORD *r) {
-  int n;
+  int n, i;
   int m = 0, m0;
 
   if (ci_header.ntransitions == 0) {
@@ -2388,9 +2502,21 @@ int WriteCIRecord(TFILE *f, CI_RECORD *r) {
   WSF0(r->b);
   WSF0(r->f);
   WSF0(r->kl);
-  m0 = ci_header.nparams;
+  m0 = ci_header.nparams;  
+  for (i = 0; i < m0; i++) {
+    if (isnan(r->params[i]) || isinf(r->params[i])) {
+      MPrintf(-1, "WriteCIRecord invalid param: %d %d %d %g\n",
+	      r->b, r->f, i, r->params[i]);
+    }
+  }
   WSF1(r->params, sizeof(float), m0);
   m0 = ci_header.n_usr;
+  for (i = 0; i < m0; i++) {
+    if (isnan(r->strength[i]) || isinf(r->strength[i])) {
+      MPrintf(-1, "WriteCIRecord invalid strength: %d %d %d %g\n",
+	      r->b, r->f, i, r->strength[i]);
+    }
+  }
   WSF1(r->strength, sizeof(float), m0);
 
 #pragma omp atomic
@@ -2400,7 +2526,7 @@ int WriteCIRecord(TFILE *f, CI_RECORD *r) {
 }
 
 int WriteCIMRecord(TFILE *f, CIM_RECORD *r) {
-  int n;
+  int n, i;
   int m = 0, m0;
 
   if (cim_header.ntransitions == 0) {
@@ -2430,6 +2556,12 @@ int WriteCIMRecord(TFILE *f, CIM_RECORD *r) {
   WSF0(r->b);
   WSF0(r->f);
   WSF0(r->nsub);
+  for (i = 0; i < m0; i++) {
+    if (isnan(r->strength[i]) || isinf(r->strength[i])) {
+      MPrintf(-1, "WriteCIMRecord invalid strength: %d %d %d %g\n",
+	      r->b, r->f, i, r->strength[i]);
+    }
+  }
   WSF1(r->strength, sizeof(float), m0);
   
 #pragma omp atomic
@@ -2479,6 +2611,10 @@ int WriteSPRecord(TFILE *f, SP_RECORD *r, SP_EXTRA *rx) {
   WSF0(r->lower);
   WSF0(r->upper);
   WSF0(r->energy);
+  if (isnan(r->strength) || isinf(r->strength)) {
+    MPrintf(-1, "WriteSPRecord invalid strength: %d %d %g\n",
+	    r->lower, r->upper, r->strength);
+  }
   WSF0(r->strength);
   WSF0(r->rrate);
   WSF0(r->trate);
