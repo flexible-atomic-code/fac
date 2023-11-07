@@ -4919,20 +4919,17 @@ static int PFinalizeMPI(int argc, char *argv[], int argt[],
 
 static int PSetOrbMap(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) {
-  int k = 0, n0 = 0, n1 = 0, n2 = 0;
+  int k = 0, n0 = 0, n1 = 0;
   if (argc > 0) {
     k = atoi(argv[0]);
     if (argc > 1) {
       n0 = atoi(argv[1]);
       if (argc > 2) {
 	n1 = atoi(argv[2]);
-	if (argc > 3) {
-	  n2 = atoi(argv[3]);
-	}
       }
     }
   }
-  SetOrbMap(k, n0, n1, n2);
+  SetOrbMap(k, n0, n1);
   return 0;
 }
 

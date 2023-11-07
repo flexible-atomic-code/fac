@@ -6170,10 +6170,10 @@ static PyObject *PSetOrbMap(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  int k=0, n0=0, n1=0, n2=0;
+  int k=0, n0=0, n1=0;
   
-  if (!(PyArg_ParseTuple(args, "|iiii", &k, &n0, &n1, &n2))) return NULL;
-  SetOrbMap(k, n0, n1, n2);
+  if (!(PyArg_ParseTuple(args, "|iii", &k, &n0, &n1))) return NULL;
+  SetOrbMap(k, n0, n1);
   
   Py_INCREF(Py_None);
   return Py_None;

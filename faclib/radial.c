@@ -204,7 +204,6 @@ static int _orthogonalize_mode = 1;
 static int _korbmap = KORBMAP;
 static int _norbmap0 = NORBMAP0;
 static int _norbmap1 = NORBMAP1;
-static int _norbmap2 = NORBMAP2;
 static ORBMAP *_orbmap = NULL;
 
 static AVERAGE_CONFIG average_config = {0, 0, 0, 0, NULL, NULL,
@@ -845,17 +844,20 @@ double *WorkSpace() {
   return _dws;
 }
 
-void SetOrbMap(int k, int n0, int n1, int n2) {
+void SetOrbMap(int k, int n0, int n1) {
   if (k <= 0) k = KORBMAP;
   if (n0 <= 0) n0 = NORBMAP0;
   if (n1 <= 0) n1 = NORBMAP1;
-  if (n2 <= 0) n2 = NORBMAP2;
+
   int i, j;
   if (_orbmap != NULL) {
     for (i = 0; i < _korbmap; i++) {
       free(_orbmap[i].opn);
       free(_orbmap[i].onn);
-      free(_orbmap[i].ozn);
+      if (i == 0) {
+	MultiFree(_orbmap[i].ozn, NULL);
+	free(_orbmap[i].ozn);
+      }
     }
     free(_orbmap);
   }
@@ -863,25 +865,23 @@ void SetOrbMap(int k, int n0, int n1, int n2) {
   _korbmap = k;
   _norbmap0 = n0;
   _norbmap1 = n1;
-  _norbmap2 = n2;  
   _orbmap = malloc(sizeof(ORBMAP)*_korbmap);  
   for (i = 0; i < _korbmap; i++) {
     _orbmap[i].ifm = 0;
     _orbmap[i].cfm = 0.0;
     _orbmap[i].xfm = 0.0;
-    _orbmap[i].nzn = 0;
     _orbmap[i].nmax = 1000000000;
     _orbmap[i].opn = malloc(sizeof(ORBITAL *)*_norbmap0);
     _orbmap[i].onn = malloc(sizeof(ORBITAL *)*_norbmap1);
-    _orbmap[i].ozn = malloc(sizeof(ORBITAL *)*_norbmap2);
     for (j = 0; j < _norbmap0; j++) {
       _orbmap[i].opn[j] = NULL;
     }
     for (j = 0; j < _norbmap1; j++) {
       _orbmap[i].onn[j] = NULL;
     }
-    for (j = 0; j < _norbmap2; j++) {
-      _orbmap[i].ozn[j] = NULL;
+    if (i == 0) {
+      _orbmap[i].ozn = malloc(sizeof(MULTI));    
+      MultiInit(_orbmap[i].ozn, sizeof(ORBITAL *), 3, NULL, "ozn");
     }
   }
 }
@@ -5036,7 +5036,15 @@ int GetNumContinua(void) {
 
 int OrbitalIndex(int n, int kappa, double energy) {
   ORBITAL *orb = NULL;
-  int k = ((abs(kappa)-1)*2)+(kappa>0);
+  ORBITAL **porb;
+  int idx[3];
+  
+  int k;
+  if (n == 0) {
+    k = 0;
+  } else {
+    k = ((abs(kappa)-1)*2)+(kappa>0);
+  }
   if (k >= _korbmap) {
     printf("too large kappa, enlarge korbmap: %d >= %d\n",
 	   k, _korbmap);
@@ -5084,24 +5092,13 @@ int OrbitalIndex(int n, int kappa, double energy) {
     }
   } else if (n < 0) {
     k = -n-1;
-    if (om->nzn >= _norbmap2) {
-      printf("too many free orbitals, enlarge norbmap2: %d >= %d\n",
-	     om->nzn, _norbmap2);
-      Abort(1);
-    }
 #pragma omp atomic read
     orb = om->onn[k];
   } else {
-    int nzn;
-#pragma omp atomic read
-    nzn = om->nzn;
-    // for reasons not clear to me, using om->nzn cause omp issues
-    nzn = 0;
-    for (k = 0; k < nzn; k++) {
-      if (fabs(energy-om->ozn[k]->energy) < EPS10) {
-	orb = om->ozn[k];
-	break;
-      }
+    SetEnergyIndex(idx, kappa, energy);
+    porb = (ORBITAL **) MultiGet(om->ozn, idx, NULL);
+    if (porb) {
+      orb = *porb;
     }
   }
   if (orb == NULL) {
@@ -5112,12 +5109,8 @@ int OrbitalIndex(int n, int kappa, double energy) {
       } else if (n < 0) {
 	orb = om->onn[k];
       } else {
-	for (; k < om->nzn; k++) {
-	  if (fabs(energy-om->ozn[k]->energy) < EPS10) {
-	    orb = om->ozn[k];
-	    break;
-	  }
-	}
+	porb = (ORBITAL **) MultiGet(om->ozn, idx, NULL);
+	if (porb) orb = *porb;
       }
     }
     if (orb == NULL) {
@@ -5150,7 +5143,15 @@ int OrbitalIndex(int n, int kappa, double energy) {
 
 int OrbitalExistsNoLock(int n, int kappa, double energy) {
   ORBITAL *orb = NULL;
-  int k = ((abs(kappa)-1)<<1)+(kappa>0);
+  ORBITAL **porb;
+  int idx[3];
+  
+  int k;
+  if (n == 0) {
+    k = 0;
+  } else {
+    k = ((abs(kappa)-1)<<1)+(kappa>0);
+  }
   if (k >= _korbmap) {
     printf("too large kappa, enlarge korbmap: %d >= %d\n",
 	   k, _korbmap);
@@ -5166,18 +5167,9 @@ int OrbitalExistsNoLock(int n, int kappa, double energy) {
 #pragma omp atomic read
     orb = om->onn[k];
   } else {
-    int i, nzn;
-#pragma omp atomic read
-    nzn = om->nzn;
-    //nzn = 0;
-    for (i = 0; i < nzn; i++) {
-      if (om->ozn[i]) {
-	if (fabs(energy-om->ozn[i]->energy) < EPS10) {
-	  orb = om->ozn[i];
-	  break;
-	}
-      }
-    }
+    SetEnergyIndex(idx, kappa, energy);
+    porb = (ORBITAL **) MultiGet(om->ozn, idx, NULL);
+    if (porb) orb = *porb;
   }
   if (orb != NULL) {
     return orb->idx;
@@ -5197,8 +5189,26 @@ int OrbitalExists(int n, int kappa, double energy) {
   return i;
 }
 
+void SetEnergyIndex(int idx[3], int kappa, double energy) {
+  char *p;
+  int k, i, ip[8];
+  
+  p = (char *) (&energy);
+  for (i = 0; i < 8; i++) {
+    ip[i] = p[i];
+    if (ip[i] < 0) ip[i] = 128+(-ip[i]-1);
+  }
+  k = ((abs(kappa)-1)*2)+(kappa>0);
+  idx[0] = k*65536 + ip[0]*256 + ip[1];
+  idx[1] = ip[2]*65536 + ip[3]*256 + ip[4];
+  idx[2] = ip[5]*65536 + ip[6]*256 + ip[7];
+  //printf("%d %d %d %d %d %d %d %d %d %d %d %d\n", k, ip[0],ip[1],ip[2],ip[3],ip[4],ip[5],ip[6],ip[7],idx[0],idx[1],idx[2]);
+}
+
 void AddOrbMap(ORBITAL *orb) {
-  int k = ((abs(orb->kappa)-1)<<1)+(orb->kappa>0);
+  int k;
+  if (orb->n == 0) k = 0;
+  else k = ((abs(orb->kappa)-1)<<1)+(orb->kappa>0);
   if (k >= _korbmap) {
     printf("too large kappa, enlarge korbmap: %d >= %d\n",
 	   k, _korbmap);
@@ -5224,20 +5234,11 @@ void AddOrbMap(ORBITAL *orb) {
 #pragma omp atomic write
     om->onn[k] = orb;
   } else {
-    if (om->nzn >= _norbmap2) {
-      printf("too many free orbitals, enlarge norbmap2: %d >= %d\n",
-	     om->nzn, _norbmap2);
-      Abort(1);
-    }
-    
-#pragma omp atomic write
-    om->ozn[om->nzn] = orb;  
-#pragma omp flush
-    
-#pragma omp atomic
-    om->nzn++;    
-#pragma omp flush
+    int idx[3];
+    SetEnergyIndex(idx, orb->kappa, orb->energy);
+    MultiSet(om->ozn, idx, &orb, NULL, NULL, NULL);
   }
+#pragma omp flush
 }
 
 void RemoveOrbMap(int m) {
@@ -5252,10 +5253,10 @@ void RemoveOrbMap(int m) {
     for (i = 0; i < _norbmap1; i++) {
       om->onn[i] = NULL;
     }
-    for (i = 0; i < om->nzn; i++) {
-      om->ozn[i] = NULL;
+    if (k == 0) {
+      MultiFree(om->ozn, NULL);
+      MultiInit(om->ozn, sizeof(ORBITAL *), 3, NULL, "ozn");
     }
-    om->nzn = 0;
   }
 }
 
@@ -11362,7 +11363,7 @@ int InitRadial(void) {
   SetSlaterCut(-1, -1);
   SetSlaterScale(-1, NULL, NULL, 1.0);
 
-  SetOrbMap(0, 0, 0, 0);
+  SetOrbMap(0, 0, 0);
 
   PrepFermiNR();
   return 0;
