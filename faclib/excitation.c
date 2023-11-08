@@ -582,6 +582,8 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k, int trylock) {
       SetLock(lock);
       locked = 1;
     }
+#pragma omp atomic read
+    pnkl = (*pk)->nkl;
   }
   if (pnkl >= 0) {
     if (locked) ReleaseLock(lock);
@@ -1142,6 +1144,8 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
       SetLock(lock);
       locked = 1;
     }
+#pragma omp atomic read
+    pp = *p;
   }
   if (pp) {
     if (locked) ReleaseLock(lock);
@@ -1421,6 +1425,8 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
       SetLock(lock);
       locked = 1;
     }
+#pragma omp atomic read
+    pp = *p;
   }
   if (pp) {
     if (locked) ReleaseLock(lock);

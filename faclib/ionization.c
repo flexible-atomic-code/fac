@@ -609,6 +609,8 @@ double *CIRadialQkIntegratedTable(int kb, int kbp) {
   if (lock && !pp) {
     SetLock(lock);
     locked = 1;
+#pragma omp atomic read
+    pp = *p;
   }
   if (pp) {
     if (locked) ReleaseLock(lock);

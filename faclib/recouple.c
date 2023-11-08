@@ -1589,18 +1589,23 @@ int GetInteract(INTERACT_DATUM **idatum,
 					      NULL, &lock, InitInteractDatum, 
 					      FreeInteractDatum);
     }
-    if (lock && (*idatum)->n_shells == 0) {
+#pragma omp atomic read
+    n_shells = (*idatum)->n_shells;
+    if (lock && n_shells == 0) {
       SetLock(lock);
       locked = 1;
+#pragma omp atomic read
+      n_shells = (*idatum)->n_shells;
     }
-    if ((*idatum)->n_shells < 0) {
+    if (n_shells < 0) {
       if (locked) ReleaseLock(lock);
       return -1;
     }
   } else {
     (*idatum) = malloc(sizeof(INTERACT_DATUM));
     (*idatum)->n_shells = 0;
-  }  
+  }
+#pragma omp atomic read
   n_shells = (*idatum)->n_shells;
   if (n_shells > 0) {
     bra = (*idatum)->bra;

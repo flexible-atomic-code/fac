@@ -836,9 +836,10 @@ void *NMultiGet(MULTI *ma, int *k, LOCK **lock) {
   h = Hash2(k, ma->ndim, 0, ma->ndim, ma->hmask);
   a = &(ma->array[h]);
 #pragma omp atomic read
-  p = a->data;
-#pragma omp atomic read
   i = a->dim;
+  if (i == 0) return NULL;
+#pragma omp atomic read
+  p = a->data;
   j = 0;
   while (p) {
     pt = (MDATA *) p->dptr;

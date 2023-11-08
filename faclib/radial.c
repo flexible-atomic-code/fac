@@ -850,6 +850,8 @@ void SetOrbMap(int k, int n0, int n1) {
   if (n1 <= 0) n1 = NORBMAP1;
 
   int i, j;
+  int blocks[3] = {MULTI_BLOCK3, MULTI_BLOCK3, MULTI_BLOCK3};
+    
   if (_orbmap != NULL) {
     for (i = 0; i < _korbmap; i++) {
       free(_orbmap[i].opn);
@@ -881,7 +883,7 @@ void SetOrbMap(int k, int n0, int n1) {
     }
     if (i == 0) {
       _orbmap[i].ozn = malloc(sizeof(MULTI));    
-      MultiInit(_orbmap[i].ozn, sizeof(ORBITAL *), 3, NULL, "ozn");
+      MultiInit(_orbmap[i].ozn, sizeof(ORBITAL *), 3, blocks, "ozn");
     }
   }
 }
@@ -5043,12 +5045,12 @@ int OrbitalIndex(int n, int kappa, double energy) {
   if (n == 0) {
     k = 0;
   } else {
-    k = ((abs(kappa)-1)*2)+(kappa>0);
-  }
-  if (k >= _korbmap) {
-    printf("too large kappa, enlarge korbmap: %d >= %d\n",
-	   k, _korbmap);
-    Abort(1);
+    k = ((abs(kappa)-1)*2)+(kappa>0);  
+    if (k >= _korbmap) {
+      printf("too large kappa, enlarge korbmap: %d >= %d\n",
+	     k, _korbmap);
+      Abort(1);
+    }
   }
   ORBMAP *om = &_orbmap[k];
   if (n > 0) { //Case of a bound orbital
@@ -5110,7 +5112,9 @@ int OrbitalIndex(int n, int kappa, double energy) {
 	orb = om->onn[k];
       } else {
 	porb = (ORBITAL **) MultiGet(om->ozn, idx, NULL);
-	if (porb) orb = *porb;
+	if (porb) {
+	  orb = *porb;
+	}
       }
     }
     if (orb == NULL) {
@@ -5150,12 +5154,12 @@ int OrbitalExistsNoLock(int n, int kappa, double energy) {
   if (n == 0) {
     k = 0;
   } else {
-    k = ((abs(kappa)-1)<<1)+(kappa>0);
-  }
-  if (k >= _korbmap) {
-    printf("too large kappa, enlarge korbmap: %d >= %d\n",
-	   k, _korbmap);
-    Abort(1);
+    k = ((abs(kappa)-1)<<1)+(kappa>0);  
+    if (k >= _korbmap) {
+      printf("too large kappa, enlarge korbmap: %d >= %d\n",
+	     k, _korbmap);
+      Abort(1);
+    }
   }
   ORBMAP *om = &_orbmap[k];
   if (n > 0) {
@@ -5207,12 +5211,15 @@ void SetEnergyIndex(int idx[3], int kappa, double energy) {
 
 void AddOrbMap(ORBITAL *orb) {
   int k;
-  if (orb->n == 0) k = 0;
-  else k = ((abs(orb->kappa)-1)<<1)+(orb->kappa>0);
-  if (k >= _korbmap) {
-    printf("too large kappa, enlarge korbmap: %d >= %d\n",
-	   k, _korbmap);
-    Abort(1);
+  if (orb->n == 0) {
+    k = 0;
+  } else {
+    k = ((abs(orb->kappa)-1)<<1)+(orb->kappa>0);
+    if (k >= _korbmap) {
+      printf("too large kappa, enlarge korbmap: %d >= %d\n",
+	     k, _korbmap);
+      Abort(1);
+    }
   }
   ORBMAP *om = &_orbmap[k];  
   if (orb->n > 0) {
@@ -5243,6 +5250,7 @@ void AddOrbMap(ORBITAL *orb) {
 
 void RemoveOrbMap(int m) {
   int k, i;
+  int blocks[3] = {MULTI_BLOCK3, MULTI_BLOCK3, MULTI_BLOCK3};
   for (k = 0; k < _korbmap; k++) {
     ORBMAP *om = &_orbmap[k];
     if (m == 0) {
@@ -5255,7 +5263,7 @@ void RemoveOrbMap(int m) {
     }
     if (k == 0) {
       MultiFree(om->ozn, NULL);
-      MultiInit(om->ozn, sizeof(ORBITAL *), 3, NULL, "ozn");
+      MultiInit(om->ozn, sizeof(ORBITAL *), 3, blocks, "ozn");
     }
   }
 }
@@ -6666,6 +6674,8 @@ int ResidualPotential(double *s, int k0, int k1) {
   if (lock && !(p && pp)) {
     SetLock(lock);
     locked = 1;
+#pragma omp atomic read
+    pp = *p;
   }
   if (p && pp) {
     *s = pp;
@@ -6827,6 +6837,8 @@ double RadialMoments(int m, int k1, int k2) {
   if (lock && !qd) {
     SetLock(lock);
     locked = 1;
+#pragma omp atomic read
+    qd = *q;
   }
   if (qd) {
     if (locked) ReleaseLock(lock);
@@ -6993,6 +7005,8 @@ int MultipoleRadialFRGrid(double **p0, int m, int k1, int k2, int gauge) {
   if (lock && !pp) {
     SetLock(lock);
     locked = 1;
+#pragma omp atomic read
+    pp = *p1;
   }
   if (pp) {
     *p0 = pp;
@@ -7289,6 +7303,8 @@ double MultipoleRadialFR0(double aw, int m, int k1, int k2, int gauge) {
   if (lock && !pp) {
     SetLock(lock);
     locked = 1;
+#pragma omp atomic read
+    pp = *p1;
   }
   if (pp) {
     r = InterpolateMultipole(aw, n_awgrid, awgrid, pp);
@@ -7435,6 +7451,8 @@ double *GeneralizedMoments(int k1, int k2, int m) {
   if (lock && !pp) {
     SetLock(lock);
     locked = 1;
+#pragma omp atomic read
+    pp = *p;
   }
   if (pp) {
     if (locked) ReleaseLock(lock);
@@ -7865,8 +7883,8 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 	*se += e;
       }
     }
-  }
-
+  }  
+  
  EXIT:
 #ifdef PERFORM_STATISTICS 
     stop = clock();
@@ -8270,6 +8288,8 @@ double QED1E(int k0, int k1) {
   if (lock && !(p && pp)) {
     SetLock(lock);
     locked = 1;
+#pragma omp atomic read
+    pp = *p;
   }
   if (p && pp) {
     if (locked) ReleaseLock(lock);
@@ -8346,6 +8366,8 @@ double *Vinti(int k0, int k1) {
   if (lock && !pp) {
     SetLock(lock);
     locked = 1;
+#pragma omp atomic read
+    pp = *p;
   }
   if (pp) {
     if (locked) ReleaseLock(lock);
@@ -8548,6 +8570,8 @@ int BreitSYK(int k0, int k1, int k, double *z) {
     if (xlock && npts <= 0) {
       SetLock(xlock);
       xlocked = 1;
+#pragma omp atomic read
+      npts = byk->npts;
     }
     if (npts > 0) {
       for (i = 0; i < byk->npts; i++) {
@@ -8613,6 +8637,8 @@ double BreitS(int k0, int k1, int k2, int k3, int k) {
     if (lock && !(p0 && pp)) {
       SetLock(lock);
       locked = 1;
+#pragma omp atomic read
+      pp = *p0;
     }
     if (p0 && pp) {
       r = pp;
@@ -8705,6 +8731,8 @@ int BreitX(ORBITAL *orb0, ORBITAL *orb1, int k, int m, int w, int mbr,
     if (lock && npts <= 0) {
       SetLock(lock);
       locked = 1;
+#pragma omp atomic read
+      npts = byk->npts;
     }
     if (npts > 0) {
       for (i = 0; i < byk->npts; i++) {
@@ -8993,6 +9021,8 @@ double BreitWW(int k0, int k1, int k2, int k3, int k,
     if (lock && !(p && pp)) {
       SetLock(lock);
       locked = 1;
+#pragma omp atomic read
+      pp = *p;
     }
     if (p && pp) {
       r = pp;
@@ -9193,6 +9223,8 @@ int Slater(double *s, int k0, int k1, int k2, int k3, int k, int mode) {
     if (lock && !(p && pp)) {
       SetLock(lock);
       locked = 1;
+#pragma omp atomic read
+      pp = *p;
     }
   } else {
     p = NULL;
@@ -9538,6 +9570,8 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2,
     if (lock && npts <= 0) {
       SetLock(lock);
       locked = 1;
+#pragma omp atomic read
+      npts = syk->npts;
     }
     if (npts > 0) {
       npts = npts-2;
