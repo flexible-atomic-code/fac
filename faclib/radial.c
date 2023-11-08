@@ -851,14 +851,15 @@ void SetOrbMap(int k, int n0, int n1) {
 
   int i, j;
   int blocks[3] = {MULTI_BLOCK3, MULTI_BLOCK3, MULTI_BLOCK3};
-    
+
+  MULTI *ozn = NULL;
   if (_orbmap != NULL) {
     for (i = 0; i < _korbmap; i++) {
       free(_orbmap[i].opn);
       free(_orbmap[i].onn);
       if (i == 0) {
-	MultiFree(_orbmap[i].ozn, NULL);
-	free(_orbmap[i].ozn);
+	MultiFreeData(_orbmap[i].ozn, NULL);
+	ozn = _orbmap[i].ozn;
       }
     }
     free(_orbmap);
@@ -882,8 +883,12 @@ void SetOrbMap(int k, int n0, int n1) {
       _orbmap[i].onn[j] = NULL;
     }
     if (i == 0) {
-      _orbmap[i].ozn = malloc(sizeof(MULTI));    
-      MultiInit(_orbmap[i].ozn, sizeof(ORBITAL *), 3, blocks, "ozn");
+      if (ozn == NULL) {
+	_orbmap[i].ozn = malloc(sizeof(MULTI));
+	MultiInit(_orbmap[i].ozn, sizeof(ORBITAL *), 3, blocks, "ozn");
+      } else {
+	_orbmap[i].ozn = ozn;
+      }
     }
   }
 }
@@ -5262,8 +5267,8 @@ void RemoveOrbMap(int m) {
       om->onn[i] = NULL;
     }
     if (k == 0) {
-      MultiFree(om->ozn, NULL);
-      MultiInit(om->ozn, sizeof(ORBITAL *), 3, blocks, "ozn");
+      MultiFreeData(om->ozn, NULL);
+      //MultiInit(om->ozn, sizeof(ORBITAL *), 3, blocks, "ozn");
     }
   }
 }
