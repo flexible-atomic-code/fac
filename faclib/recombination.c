@@ -700,6 +700,8 @@ int RRRadialMultipoleTable(double *qr, int k0, int k1, int m) {
   if (lock && !pp) {
     SetLock(lock);
     locked = 1;
+#pragma omp atomic read
+    pp = *p;
   }
   if (pp) {
     for (i = 0; i < nqk; i++) {
@@ -853,6 +855,8 @@ int RRRadialQkTable(double *qr, int k0, int k1, int m0) {
   if (lock && !pp) {
     SetLock(lock);
     locked = 1;
+#pragma omp atomic read
+    pp = *p;
   }
   if (pp) {
     for (i = 0; i < nqk; i++) {
@@ -2218,6 +2222,8 @@ int AIRadialPk(double **ai_pk, double pe, int k0, int k1, int kb, int kappaf,
       SetLock(lock);
       locked = 1;
     }
+#pragma omp atomic read
+    pp = *p;
   }
   if (pp) {
     *ai_pk = pp;
