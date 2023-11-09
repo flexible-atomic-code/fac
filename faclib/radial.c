@@ -5065,8 +5065,7 @@ int OrbitalIndex(int n, int kappa, double energy) {
 	     k, _norbmap0);
       Abort(1);
     }
-#pragma omp atomic read
-    orb = om->opn[k];    
+    porb = &om->opn[k];
     if (potential->ib == 0 && n > potential->nmax) {
       if (om->ifm == 0) {
 	int km = OrbitalIndex(potential->nmax, kappa, energy);
@@ -5099,31 +5098,23 @@ int OrbitalIndex(int n, int kappa, double energy) {
     }
   } else if (n < 0) {
     k = -n-1;
-#pragma omp atomic read
-    orb = om->onn[k];
+    porb = &om->onn[k];
   } else {
     SetEnergyIndex(idx, kappa, energy);
-    porb = (ORBITAL **) MultiGet(om->ozn, idx, NULL);
-    if (porb) {
-      orb = *porb;
-    }
+    porb = (ORBITAL **) MultiSet(om->ozn, idx, NULL, NULL,
+				 InitPointerData, NULL);
   }
+#pragma omp atomic read
+  orb = *porb;    
+
   if (orb == NULL) {
     if (orbitals->lock) {
       SetLock(orbitals->lock);
-      if (n > 0) {
-	orb = om->opn[k];
-      } else if (n < 0) {
-	orb = om->onn[k];
-      } else {
-	porb = (ORBITAL **) MultiGet(om->ozn, idx, NULL);
-	if (porb) {
-	  orb = *porb;
-	}
-      }
+#pragma omp atomic read
+      orb = *porb;
     }
     if (orb == NULL) {
-      orb = GetNewOrbitalNoLock(n, kappa, energy, 1);
+      orb = GetNewOrbitalNoLock(n, kappa, energy, porb);
     }
     if (orbitals->lock) ReleaseLock(orbitals->lock);
   } else if (orb->isol == 0) {
@@ -5248,7 +5239,7 @@ void AddOrbMap(ORBITAL *orb) {
   } else {
     int idx[3];
     SetEnergyIndex(idx, orb->kappa, orb->energy);
-    MultiSet(om->ozn, idx, &orb, NULL, NULL, NULL);
+    MultiSet(om->ozn, idx, &orb, NULL, InitPointerData, NULL);
   }
 #pragma omp flush
 }
@@ -5322,7 +5313,7 @@ ORBITAL *GetOrbitalSolvedNoLock(int k) {
   return orb;
 }
 
-ORBITAL *GetNewOrbitalNoLock(int n, int kappa, double e, int solve) {
+ORBITAL *GetNewOrbitalNoLock(int n, int kappa, double e, ORBITAL **solve) {
   ORBITAL *orb;
   //Add new orbital to global list
   orb = (ORBITAL *) ArrayAppend(orbitals, NULL, InitOrbitalData);
@@ -5345,8 +5336,11 @@ ORBITAL *GetNewOrbitalNoLock(int n, int kappa, double e, int solve) {
       MPrintf(-1, "Error occured in solving Dirac eq. err = %d\n", k);
       Abort(1);
     }
+#pragma omp atomic write
+    *solve = orb;
+  } else {    
+    AddOrbMap(orb);
   }
-  AddOrbMap(orb);
 #pragma omp flush
   return orb;
 }
@@ -5355,7 +5349,7 @@ ORBITAL *GetNewOrbital(int n, int kappa, double e) {
   ORBITAL *orb;
 
   if (orbitals->lock) SetLock(orbitals->lock);
-  orb = GetNewOrbitalNoLock(n, kappa, e, 0);
+  orb = GetNewOrbitalNoLock(n, kappa, e, NULL);
   if (orbitals->lock) ReleaseLock(orbitals->lock);
   return orb;
 }

@@ -108,7 +108,7 @@ void SetOrbMap(int k, int n0, int n1);
 void SetEnergyIndex(int idx[3], int kappa, double energy);
 void AddOrbMap(ORBITAL *orb);
 void RemoveOrbMap(int m);
-ORBITAL *GetNewOrbitalNoLock(int n, int kappa, double e, int solve);
+ORBITAL *GetNewOrbitalNoLock(int n, int kappa, double e, ORBITAL **solve);
 ORBITAL *GetNewOrbital(int n, int kappa, double e);
 int GetNumBounds(void);
 int GetNumOrbitals(void);
