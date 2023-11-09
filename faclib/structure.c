@@ -3483,7 +3483,7 @@ int SolveStructureFrozen(char *fn, int ng, int *kg, int nc, int *kc,
 	}
 	bs[t][i] = OrbitalExistsNoLock(n, ka, 0.0);
 	if (bs[t][i] < 0) {
-	  orb = GetNewOrbitalNoLock(n, ka, 0.0, 0);
+	  orb = GetNewOrbitalNoLock(n, ka, 0.0, NULL);
 	  bs[t][i] = orb->idx;
 	}
       }

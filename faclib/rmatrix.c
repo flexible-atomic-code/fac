@@ -605,7 +605,7 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
 	}
 	int ix = OrbitalExistsNoLock(n, kappa, 0.0);
 	if (ix < 0) {
-	  orb = GetNewOrbitalNoLock(n, kappa, 0.0, 0);
+	  orb = GetNewOrbitalNoLock(n, kappa, 0.0, NULL);
 	  ix = orb->idx;
 	}
 	rbasis.basis[t][in] = ix;
