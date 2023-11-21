@@ -499,7 +499,7 @@ void CIRadialQkBasis0(int npar, double *yb, double x, double log_x) {
   yb[0] = log_x;
   yb[1] = y2*y2;
   yb[2] = y2*y1 ;
-  yb[3] = yb[1]*y1;
+  yb[3] = yb[2]*y1;
 }
 
 void CIRadialQkFromFit(int np, double *p, int n, 

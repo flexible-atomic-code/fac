@@ -26,6 +26,8 @@
 #include "array.h"
 #include "dbase.h"
 
+#define MINCS 1E-16
+
 typedef struct _MOD_RECORD_ {
   int m;
   int i0;
@@ -80,9 +82,10 @@ int CEFCross(char *ifn, char *ofn, int i0, int i1,
 	     int negy, double *egy, int mp);
 int CEFMaxwell(char *ifn, char *ofn, int i0, int i1, 
 	       int nt, double *temp);
-double InterpolateCICross(double e, double eth, CI_RECORD *r, CI_HEADER *h);
-double InterpolateCIMCross(double e, double eth, CIM_RECORD *r, CIM_HEADER *h, 
-			   int q);
+double InterpolateCICross(double e, double eth, double bms,
+			  CI_RECORD *r, CI_HEADER *h);
+double InterpolateCIMCross(double e, double eth, double bms,
+			   CIM_RECORD *r, CIM_HEADER *h, int q);
 int TotalCICross(char *ifn, char *ofn, int ilev, 
 		 int negy, double *egy, int imin, int imax);
 int TotalPICross(char *ifn, char *ofn, int ilev, 

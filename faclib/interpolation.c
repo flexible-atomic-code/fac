@@ -648,13 +648,13 @@ void PrepCECrossHeader(CE_HEADER *h, double *data) {
   if (h->tegrid[0] < 0) {
     data[0] = -1.0;
     for (j = 0; j < m; j++) {
-      x[j] = log(1 + eusr[j]);
+      x[j] = log(1+bms*eusr[j]);
     }
     x[m] = eusr[m-1]/(1 + eusr[m-1]);
   } else {
-    data[0] = (h->te0*HARTREE_EV+bte)/bms;
+    data[0] = (h->te0+bte)*HARTREE_EV/bms;
     for (j = 0; j < m; j++) {
-      x[j] = log((data[0] + eusr[j]*HARTREE_EV)/data[0]);
+      x[j] = log((data[0]+eusr[j]*HARTREE_EV)/data[0]);
     }
     x[m] = eusr[m-1]/(data[0]/HARTREE_EV+eusr[m-1]);
   }
@@ -679,7 +679,7 @@ void PrepCEFCrossRecord(CEF_RECORD *r, CEF_HEADER *h, double *data) {
 
   cs = r->strength;
   for (j = 0; j < m; j++) {
-    y[j] = cs[j];
+    y[j] = log(Max(MINCS,cs[j]));
   }
   y[m] = r->born[0];
 }
@@ -730,6 +730,10 @@ void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
     y[m] = r->born[0];
   }
 
+  for (j = 0; j < m; j++) {
+    y[j] = Max(MINCS, y[j]);
+  }
+  
   if (h->msub) {
     for (j = 0; j < m; j++) {
       if (y[j]) {
@@ -743,6 +747,9 @@ void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
     } else {
       w[j] = r->params[k];
     }
+  }
+  for (j = 0; j < m; j++) {
+    y[j] = log(y[j]);
   }
 }
 
@@ -762,7 +769,7 @@ double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
 
   a = 0.0;
 
-  if (e < 0.0) return a;
+  if (e <= 0.0) return a;
 
   BornFormFactorTE(&bte);
   bms = BornMass();
@@ -771,23 +778,19 @@ double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
   m = h->n_egrid;
   m1 = m + 1;
   et0 = data[0];
-  x0 = log((et0+e)/et0);
+  x0 = log(1+e/et0);
   y = data + 2;
   x = y + m1;
   w = x + m1;
 
   if (x0 < x[m-1]) {
-    n = 2;
+    n = 3;
     one = 1;
-    if (fabs(bms-1.0) < EPS3 || x0 >= x[0]) {
-      UVIP3P(n, m, x, y, one, &x0, &a);
-      if (a < 0.0) a = 0.0;
-    } else {
-      a = y[0] * pow(exp(x0-x[0]), 2.5);
-    }
+    UVIP3P(n, m, x, y, one, &x0, &a);
+    a = exp(a);
   } else {
     x0 = e/(et0 + e);
-    y0 = y[m-1];
+    y0 = exp(y[m-1]);
     if (data[1] > 0) {
       e0 = ((x[m]*et0/(1.0-x[m]))+eth1)/HARTREE_EV;
       b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
@@ -852,20 +855,16 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
   }
   m = h->n_usr;
   m1 = m + 1;
-  x0 = log((et0+e)/et0);
+  x0 = log(1+e/et0);
   y = data + 2;
   x = y + m1;
   w = x + m1;
 
   if (x0 < x[m-1]) {
-    n = 2;
+    n = 3;
     one = 1;
-    if (fabs(bms-1.0) < EPS3 || x0 >= x[0]) {
-      UVIP3P(n, m, x, y, one, &x0, &a);
-      if (a < 0.0) a = 0.0;
-    } else {
-      a = y[0] * pow(exp(x0-x[0]), 2.5);
-    }
+    UVIP3P(n, m, x, y, one, &x0, &a);
+    a = exp(a);
     if (h->msub) {
       UVIP3P(n, m, x, w, one, &x0, &b);
       if (b < 0.0) b = 0.0;
@@ -874,7 +873,7 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
     }
   } else {
     x0 = e/(et0 + e);
-    y0 = y[m-1];
+    y0 = exp(y[m-1]);
     if (data[1] > 0) {
       e0 = ((x[m]*et0/(1.0-x[m]))+eth1)/HARTREE_EV;
       b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
@@ -1664,54 +1663,73 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
   return 0;
 }
 
-double InterpolateCICross(double e1, double eth, CI_RECORD *r, CI_HEADER *h) {
-  double y[MAXNE], x, a, b, tc, emin, emax;
+double InterpolateCICross(double e1, double eth, double bms,
+			  CI_RECORD *r, CI_HEADER *h) {
+  double xg[MAXNE], y[MAXNE], x, a, b, s, tc, emin, emax;
   int i;
 
+  if (e1 <= 0) return 0.0;
   for (i = 0; i < h->n_usr; i++) {
-    y[i] = r->strength[i];
+    if (h->tegrid[0] < 0) {
+      b = bms*h->usr_egrid[i];
+    } else {
+      b = h->usr_egrid[i]*bms/eth;
+    }
+    xg[i] = log(1+b);
+    a = r->strength[i]*(1.0+b)/b;
+    y[i] = log(Max(MINCS,a));
   }
-  if (e1 < 0) return 0.0;
   emin = h->usr_egrid[0];
   emax = h->usr_egrid[h->n_usr-1];
   if (h->tegrid[0] < 0) {
     emin *= eth;
     emax *= eth;
   }
-  if (e1 < emin || e1 > emax) {
+  if (e1 > emax) {
+    x = 1.0 + emax/eth;
+    a = 1.0/x;
+    b = 1.0 - a;
+    tc = r->params[0]*log(x) + r->params[1]*b*b;
+    tc += r->params[2]*a*b + r->params[3]*a*a*b;
+    s = r->strength[h->n_usr-1]/tc;    
     x = 1.0 + e1/eth;
     a = 1.0/x;
     b = 1.0 - a;
     tc = r->params[0]*log(x) + r->params[1]*b*b;
     tc += r->params[2]*a*b + r->params[3]*a*a*b;
+    tc = tc*s;
     return tc;
   } else {
-    if (h->tegrid[0] < 0) e1 /= eth;
-    UVIP3P(2, h->n_usr, h->usr_egrid, y, 1, &e1, &tc);
+    b = e1*bms/eth;
+    x = log(1+b);    
+    UVIP3P(3, h->n_usr, xg, y, 1, &x, &tc);
+    tc = exp(tc)*b/(1.0+b);
     return tc;
   }
 }
 
-double InterpolateCIMCross(double e1, double eth, CIM_RECORD *r, CIM_HEADER *h,
-			   int q) {
-  double y[MAXNE], z[MAXNE], x, tc;
+double InterpolateCIMCross(double e1, double eth, double bms,
+			   CIM_RECORD *r, CIM_HEADER *h, int q) {
+  double y[MAXNE], z[MAXNE], x, tc, b;
   int i, j, np;
 
-  np = 2;
+  if (e1 <= 0) return 0.0;
+  np = 3;
   for (i = 0; i < h->n_usr; i++) {
     j = q*h->n_usr + i;
-    y[i] = r->strength[j];
-    z[i] = log(1.0 + h->usr_egrid[i]/eth);
-    if (y[i] <= 0) np = 1;
+    b = bms*h->usr_egrid[i]/eth;
+    b = r->strength[j]*(1.0+b)/b;
+    z[i] = log(1.0 + b);
+    y[i] = log(Max(MINCS,b));
   }
-  if (e1 < 0) return 0.0;
-  x = log(1.0 + e1/eth);
-  if (np == 1 || e1 < h->usr_egrid[0] || e1 > h->usr_egrid[h->n_usr-1]) {
+  b = bms*e1/eth;
+  x = log(1.0+b);
+  if (e1 > h->usr_egrid[h->n_usr-1]) {
     UVIP3P(1, h->n_usr, z, y, 1, &x, &tc);
   } else {
-    UVIP3P(2, h->n_usr, z, y, 1, &x, &tc);    
+    UVIP3P(np, h->n_usr, z, y, 1, &x, &tc);    
   }
-
+  tc = exp(tc)*b/(1.0+b);
   return tc;
 }
 
@@ -1786,7 +1804,7 @@ int TotalCICross(char *ifn, char *ofn, int ilev,
       for (t = 0; t < negy; t++) {
 	ems = egy[t]/bms;
 	if (ems < be) continue;
-	tc = InterpolateCICross(ems-be, e, &r, &h);
+	tc = InterpolateCICross(ems-be, e, bms, &r, &h);
 	a = ems*(1.0 + FINE_STRUCTURE_CONST2*ems);
 	tc *= AREA_AU20/(2.0*a*(mem_en_table[r.b].j + 1.0));
 	c[t] += tc;
@@ -1892,7 +1910,7 @@ int CICross(char *ifn, char *ofn, int i0, int i1,
 	    tc = 0.0;
 	    b = 0.0;
 	  } else {
-	    tc = InterpolateCICross(e0-be, e, &r, &h);
+	    tc = InterpolateCICross(e0-be, e, bms, &r, &h);
 	    b = tc;
 	    a = e0*(1.0 + FINE_STRUCTURE_CONST2*e0);
 	    tc *= AREA_AU20/(2.0*a*(mem_en_table[r.b].j + 1.0));
@@ -2001,7 +2019,7 @@ int CIMaxwell(char *ifn, char *ofn, int i0, int i1,
 	  tms = egy[t];
 	  for (p = 0; p < 15; p++) {
 	    e0 =  tms*xg[p];
-	    tc = InterpolateCICross(e0, e, &r, &h);
+	    tc = InterpolateCICross(e0, e, bms, &r, &h);
 	    cs += wg[p]*tc;
 	  }
 	  tc = (217.16/PI)*sqrt(1.0/(2.0*tms));
@@ -2116,7 +2134,7 @@ int CIMCross(char *ifn, char *ofn, int i0, int i1,
 	      tc = 0.0;
 	      b = 0.0;
 	    } else {
-	      tc = InterpolateCIMCross(e0-be, e, &r, &h, k);
+	      tc = InterpolateCIMCross(e0-be, e, bms, &r, &h, k);
 	      b = tc;
 	      a = e0*(1.0 + FINE_STRUCTURE_CONST2*e0);
 	      tc *= AREA_AU20/(2.0*a);
