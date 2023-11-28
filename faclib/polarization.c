@@ -570,7 +570,7 @@ int SetMCIRates(char *fn) {
 	    double e0 = egrid[q]/HARTREE_EV;
 	    e2 = e0-e;
 	    if (e2 >= 0) {
-	      cs = InterpolateCIMCross(e2, e, &r, &h, k);
+	      cs = InterpolateCIMCross(e2, e, 1.0, &r, &h, k);
 	      a = e0*(1+0.5*FINE_STRUCTURE_CONST2*e0);
 	      cs *= AREA_AU20/(2.0*a);
 	      rint[q] = cs*fint[q];
@@ -587,7 +587,7 @@ int SetMCIRates(char *fn) {
 	  double e0 = e1/HARTREE_EV;
 	  e2 = e0-e;
 	  if (e2 >= 0) {
-	    cs = InterpolateCIMCross(e2, e, &r, &h, k);
+	    cs = InterpolateCIMCross(e2, e, 1.0, &r, &h, k);
 	    a = e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
 	    cs *= AREA_AU20/(2.0*a);
 	    cs1[k] = cs*v;
