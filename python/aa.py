@@ -72,7 +72,7 @@ class AA:
                  cc=None, znb=0, nr=6, nc=0, sc=0, pmi=0, bqp=-1E12,
                  vxf=2, vxm=2, hxs=-10.0, ngrid=0, maxiter=512,
                  ewm=0, ewf=1.0, vmin=0.2, ztol=-1.0, ids='',
-                 mmiter=10, mniter=5):
+                 ed=0, mmiter=10, mniter=5):
         if type(z) == type(''):
             z,wm = zw4c(z)
             if len(z) == 1:
@@ -82,11 +82,20 @@ class AA:
             self.z = z
             self.d = d
             self.asym = ATOMICSYMBOL[z]
-            self.wm = None            
+            self.wm = None
+            self.mm = ATOMICMASS[z]
+            self.ms = [self.mm]
             self.nc = 0
             self.nm = 0
             self.nmr = 0
             self.cc = cc
+            if znb == 1 and ed == 1:
+                nbe = 0.0
+                if not cc is None:
+                    nqs = rfac.nlqs(cc)
+                    for a in nqs:
+                        nbe = nbe + a[2]
+                self.d = (d/(z-nbe))*self.mm*1.673
         else:
             self.zm = z
             self.dm = d
@@ -105,11 +114,24 @@ class AA:
             else:
                 self.nc = min(self.nmr,self.ncpu)
             if cc is None:
-                self.cc = ['None' for i in range(self.nm)]
+                self.cc = [None for i in range(self.nm)]
             elif type(cc) == type(''):
                 self.cc = [cc for i in range(self.nm)]
             else:
                 self.cc = cc
+            if znb == 1 and ed == 1:
+                nfe = 0.0
+                for i in range(self.nm):
+                    c = self.cc[i]
+                    if c is None:
+                        nfe = nfe + self.wm[i]*self.zm[i]
+                    else:
+                        nqs = rfac.nlqs(c)
+                        nbe = 0.0
+                        for a in nqs:
+                            nbe = nbe + a[2]
+                        nfe = nfe + self.wm[i]*(self.zm[i]-nbe)
+                self.dm = (d/nfe)*self.mm*1.673
         self.t = t
         self.pref = pref
         self.dd = dd

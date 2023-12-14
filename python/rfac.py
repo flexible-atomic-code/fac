@@ -66,7 +66,10 @@ def nlq(s):
                 i += 1
                 if i >= len(s):
                     break
-            l = int(s[k:i])
+            try:
+                l = int(s[k:i])
+            except:
+                l = -1
             if i < len(s)-1:
                 q = int(s[i+1:])
             else:
