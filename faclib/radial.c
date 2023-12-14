@@ -127,6 +127,7 @@ static int _refine_mode = 1;
 static int _refine_pj = -1;
 static int _refine_em = 0;
 static int _print_spm = 0;
+static int _znbaa = 0;
 static double _psemax = 7.5;
 static int _psnfmin = 1;
 static int _psnfmax = 6;
@@ -4046,7 +4047,7 @@ double NBoundAA(int ns, int *n, int *ka, double *nq, double *et, double *nqc,
   double x, y, nb, ek;
   nb = 0.0;
   for (ik = 0; ik < ns; ik++) {
-    if (et[ik] >= 1e30) {
+    if ((et[ik] >= 1e30) || _znbaa > 0) {
       nq[ik] = 0.0;
       continue;
     }
@@ -12807,6 +12808,10 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "radial:vxm")) {
     potential->vxm = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:znbaa")) {
+    _znbaa = ip;
     return;
   }
   if (0 == strcmp(s, "radial:sc_lepton")) {

@@ -69,7 +69,7 @@ class AA:
     AA('H0.56C0.42Cu0.02', 10.0, 200).run()
     """
     def __init__(self, z=1, d=1.0, t=1.0, wm=None, dd=None, pref='',
-                 nr=6, nc=0, sc=0, pmi=0, bqp=-1E12,
+                 cc=None, znb=0, nr=6, nc=0, sc=0, pmi=0, bqp=-1E12,
                  vxf=2, vxm=2, hxs=-10.0, ngrid=0, maxiter=512,
                  ewm=0, ewf=1.0, vmin=0.2, ztol=-1.0, ids='',
                  mmiter=10, mniter=5):
@@ -82,9 +82,11 @@ class AA:
             self.z = z
             self.d = d
             self.asym = ATOMICSYMBOL[z]
-            self.wm = None
+            self.wm = None            
             self.nc = 0
+            self.nm = 0
             self.nmr = 0
+            self.cc = cc
         else:
             self.zm = z
             self.dm = d
@@ -102,6 +104,12 @@ class AA:
                 self.nc = min(min(self.ncpu,self.nmr), nc)
             else:
                 self.nc = min(self.nmr,self.ncpu)
+            if cc is None:
+                self.cc = ['None' for i in range(self.nm)]
+            elif type(cc) == type(''):
+                self.cc = [cc for i in range(self.nm)]
+            else:
+                self.cc = cc
         self.t = t
         self.pref = pref
         self.dd = dd
@@ -109,6 +117,7 @@ class AA:
         self.sc = sc
         self.pmi = pmi
         self.bqp = bqp
+        self.znb = znb
         self.vxf = vxf
         self.vxm = vxm
         self.hxs = hxs
@@ -129,15 +138,19 @@ class AA:
         else:
             self.dd = '.'
             
-    def aa1p(self, asym, d, t, pref):
+    def aa1p(self, asym, d, t, pref, cc):
         ReinitRadial(0)
         SetAtom(asym)
+        if not cc is None:
+            if len(cc) > 1:
+                AvgConfig(cc)
         if (self.ngrid > 0):
             SetRadialGrid(self.ngrid, -1, -1, -1, -1)
         SetOption('radial:sc_print', self.sc)
         SetOption('radial:print_maxiter', self.pmi)
         SetOptimizeMaxIter(self.maxiter)
         SetOption('radial:sc_vxf', self.vxf)
+        SetOption('radial:znbaa', self.znb)
         SetOption('radial:vxm', self.vxm)
         SetOption('orbital:sc_bqp', self.bqp)
         SetOption('orbital:sc_ewm', self.ewm)
@@ -149,18 +162,20 @@ class AA:
     def ploop(self, i0):
         nc = min(self.nmr,max(1,self.nc))
         for i in range(i0, self.nmr, nc):
-            print('aa1p: %s %2d %2d %2s %10.3E %10.3E %s'%(self.ids,
-                                                           self.niter,
-                                                           self.miter,
-                                                           self.xs[i][0],
-                                                           self.xs[i][1],
-                                                           self.t,
-                                                           self.xs[i][2]))
-            self.aa1p(self.xs[i][0], self.xs[i][1], self.t, self.xs[i][2])
+            print('aa1p: %s %2d %2d %2s %10.3E %10.3E %s %s'%(self.ids,
+                                                              self.niter,
+                                                              self.miter,
+                                                              self.xs[i][0],
+                                                              self.xs[i][1],
+                                                              self.t,
+                                                              self.xs[i][2],
+                                                              self.xs[i][3]))
+            self.aa1p(self.xs[i][0], self.xs[i][1], self.t,
+                      self.xs[i][2], self.xs[i][3])
 
     def run1z(self, asym):
         pf = '%s/%s%s'%(self.dd,self.pref,asym)
-        self.aa1p(asym, self.d, self.t, pf)
+        self.aa1p(asym, self.d, self.t, pf, self.cc)
 
     def rdos(self, pref, nm=0, emin=-1E31, emax=1E31, emde=0.0, bs=1.0):
         d = np.loadtxt('%s.dos'%pref, unpack=1)
@@ -338,7 +353,7 @@ class AA:
             ida = self.ms[i]*1.67e-24/iva
             for j in range(self.nr):
                 pf = '%s/vg%02d_%s%s'%(self.dd,j,self.pref,self.asym[i])
-                self.xs.append((self.asym[i],ida[j],pf))
+                self.xs.append((self.asym[i],ida[j],pf,self.cc[i]))
         self.nmr = self.nm*self.nr
         if (self.nc <= 1):
             self.ploop(0)
@@ -407,7 +422,7 @@ class AA:
             self.xs = []
             for i in range(self.nm):
                 pf = '%s/%s%s'%(self.dd,self.pref,self.asym[i])
-                self.xs.append((self.asym[i],d[i],pf))
+                self.xs.append((self.asym[i],d[i],pf,self.cc[i]))
             self.nmr = self.nm
             if (self.nc <= 1):
                 self.ploop(0)
