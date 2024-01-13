@@ -29,6 +29,25 @@ from pfac import util
 import os
 from multiprocessing import Pool, cpu_count
 
+def e2v(e, m=0):
+    if (m == 0):
+        k = e/const.Hartree_eV;
+        k = 2.0*k*(1.0 + 0.5*const.Alpha**2*k);
+        k = const.Alpha**2*k;
+        k = sqrt(k/(1.0+k));
+        k /= const.Alpha;
+        k *= const.RBohr*1e-8*const.Rate_AU*1E-10;
+    else:
+        m = const.Mp_keV*m/const.Me_keV;
+        k = e/const.Hartree_eV;
+        k = 2.0*m*k*(1.0+0.5*const.Alpha**2*k/m);
+        k = const.Alpha**2*k;
+        k = sqrt(k/(m*m+k));
+        k /= const.Alpha;
+        k *= const.RBohr*1e-8*const.Rate_AU*1E-10;  
+
+    return k
+
 def k2lj(k):
     l = abs(k)
     if k < 0:

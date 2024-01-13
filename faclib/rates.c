@@ -273,11 +273,13 @@ double IntegrateRate(int idist, double eth, double bound,
     result = 0.0;
     b = ele_dist[iedist].params[0];
     double x0 = bound/b;
+    double theta = FINE_STRUCTURE_CONST2*b/HARTREE_EV;
     for (n = 0; n < nw; n++) {
       b0 = xg[n];
       a = b0*b + bound;
       r0 = Rate1E(a, eth, np, params);
       r0 *= sqrt(b0 + x0)*maxwell_const;
+      r0 *= MaxwellRC(b0+x0, theta);
       result += wg[n]*r0;
     }
     if (type != RT_CE && type != RT_CI) {

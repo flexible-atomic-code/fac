@@ -1,7 +1,7 @@
-C calculates the modified bessel functions K with pure 
-C imaginary order, and the derivatives, result is exponentially scaled
+C     calculates the modified bessel functions K with real order,
+C     and the derivatives, result is exponentially scaled
 
-      subroutine beslik(lambda, x0, dk, dkp, ierr)
+      subroutine beslik(lambda, x0, dk, dkp)
 C
 CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 C     lambda:    the order. 
@@ -25,11 +25,13 @@ CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 
       kfn = 3
       x = dcmplx(x0, 0.0)
-      zlmin = dcmplx(0.0, lambda)
+c      zlmin = dcmplx(0.0, lambda)
+      zlmin = dcmplx(lambda, 0.0)
       k = 1
 
-      mode = -ierr
-      ierr = 1
+      mode = -1
+      ierr = 0
+      eta = 0.0
       call coulcc(x, eta, zlmin, k, fc, gc, fcp, gcp, sig, 
      +            mode, kfn, ierr)
       dk = dble(gc(k))

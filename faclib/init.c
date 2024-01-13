@@ -50,6 +50,7 @@ double FINE_STRUCTURE_CONST;
 double FINE_STRUCTURE_CONST2;
 
 static int _utagrid = 1;
+static int _maxwell_rc = 1;
 
 int Info(void) {
   printf("========================================\n");
@@ -261,9 +262,18 @@ void SetOption(char *s, char *sp, int ip, double dp) {
     _utagrid = ip;
     return;
   }
+  
+  if (strcmp("global:maxwell_rc", s) == 0) {
+    _maxwell_rc = ip;
+    return;
+  }
   return;
 }
 
 int UTAGrid(void) {
   return _utagrid;
+}
+
+int RelativisticMaxwell(void) {
+  return _maxwell_rc;
 }
