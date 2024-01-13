@@ -6513,7 +6513,24 @@ static PyObject *PBessel(PyObject *self, PyObject *args) {
   jy = 1;
   if (!PyArg_ParseTuple(args, "di|i", &x, &n, &jy)) return NULL;
 
-  r = BESLJN(jy, n, x);
+  if (jy == 1 || jy == 2) {
+    r = BESLJN(jy, n, x);
+  } else {
+    double dk, k;
+    k = n;
+    BESLIK(k, x, &r, &dk);
+  }
+  
+  return Py_BuildValue("d", r);
+}
+
+static PyObject *PMaxwellRC(PyObject *self, PyObject *args) {
+  double x, t, r;
+
+  if (!PyArg_ParseTuple(args, "dd", &x, &t)) return NULL;
+
+  r = MaxwellRC(x, t);
+  
   return Py_BuildValue("d", r);
 }
 
@@ -6843,6 +6860,7 @@ static struct PyMethodDef fac_methods[] = {
   {"FermiParamC", PFermiParamC, METH_VARARGS},
   {"Legendre", PLegendre, METH_VARARGS},
   {"Bessel", PBessel, METH_VARARGS},
+  {"MaxwellRC", PMaxwellRC, METH_VARARGS},
   {"FermiFun", PFermiFun, METH_VARARGS},
   {"XCPotential", PXCPotential, METH_VARARGS},
   {"FillClosedShell", PFillClosedShell, METH_VARARGS},

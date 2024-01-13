@@ -110,6 +110,33 @@ static struct {
 		   double *, double *, int, void *);
 } minpack_params;
 
+double MaxwellRC(double x, double t) {
+  double xt, b, t2;
+  const double c = 0.7978845608028655;
+
+  if (RelativisticMaxwell() == 0) return 1.0;
+  
+  if (t < 1e-3) {
+    xt = x*t;  
+    t2 = (1./8)*t;
+    b = 1.0 + t2*7.0*(1-t2*(0.5-1.5*t2));
+    return (1+xt)*sqrt(1+0.5*xt)/b;
+  }
+  if (t > 1e3) {
+    t2 = 1/t;
+    b = (x+t2)*sqrt(0.5*x+t2)*exp(-t2)/(2*c);
+    return b;
+  }
+  xt = x*t;
+  b = (1+xt)*sqrt((1+0.5*xt)*t)/c;
+  t2 = 1/t;
+  double k, dk, dp;
+  k = 2;
+  BESLIK(k, t2, &dk, &dp);
+  b = b/dk;
+  return b;
+}
+
 int GaussXW(double **xg, double **wg) {
   *xg = gauss_xw[0];
   *wg = gauss_xw[1];
@@ -1353,7 +1380,7 @@ int CEMFMaxwell(char *ifn, char *ofn, int i0, int i1,
   CEMF_HEADER mh;
   CEMF_RECORD mr;
   int i, t, m, p, ith, iph;
-  double data[2+(1+MAXNE)*4], e, cs, a, c;
+  double data[2+(1+MAXNE)*4], e, cs, a, c, b;
   double *xg = gauss_xw[0];
   double *wg = gauss_xw[1];
   EN_SRECORD *mem_en_table;
@@ -1366,7 +1393,7 @@ int CEMFMaxwell(char *ifn, char *ofn, int i0, int i1,
   }
   f2 = NULL;
   double bms = BornMass();
-  double tms;
+  double tms, theta;
   mem_en_table = GetOrLoadMemENFTable(&mem_en_table_size, ifn);
   if (mem_en_table == NULL) {
     printf("Energy table has not been built in memory.\n");
@@ -1405,11 +1432,17 @@ int CEMFMaxwell(char *ifn, char *ofn, int i0, int i1,
 	    PrepCEFCrossRecord(&r, &h, data);
 	    for (t = 0; t < nt; t++) {
 	      cs = 0.0;
-	      tms = temp[t];
+	      tms = temp[t]/bms;
+	      theta = FINE_STRUCTURE_CONST2*tms/HARTREE_EV;
 	      for (p = 0; p < 15; p++) {
 		a = tms*xg[p];
 		c = InterpolateCEFCross(a, &r, &h, data);
-		cs += wg[p]*c;
+		b = (a + e/bms)/HARTREE_EV;
+		b = FINE_STRUCTURE_CONST2*b;
+		a = 1+0.5*b;
+		b = sqrt(a/(1 + 2*b*a))/a;
+		b *= MaxwellRC(e/temp[t]+xg[p],theta);
+		cs += wg[p]*c*b;
 	      }
 	      a = 217.16*sqrt(HARTREE_EV/(2.0*tms));
 	      a *= cs*exp(-e/temp[t]);
@@ -1463,7 +1496,7 @@ int CEFMaxwell(char *ifn, char *ofn, int i0, int i1,
   CEF_HEADER h;
   CEF_RECORD r;
   int i, t, m, p;
-  double data[2+(1+MAXNE)*4], e, cs, a, c;
+  double data[2+(1+MAXNE)*4], e, cs, a, b, c;
   double *xg = gauss_xw[0];
   double *wg = gauss_xw[1];
   EN_SRECORD *mem_en_table;
@@ -1483,7 +1516,7 @@ int CEFMaxwell(char *ifn, char *ofn, int i0, int i1,
   }
 
   double bms = BornMass();
-  double tms;
+  double tms, theta;
   mem_en_table = GetOrLoadMemENFTable(&mem_en_table_size, ifn);
 
   if (mem_en_table == NULL) {
@@ -1518,10 +1551,16 @@ int CEFMaxwell(char *ifn, char *ofn, int i0, int i1,
 	for (t = 0; t < nt; t++) {
 	  cs = 0.0;
 	  tms = temp[t]/bms;
+	  theta = FINE_STRUCTURE_CONST2*tms/HARTREE_EV;
 	  for (p = 0; p < 15; p++) {
 	    a = tms*xg[p];
 	    c = InterpolateCEFCross(a, &r, &h, data);
-	    cs += wg[p]*c;
+	    b = (a + e/bms)/HARTREE_EV;
+	    b = FINE_STRUCTURE_CONST2*b;
+	    a = 1+0.5*b;
+	    b = sqrt(a/(1 + 2*b*a))/a;
+	    b *= MaxwellRC(e/temp[t]+xg[p], theta);
+	    cs += wg[p]*c*b;
 	  }
 	  a = 217.16*sqrt(HARTREE_EV/(2.0*tms));
 	  a *= cs*exp(-e/temp[t]);
@@ -1565,7 +1604,7 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
   CE_HEADER h;
   CE_RECORD r;
   int i, t, m, k, p;
-  double data[2+(1+MAXNUSR)*4], e, cs, a, c, ratio;
+  double data[2+(1+MAXNUSR)*4], e, cs, a, c, b, ratio;
   double *xg = gauss_xw[0];
   double *wg = gauss_xw[1];
   EN_SRECORD *mem_en_table;
@@ -1584,7 +1623,7 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
   }
 
   double bms = BornMass();
-  double tms;
+  double tms, theta;
   mem_en_table = GetOrLoadMemENTable(&mem_en_table_size, ifn);
 
   if (mem_en_table == NULL) {
@@ -1619,11 +1658,17 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
 	  PrepCECrossRecord(k, &r, &h, data);
 	  for (t = 0; t < nt; t++) {
 	    tms = temp[t]/bms;
+	    theta = FINE_STRUCTURE_CONST2*tms/HARTREE_EV;
 	    cs = 0.0;
 	    for (p = 0; p < 15; p++) {
 	      a = tms*xg[p];
 	      c = InterpolateCECross(a, &r, &h, data, &ratio);
-	      cs += wg[p]*c;
+	      b = (a + e/bms)/HARTREE_EV;
+	      b = FINE_STRUCTURE_CONST2*b;
+	      a = 1+0.5*b;
+	      b = sqrt(a/(1 + 2*b*a))/a;
+	      b *= MaxwellRC(e/temp[t]+xg[p],theta);
+	      cs += wg[p]*c*b;
 	    }
 	    a = 217.16*sqrt(HARTREE_EV/(2.0*tms));
 	    a *= cs*exp(-e/temp[t]);
@@ -1961,7 +2006,7 @@ int CIMaxwell(char *ifn, char *ofn, int i0, int i1,
   CI_HEADER h;
   CI_RECORD r;
   int i, t, nb, m, p;
-  double tc, e, e0, cs;
+  double tc, e, e0, cs, b, a;
   double *xg = gauss_xw[0];
   double *wg = gauss_xw[1];
   EN_SRECORD *mem_en_table;
@@ -2001,7 +2046,7 @@ int CIMaxwell(char *ifn, char *ofn, int i0, int i1,
     egy[i] /= HARTREE_EV;
   }
   double bms = BornMass();
-  double tms;
+  double tms, theta;
   while (1) {
     n = ReadCIHeader(f1, &h, swp);
     if (n == 0) break;
@@ -2017,10 +2062,16 @@ int CIMaxwell(char *ifn, char *ofn, int i0, int i1,
 	for (t = 0; t < negy; t++) {
 	  cs = 0.0;
 	  tms = egy[t];
+	  theta = FINE_STRUCTURE_CONST2*tms/bms;
 	  for (p = 0; p < 15; p++) {
 	    e0 =  tms*xg[p];
 	    tc = InterpolateCICross(e0, e, bms, &r, &h);
-	    cs += wg[p]*tc;
+	    b = (e0 + e)/bms;
+	    b = FINE_STRUCTURE_CONST2*b;
+	    a = 1+0.5*b;
+	    b = sqrt(a/(1 + 2*b*a))/a;
+	    b *= MaxwellRC(e/egy[t]+xg[p], theta);
+	    cs += wg[p]*tc*b;
 	  }
 	  tc = (217.16/PI)*sqrt(1.0/(2.0*tms));
 	  tc *= cs*exp(-e/egy[t]);
@@ -2595,8 +2646,8 @@ int RRMaxwell(char *ifn, char *ofn, int i0, int i1,
   RR_RECORD r;
   int i, t, nb, m, p;
   float e, eph, ee;
-  double *xusr, *dstrength, tc, cs, rr, emax;
-  double x, y;
+  double *xusr, *dstrength, a, b, tc, cs, rr, emax;
+  double x, y, theta;
   int np=3, one=1, nele;
   double *xg = gauss_xw[0];
   double *wg = gauss_xw[1];
@@ -2658,6 +2709,7 @@ int RRMaxwell(char *ifn, char *ofn, int i0, int i1,
 	}
 	for (t = 0; t < negy; t++) {
 	  cs = 0.0;
+	  theta = FINE_STRUCTURE_CONST2*egy[t]/HARTREE_EV;
 	  for (p = 0; p < 15; p++) {
 	    ee = egy[t]*xg[p];
 	    eph = ee + e;
@@ -2678,7 +2730,11 @@ int RRMaxwell(char *ifn, char *ofn, int i0, int i1,
 	    }
 	    tc *= 2.0*FINE_STRUCTURE_CONST;
 	    tc *= pow(FINE_STRUCTURE_CONST*eph, 2);
-	    cs += tc * wg[p];
+	    b = FINE_STRUCTURE_CONST2*ee;
+	    a = 1+0.5*b;
+	    b = sqrt(a/(1+2*b*a));
+	    b *= MaxwellRC(ee/egy[t], theta);
+	    cs += tc * wg[p] * b;
 	  }
 	  rr = 217.16 * sqrt(1.0/(2.0*egy[t]));
 	  rr *= cs;

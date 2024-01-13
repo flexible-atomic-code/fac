@@ -141,6 +141,7 @@ extern FILE *perform_log;
 #endif
 
 int UTAGrid(void);
+int RelativisticMaxwell(void);
 
 #endif
 

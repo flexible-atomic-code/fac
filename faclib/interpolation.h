@@ -61,6 +61,7 @@ int NLSQFit(int np, double *p, double tol, int *ipvt,
 	    void *extra);
 double Simpson(double *y, int ia, int ib);
 double uvip3s(int n, double *x, int i);
+double MaxwellRC(double x, double t);
 int NewtonCotes(double *r, double *x, int i0, int i1, int m, int id);
 int NewtonCotesIP(double *r, double *x, int i0, int i1, int m, int id);
 double RRCrossHn(double z, double e, int n);
