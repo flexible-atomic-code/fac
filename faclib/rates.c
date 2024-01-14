@@ -520,7 +520,7 @@ double CERate1E(double e1, double eth0, int np, void *p) {
     c = FINE_STRUCTURE_CONST2*d;
     b = log(1.05*d*HARTREE_EV/eth0) - c/(1.0+c);
     b = Max(0.0, b);
-    a = dp[1]*b;
+    a = dp[1]*b*(1+c);
     /*
     b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
     b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
@@ -547,19 +547,19 @@ double CERate1E(double e1, double eth0, int np, void *p) {
     } else {
       x0 = (e-eth)/(et0+e-eth);
       y0 = y[np-1];
-      if (dp[1] > 0) {
+      if (dp[1] > -EPS10) {
 	if (XCEMode() == 1) {
 	  e0 = (x[np]*et0/(1.0-x[np]) + eth)/HARTREE_EV;
 	  d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
 	  c = FINE_STRUCTURE_CONST2*d;
 	  b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);
-	  y0 -= dp[1]*b;
+	  y0 = y0/(1+c) - dp[1]*b;
 	  a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
 	  e0 = e/HARTREE_EV;
 	  d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
 	  c = FINE_STRUCTURE_CONST2*d;
 	  b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);
-	  a += dp[1]*b;
+	  a = (a + dp[1]*b)*(1+c);
 	} else {
 	  e0 = (x[np]*et0/(1.0-x[np]) + eth);
 	  b = log(e0/eth0);
@@ -635,10 +635,7 @@ double DERate1E(double e1, double eth0, int np, void *p) {
     c = FINE_STRUCTURE_CONST2*d;
     b = log(1.05*d*HARTREE_EV/eth0) - c/(1.0+c);
     b = Max(0.0, b);
-    a = dp[1]*b;
-    b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
-    b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
-    a *= b0*b1;    
+    a = dp[1]*b*(1+c);
   } else {
     if (dp[0] > 0) {
       et0 = dp[0];
@@ -662,19 +659,19 @@ double DERate1E(double e1, double eth0, int np, void *p) {
     } else {
       x0 = e/(et0+e);
       y0 = y[np-1]; 
-      if (dp[1] > 0) {
+      if (dp[1] > -EPS10) {
 	if (XCEMode() == 1) {
 	  e0 = (x[np]*et0/(1.0-x[np]) + eth)/HARTREE_EV;
 	  d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
 	  c = FINE_STRUCTURE_CONST2*d;
 	  b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);
-	  y0 -= dp[1]*b;
+	  y0 = y0/(1+c) - dp[1]*b;
 	  a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
 	  e0 = (e+eth)/HARTREE_EV;
 	  d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
 	  c = FINE_STRUCTURE_CONST2*d;
 	  b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);
-	  a += dp[1]*b;
+	  a = (a + dp[1]*b)*(1+c);
 	} else {
 	  e0 = (x[np]*et0/(1.0-x[np]) + eth);
 	  b = log(e0/eth0);

@@ -741,17 +741,6 @@ void PrepCEFCrossRecord(CEF_RECORD *r, CEF_HEADER *h, double *data) {
     y[j] = log(Max(MINCS,cs[j]));
   }
   y[m] = r->born[0];
-  if (r->bethe > 0 && XCEMode() == 1) {
-    BornFormFactorTE(&bte);
-    bms = BornMass();
-    bte = (e + bte)/bms;
-    b = r->born[1] + bte;
-    y[m] += r->bethe * log(b/e);
-    b = 2*b*(1+0.5*FINE_STRUCTURE_CONST2*b);
-    c = FINE_STRUCTURE_CONST2*b;
-    b = log(0.5*b/e) - c/(1+c);
-    y[m] -= r->bethe*b;
-  }
 }
 
 void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
@@ -797,17 +786,6 @@ void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
       }
     }
     y[m] = r->born[0];
-    if (r->bethe > 0 && XCEMode() == 1) {
-      BornFormFactorTE(&bte);
-      bms = BornMass();
-      bte = (e + bte)/bms;
-      b = r->born[1] + bte;
-      y[m] += r->bethe * log(b/e);
-      b = 2*b*(1+0.5*FINE_STRUCTURE_CONST2*b);
-      c = FINE_STRUCTURE_CONST2*b;
-      b = log(0.5*b/e) - c/(1+c);
-      y[m] -= r->bethe*b;
-    }
   }
 
   for (j = 0; j < m; j++) {
@@ -871,19 +849,19 @@ double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
   } else {
     x0 = e/(et0 + e);
     y0 = exp(y[m-1]);
-    if (data[1] > 0) {
+    if (data[1] > -EPS10) {
       if (XCEMode() == 1) {
 	e0 = ((x[m]*et0/(1.0-x[m]))+eth1)/HARTREE_EV;
 	d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
 	c = FINE_STRUCTURE_CONST2*d;
 	b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
-	y0 -= data[1]*b;
+	y0 = y0/(1+c) - data[1]*b;
 	a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
 	e0 = (e + eth1)/HARTREE_EV;
 	d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
 	c = FINE_STRUCTURE_CONST2*d;
 	b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
-	a += data[1]*b;
+	a = (a + data[1]*b)*(1+c);
       } else {
 	e0 = ((x[m]*et0/(1.0-x[m]))+eth1);
 	b = log(e0/eth);
@@ -976,19 +954,19 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
   } else {
     x0 = e/(et0 + e);
     y0 = exp(y[m-1]);
-    if (data[1] > 0) {
+    if (data[1] > -EPS10) {
       if (XCEMode() == 1) {
 	e0 = ((x[m]*et0/(1.0-x[m]))+eth1)/HARTREE_EV;
 	d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
 	c = FINE_STRUCTURE_CONST2*d;
 	b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
-	y0 -= data[1]*b;
+	y0 = y0/(1+c) - data[1]*b;
 	a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
 	e0 = (e + eth1)/HARTREE_EV;
 	d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
 	c = FINE_STRUCTURE_CONST2*d;
 	b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
-	a += data[1]*b;
+	a = (a + data[1]*b)*(1+c);
       } else {
 	e0 = ((x[m]*et0/(1.0-x[m]))+eth1);
 	b = log(e0/eth);

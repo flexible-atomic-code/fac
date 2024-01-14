@@ -815,7 +815,7 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   int j0, j1, j2, j3;
   int ko2, t, nk, ty, bnk;
   double r, c0, c1, dk;
-  double x, b, d, c, a, h, g0, b0, b1, a0, a1;
+  double x, b, d, c, a, h, g0, a0, a1;
   double *g1, *g2, *x1, *x2;
   double bte, bms;
   FORM_FACTOR *bform;
@@ -858,8 +858,6 @@ int CERadialQkBorn(int k0, int k1, int k2, int k3, int k,
   if (m <= 0) {
     a0 = FINE_STRUCTURE_CONST2*c0;
     a1 = FINE_STRUCTURE_CONST2*e1;
-    b0 = 1 + a0;
-    b1 = 1 + a1;
     a0 = 1.0 + 0.5*a0;
     a1 = 1.0 + 0.5*a1;
     c0 = 2.0*c0*a0;
@@ -2192,7 +2190,7 @@ int CollisionStrengthUTA(double *qkt, double *params,
       qkt[ie] = 8.0*qkc[ie];
     }
   }
-  RelativisticCorrection(0, qkt, params, bte, bethe[0]);
+  //RelativisticCorrection(0, qkt, params, bte, bethe[0]);
   return 1;
 }
 
@@ -2375,7 +2373,7 @@ int CollisionStrengthUTA1(double *qkt, double *params,
       qkt[ie] = 8.0*qkc[ie];
     }
   }
-  RelativisticCorrection(0, qkt, params, bte, bethe[0]);
+  //RelativisticCorrection(0, qkt, params, bte, bethe[0]);
   free(idatum->bra);
   free(idatum);
   return 1;
@@ -2498,7 +2496,7 @@ int CollisionStrengthEB(double *qkt, double *e, double *bethe,
     qkt[ie] = 8.0*qkc[ie];
   }
 
-  RelativisticCorrection(0, qkt, NULL, bte, bethe[0]);
+  //RelativisticCorrection(0, qkt, NULL, bte, bethe[0]);
 
   return 1;
 }
@@ -2638,7 +2636,7 @@ int CollisionStrengthEBD(double *qkt, double *e, double *bethe, double *born,
     born[m] = egrid[ie];
   }
 
-  RelativisticCorrection(0, qkt, NULL, bte, bethe[0]);
+  //RelativisticCorrection(0, qkt, NULL, bte, bethe[0]);
   return 1;
 }
 
@@ -3040,7 +3038,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	qkt[ie] = 8.0*qkc[ie];
       }
     }
-    RelativisticCorrection(0, qkt, NULL, bte, bethe[0]);
+    //RelativisticCorrection(0, qkt, NULL, bte, bethe[0]);
     return 1;
   } else {
     rqk = qkc;
@@ -3116,7 +3114,7 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	rqkt += n_usr;
       }
     }
-    RelativisticCorrection(p, qkt, ubt, bte, bethe[0]);
+    //RelativisticCorrection(p, qkt, ubt, bte, bethe[0]);
     return p;
   }
 }
