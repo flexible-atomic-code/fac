@@ -51,6 +51,7 @@ double FINE_STRUCTURE_CONST2;
 
 static int _utagrid = 1;
 static int _maxwell_rc = 1;
+static int _xce_mode = 1;
 
 int Info(void) {
   printf("========================================\n");
@@ -267,6 +268,11 @@ void SetOption(char *s, char *sp, int ip, double dp) {
     _maxwell_rc = ip;
     return;
   }
+  
+  if (strcmp("global:xce_mode", s) == 0) {
+    _xce_mode = ip;
+    return;
+  }
   return;
 }
 
@@ -276,4 +282,8 @@ int UTAGrid(void) {
 
 int RelativisticMaxwell(void) {
   return _maxwell_rc;
+}
+
+int XCEMode(void) {
+  return _xce_mode;
 }
