@@ -142,6 +142,7 @@ extern FILE *perform_log;
 
 int UTAGrid(void);
 int RelativisticMaxwell(void);
+int XCEMode(void);
 
 #endif
 

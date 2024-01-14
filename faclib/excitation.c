@@ -2940,8 +2940,11 @@ int CollisionStrength(double *qkt, double *params, double *e, double *bethe,
 	c = egrid[ie] + bte;
       }
       born_egrid = c/te;
-      if (bethe[0] > 0) bethe[1] = born_cross - bethe[0]*log(born_egrid);
-      else bethe[1] = born_cross;
+      if (bethe[0] > 0) {
+	bethe[1] = born_cross - bethe[0]*log(born_egrid);
+      } else {
+	bethe[1] = born_cross;
+      }
       bethe[2] = egrid[ie];
       if (uta_tegrid) {
 	bethe[2] *= bte;

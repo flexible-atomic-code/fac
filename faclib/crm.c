@@ -5572,6 +5572,7 @@ int SetCERates(int inv) {
 	  {
 	  data = _ce_data;
 	  y = data + 2;
+	  double b, c;
 	  int w = 0;
 	  for (ib = 0; ib < nrb; ib++) {
 	    int skip = SkipWMPI(w++);
@@ -5590,6 +5591,14 @@ int SetCERates(int inv) {
 	    data[1] = r[ib].bethe;
 	    cs = r[ib].strength;
 	    y[m] = r[ib].born[0];
+	    if (r[ib].bethe > 0 && XCEMode() == 1) {
+	      b = r[ib].born[1] + (e+bte)/bms;
+	      y[m] += r[ib].bethe * log(b/e);
+	      b = 2*b*(1+0.5*FINE_STRUCTURE_CONST2*b);
+	      c = FINE_STRUCTURE_CONST2*b;
+	      b = log(0.5*b/e) - c/(1+c);
+	      y[m] -= r[ib].bethe*b;
+	    }	    
 	    for (j = 0; j < m; j++) {
 	      y[j] = cs[j];
 	    }
@@ -5663,6 +5672,7 @@ int SetCERates(int inv) {
 	    {	    
 	    data = _ce_data;
 	    y = data + 2;
+	    double b, c;
 	    int w = 0;
 	    for (ib = 0; ib < nrb; ib++) {
 	      int skip = SkipWMPI(w++);
@@ -5697,6 +5707,14 @@ int SetCERates(int inv) {
 	      data[1] = r[ib].bethe;	
 	      cs = r[ib].strength;
 	      y[m] = r[ib].born[0];
+	      if (r[ib].bethe > 0 && XCEMode() == 1) {
+		b = r[ib].born[1] + (e+bte)/bms;
+		y[m] += r[ib].bethe * log(b/e);
+		b = 2*b*(1+0.5*FINE_STRUCTURE_CONST2*b);
+		c = FINE_STRUCTURE_CONST2*b;
+		b = log(0.5*b/e) - c/(1+c);
+		y[m] -= r[ib].bethe*b;
+	      }	    
 	      for (j = 0; j < m; j++) {
 		y[j] = cs[j];
 	      }

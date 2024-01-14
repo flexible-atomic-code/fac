@@ -113,7 +113,29 @@ static struct {
 double MaxwellRC(double x, double t) {
   double xt, b, t2;
   const double c = 0.7978845608028655;
-
+  double yk[51] = {6.30146418,  6.06160232,  5.82178439,
+		   5.58202434,  5.34234055,
+		   5.10275723,  4.86330622,  4.62402938,
+		   4.38498178,  4.14623567,
+		   3.90788583,  3.67005632,  3.43290916,
+		   3.19665532,  2.96156839,
+		   2.72800123,  2.49640561,  2.26735425,
+		   2.0415637 ,  1.81991451,
+		   1.60346307,  1.39343634,  1.19119839,
+		   0.9981783 ,  0.81575458,
+		   0.64510479,  0.48704685,  0.3419127 ,
+		   0.20949368,  0.08907623,
+		   -0.0204446 , -0.12041052, -0.21224573,
+		   -0.29733316, -0.37693307,
+		   -0.45214174, -0.52388044, -0.59290373,
+		   -0.65981791, -0.72510319,
+		   -0.7891359 , -0.85220858, -0.91454729,
+		   -0.9763259 , -1.03767773,
+		   -1.09870471, -1.15948462, -1.22007674,
+		   -1.2805262 , -1.34086731, -1.40112617};
+  double xk0 = -3.0, xk1 = 3.0, dxk = 0.12;
+  int nk = 51, k;
+  
   if (RelativisticMaxwell() == 0) return 1.0;
   
   if (t < 1e-3) {
@@ -129,11 +151,21 @@ double MaxwellRC(double x, double t) {
   }
   xt = x*t;
   b = (1+xt)*sqrt((1+0.5*xt)*t)/c;
-  t2 = 1/t;
-  double k, dk, dp;
-  k = 2;
-  BESLIK(k, t2, &dk, &dp);
-  b = b/dk;
+  t2 = log10(1/t);
+  k = (int)((t2-xk0)/dxk);
+  if (k <= 0) {
+    xt = yk[0];
+  } else if (k >= nk-1) {
+    xt = yk[nk-1];
+  } else {
+    xt = yk[k] + (t2-(xk0+k*dxk))*(yk[k+1]-yk[k])/dxk;
+  }
+  xt = pow(10, xt);
+  b /= xt;
+  //double k, dk, dp;
+  //k = 2;
+  //BESLIK(k, t2, &dk, &dp);
+  //b = b/dk;
   return b;
 }
 
@@ -688,7 +720,7 @@ void PrepCECrossHeader(CE_HEADER *h, double *data) {
 }
 
 void PrepCEFCrossRecord(CEF_RECORD *r, CEF_HEADER *h, double *data) {
-  double *eusr, *x, *y, e;
+  double *eusr, *x, *y, e, b, c, bms, bte;
   float *cs;
   int m, m1, j;
   EN_SRECORD *mem_en_table;
@@ -709,11 +741,22 @@ void PrepCEFCrossRecord(CEF_RECORD *r, CEF_HEADER *h, double *data) {
     y[j] = log(Max(MINCS,cs[j]));
   }
   y[m] = r->born[0];
+  if (r->bethe > 0 && XCEMode() == 1) {
+    BornFormFactorTE(&bte);
+    bms = BornMass();
+    bte = (e + bte)/bms;
+    b = r->born[1] + bte;
+    y[m] += r->bethe * log(b/e);
+    b = 2*b*(1+0.5*FINE_STRUCTURE_CONST2*b);
+    c = FINE_STRUCTURE_CONST2*b;
+    b = log(0.5*b/e) - c/(1+c);
+    y[m] -= r->bethe*b;
+  }
 }
 
 void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
 		       double *data) {
-  double *eusr, *x, *y, *w, e;
+  double *eusr, *x, *y, *w, e, b, c, bms, bte;
   float *cs;
   int m, m1, j, t;
   int j1, j2, t1, t2;
@@ -730,7 +773,6 @@ void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
   w = x + m1;
   e = mem_en_table[r->upper].energy - mem_en_table[r->lower].energy;
   data[1] = r->bethe;
-
   cs = r->strength;
   if (k == 0) {
     if (h->msub) {
@@ -755,6 +797,17 @@ void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
       }
     }
     y[m] = r->born[0];
+    if (r->bethe > 0 && XCEMode() == 1) {
+      BornFormFactorTE(&bte);
+      bms = BornMass();
+      bte = (e + bte)/bms;
+      b = r->born[1] + bte;
+      y[m] += r->bethe * log(b/e);
+      b = 2*b*(1+0.5*FINE_STRUCTURE_CONST2*b);
+      c = FINE_STRUCTURE_CONST2*b;
+      b = log(0.5*b/e) - c/(1+c);
+      y[m] -= r->bethe*b;
+    }
   }
 
   for (j = 0; j < m; j++) {
@@ -819,6 +872,27 @@ double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
     x0 = e/(et0 + e);
     y0 = exp(y[m-1]);
     if (data[1] > 0) {
+      if (XCEMode() == 1) {
+	e0 = ((x[m]*et0/(1.0-x[m]))+eth1)/HARTREE_EV;
+	d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+	c = FINE_STRUCTURE_CONST2*d;
+	b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
+	y0 -= data[1]*b;
+	a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
+	e0 = (e + eth1)/HARTREE_EV;
+	d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+	c = FINE_STRUCTURE_CONST2*d;
+	b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
+	a += data[1]*b;
+      } else {
+	e0 = ((x[m]*et0/(1.0-x[m]))+eth1);
+	b = log(e0/eth);
+	y0 -= data[1]*b;
+	a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
+	b = log((e+eth1)/eth);
+	a += data[1]*b;
+      }
+      /*
       e0 = ((x[m]*et0/(1.0-x[m]))+eth1)/HARTREE_EV;
       b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
       b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth1/HARTREE_EV);
@@ -845,6 +919,7 @@ double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
       b0 = 1.0 + FINE_STRUCTURE_CONST2*(e+eth1)/HARTREE_EV;
       b1 = 1.0 + FINE_STRUCTURE_CONST2*e/HARTREE_EV;
       a *= b0*b1;
+      */
     } else {
       a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
     }
@@ -902,6 +977,27 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
     x0 = e/(et0 + e);
     y0 = exp(y[m-1]);
     if (data[1] > 0) {
+      if (XCEMode() == 1) {
+	e0 = ((x[m]*et0/(1.0-x[m]))+eth1)/HARTREE_EV;
+	d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+	c = FINE_STRUCTURE_CONST2*d;
+	b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
+	y0 -= data[1]*b;
+	a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
+	e0 = (e + eth1)/HARTREE_EV;
+	d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+	c = FINE_STRUCTURE_CONST2*d;
+	b = log(0.5*d*HARTREE_EV/eth) - c/(1.0+c);
+	a += data[1]*b;
+      } else {
+	e0 = ((x[m]*et0/(1.0-x[m]))+eth1);
+	b = log(e0/eth);
+	y0 -= data[1]*b;
+	a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
+	b = log((e+eth1)/eth);
+	a += data[1]*b;
+      }
+      /*
       e0 = ((x[m]*et0/(1.0-x[m]))+eth1)/HARTREE_EV;
       b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
       b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth1/HARTREE_EV);
@@ -928,6 +1024,7 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
       b0 = 1.0 + FINE_STRUCTURE_CONST2*(e+eth1)/HARTREE_EV;
       b1 = 1.0 + FINE_STRUCTURE_CONST2*e/HARTREE_EV;
       a *= b0*b1;
+      */
     } else {
       a = y[m] + (x0-1.0)*(y0-y[m])/(x[m]-1.0);
     }
@@ -1604,7 +1701,7 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
   CE_HEADER h;
   CE_RECORD r;
   int i, t, m, k, p;
-  double data[2+(1+MAXNUSR)*4], e, cs, a, c, b, ratio;
+  double data[2+(1+MAXNUSR)*4], e, cs, a, c, b, d, ratio;
   double *xg = gauss_xw[0];
   double *wg = gauss_xw[1];
   EN_SRECORD *mem_en_table;
@@ -1667,8 +1764,8 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
 	      b = FINE_STRUCTURE_CONST2*b;
 	      a = 1+0.5*b;
 	      b = sqrt(a/(1 + 2*b*a))/a;
-	      b *= MaxwellRC(e/temp[t]+xg[p],theta);
-	      cs += wg[p]*c*b;
+	      d = MaxwellRC(e/temp[t]+xg[p],theta);
+	      cs += wg[p]*c*b*d;
 	    }
 	    a = 217.16*sqrt(HARTREE_EV/(2.0*tms));
 	    a *= cs*exp(-e/temp[t]);

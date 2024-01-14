@@ -278,7 +278,7 @@ double IntegrateRate(int idist, double eth, double bound,
       b0 = xg[n];
       a = b0*b + bound;
       r0 = Rate1E(a, eth, np, params);
-      r0 *= sqrt(b0 + x0)*maxwell_const;
+      r0 *= sqrt(b0 + x0)*maxwell_const;      
       r0 *= MaxwellRC(b0+x0, theta);
       result += wg[n]*r0;
     }
@@ -521,9 +521,11 @@ double CERate1E(double e1, double eth0, int np, void *p) {
     b = log(1.05*d*HARTREE_EV/eth0) - c/(1.0+c);
     b = Max(0.0, b);
     a = dp[1]*b;
+    /*
     b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
     b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
     a *= b0*b1;    
+    */
   } else {
     if (dp[0] > 0) et0 = dp[0];
     else et0 = eth;
@@ -546,7 +548,27 @@ double CERate1E(double e1, double eth0, int np, void *p) {
       x0 = (e-eth)/(et0+e-eth);
       y0 = y[np-1];
       if (dp[1] > 0) {
-	e0 = (x[np]*et0/(1.0-x[np]) + eth)/HARTREE_EV;
+	if (XCEMode() == 1) {
+	  e0 = (x[np]*et0/(1.0-x[np]) + eth)/HARTREE_EV;
+	  d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+	  c = FINE_STRUCTURE_CONST2*d;
+	  b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);
+	  y0 -= dp[1]*b;
+	  a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
+	  e0 = e/HARTREE_EV;
+	  d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+	  c = FINE_STRUCTURE_CONST2*d;
+	  b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);
+	  a += dp[1]*b;
+	} else {
+	  e0 = (x[np]*et0/(1.0-x[np]) + eth);
+	  b = log(e0/eth0);
+	  y0 -= dp[1]*b;
+	  a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
+	  b = log(e/eth0);
+	  a += dp[1]*b;
+	}
+      /*
 	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
 	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
 	y0 /= b0*b1;
@@ -575,6 +597,7 @@ double CERate1E(double e1, double eth0, int np, void *p) {
 	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
 	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
 	a *= b0*b1;
+      */
       } else {
 	a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
       }
@@ -640,6 +663,27 @@ double DERate1E(double e1, double eth0, int np, void *p) {
       x0 = e/(et0+e);
       y0 = y[np-1]; 
       if (dp[1] > 0) {
+	if (XCEMode() == 1) {
+	  e0 = (x[np]*et0/(1.0-x[np]) + eth)/HARTREE_EV;
+	  d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+	  c = FINE_STRUCTURE_CONST2*d;
+	  b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);
+	  y0 -= dp[1]*b;
+	  a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
+	  e0 = (e+eth)/HARTREE_EV;
+	  d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+	  c = FINE_STRUCTURE_CONST2*d;
+	  b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);
+	  a += dp[1]*b;
+	} else {
+	  e0 = (x[np]*et0/(1.0-x[np]) + eth);
+	  b = log(e0/eth0);
+	  y0 -= dp[1]*b;
+	  a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
+	  b = log((e+eth)/eth0);
+	  a += dp[1]*b;
+	}
+	/*
 	e0 = (x[np]*et0/(1.0-x[np]) + eth)/HARTREE_EV;
 	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
 	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
@@ -667,6 +711,7 @@ double DERate1E(double e1, double eth0, int np, void *p) {
 	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
 	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
 	a *= b0*b1;
+	*/
       } else {
 	a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
       }
