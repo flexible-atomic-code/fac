@@ -1672,12 +1672,9 @@ static PyObject *PSetOption(PyObject *self, PyObject *args) {
   } else {
     return NULL;
   }
-  if (strstr(s, "crm:") == s) {
-    SetOptionCRM(s, sp, ip, dp);
-  }
-  if (strstr(s, "rates:") == s) {
-    SetOptionRates(s, sp, ip, dp);
-  }
+
+  SetOption(s, sp, ip, dp);
+  
   Py_INCREF(Py_None);
   return Py_None;
 }

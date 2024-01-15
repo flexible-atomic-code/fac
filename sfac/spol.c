@@ -24,6 +24,7 @@ USE (rcsid);
 
 #include "stoken.h"
 #include "polarization.h"
+#include "init.h"
 
 static int PPrint(int argc, char *argv[], int argt[], ARRAY *variables) {
   int i;
@@ -369,7 +370,7 @@ static int PSetOption(int argc, char *argv[], int argt[],
     ip = 0;
     dp = 0;
   }
-  SetOptionPolarization(argv[0], argv[1], ip, dp);
+  SetOption(argv[0], argv[1], ip, dp);
   return 0;
 }
 

@@ -609,7 +609,10 @@ double CERate1E(double e1, double eth0, int np, void *p) {
   }
   
   e0 = e/HARTREE_EV;
-  b = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);  
+  b = 2.0*e0;
+  if (XCEMode() == 1) {
+    b *= (1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+  }
   a *= PI*AREA_AU20/b;
   a *= VelocityFromE(e1, bms);
   return a;
@@ -720,7 +723,10 @@ double DERate1E(double e1, double eth0, int np, void *p) {
   }
 
   e0 = e/HARTREE_EV;
-  b = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+  b = 2.0*e0;
+  if (XCEMode() == 1) {
+    b *= (1.0+0.5*FINE_STRUCTURE_CONST2*e0);
+  }
   a *= PI*AREA_AU20/b;
   a *= VelocityFromE(e1, bms);
   return a;
@@ -780,7 +786,7 @@ int TRRate(double *dir, double *inv, int iinv,
 double CIRate1E(double e, double eth, int np, void *p) {
   float *dp;
   double x;
-  double a, b, c, f;
+  double a, b, c, s, f;
   double logx;
 
   if (e < eth) return 0.0;
@@ -796,8 +802,17 @@ double CIRate1E(double e, double eth, int np, void *p) {
   f += dp[1]*b*b;
   f += dp[2]*c;
   f += dp[3]*a*c;
-  
-  c = AREA_AU20*HARTREE_EV*f/(2.0*e);
+
+  a = e/HARTREE_EV;
+  if (XCIMode() == 1) {
+    x = 1 + 0.5*FINE_STRUCTURE_CONST2*a;
+    b = 2*a*x;
+    s = FINE_STRUCTURE_CONST2*b;
+    f = (f + dp[0]*(log(x) - s/(1+s)))*(1+s);
+    c = AREA_AU20*f/b;
+  } else {
+    c = AREA_AU20*f/(2*a);
+  }
   c *= VelocityFromE(e, 0.0);
 
   return c;

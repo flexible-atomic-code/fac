@@ -25,6 +25,10 @@ USE (rcsid);
 #include "init.h"
 #include "mpiutil.h"
 
+void SetOptionCRM(char *s, char *sp, int ip, double dp);
+void SetOptionRates(char *s, char *sp, int ip, double dp);
+void SetOptionPolarization(char *s, char *sp, int ip, double dp);
+
 #if FAC_DEBUG
   FILE *debug_log = NULL;
 #endif
@@ -52,6 +56,7 @@ double FINE_STRUCTURE_CONST2;
 static int _utagrid = 1;
 static int _maxwell_rc = 1;
 static int _xce_mode = 1;
+static int _xci_mode = 1;
 
 int Info(void) {
   printf("========================================\n");
@@ -209,7 +214,23 @@ int ReinitFac(int m_config, int m_recouple, int m_radial,
   return 0;
 }
 
-void SetOption(char *s, char *sp, int ip, double dp) {    
+void SetOption(char *s, char *sp, int ip, double dp) {
+  if (strstr(s, "crm:") == s) {
+    SetOptionCRM(s, sp, ip, dp);
+    return;
+  }
+  if (strstr(s, "rates:") == s) {
+    SetOptionRates(s, sp, ip, dp);
+    return;
+  }
+  if (strstr(s, "pol:") == s) {
+    SetOptionPolarization(s, sp, ip, dp);
+    return;
+  }
+  if (strstr(s, "global:") == s) {
+    SetOptionGlobal(s, sp, ip, dp);
+    return;
+  }
   if (strstr(s, "dbase:") == s) {
     SetOptionDBase(s, sp, ip, dp);
     return;
@@ -258,7 +279,9 @@ void SetOption(char *s, char *sp, int ip, double dp) {
     SetOptionConfig(s, sp, ip, dp);
     return;
   }
-  
+}
+
+void SetOptionGlobal(char *s, char *sp, int ip, double dp) {
   if (strcmp("global:utagrid", s) == 0) {
     _utagrid = ip;
     return;
@@ -271,6 +294,11 @@ void SetOption(char *s, char *sp, int ip, double dp) {
   
   if (strcmp("global:xce_mode", s) == 0) {
     _xce_mode = ip;
+    return;
+  }
+  
+  if (strcmp("global:xci_mode", s) == 0) {
+    _xci_mode = ip;
     return;
   }
   return;
@@ -286,4 +314,8 @@ int RelativisticMaxwell(void) {
 
 int XCEMode(void) {
   return _xce_mode;
+}
+
+int XCIMode(void) {
+  return _xci_mode;
 }
