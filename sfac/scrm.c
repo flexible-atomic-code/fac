@@ -979,12 +979,8 @@ static int PSetOption(int argc, char *argv[], int argt[],
     ip = 0;
     dp = 0;
   }
-  if (strstr(argv[0], "crm:") == argv[0]) {
-    SetOptionCRM(argv[0], argv[1], ip, dp);
-  }
-  if (strstr(argv[0], "rates:") == argv[0]) {
-    SetOptionRates(argv[0], argv[1], ip, dp);
-  }
+
+  SetOption(argv[0], argv[1], ip, dp);
 
   return 0;
 }

@@ -24,6 +24,7 @@ USE (rcsid);
 #endif
 
 #include "Python.h"
+#include "init.h"
 #include "polarization.h"
 
 #if PY_MAJOR_VERSION >= 3
@@ -539,9 +540,9 @@ static PyObject *PSetOption(PyObject *self, PyObject *args) {
   } else {
     return NULL;
   }
-  if (strstr(s, "pol:") == s) {
-    SetOptionPolarization(s, sp, ip, dp);
-  }
+
+  SetOption(s, sp, ip, dp);
+
   Py_INCREF(Py_None);
   return Py_None;
 }

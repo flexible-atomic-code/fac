@@ -1396,8 +1396,9 @@ static int PPause(int argc, char *argv[], int argt[],
 
   while (1) {
     printf("Type go to continue: ");
-    scanf("%s", s);
-    if (strcmp(s, "go") == 0) break;
+    if (scanf("%s", s)) {
+      if (strcmp(s, "go") == 0) break;
+    }
   }
   
   return 0;
