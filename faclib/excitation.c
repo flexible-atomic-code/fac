@@ -74,6 +74,7 @@ static double xborn = XBORN;
 static double xborn0 = XBORN0;
 static double xborn1 = XBORN1;
 static double eborn = EBORN;
+static double _pborn = 0.5;
 #pragma omp threadprivate (kgrid, log_kgrid, kint, log_kint, gos1, gos2, gost)
 #pragma omp threadprivate (gosint, xusr, log_xusr)
 
@@ -1187,12 +1188,20 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
     ie = n_egrid;
     
     for (ie = 0; ie < n_egrid1; ie++) {
+      if (ie == n_egrid) mb = 1;
+      else {
+	if (xborn == 0) {
+	  mb = 0;
+	} else {
+	  mb = -1;
+	}
+      }
       e1 = egrid[ie];
       if (uta_tegrid) e1 *= te;
       for (ite = 0; ite < n_tegrid; ite++) {
 	if (!uta_tegrid) te = tegrid[ite];
 	type = CERadialQkBorn(k0, k1, k2, k3, k,
-			      te, e1, &(rq[ite][ie]), 1);
+			      te, e1, &(rq[ite][ie]), mb);
 	drq[ite][ie] = rq[ite][ie];
 	brq[ite][ie] = rq[ite][ie];
       }    
@@ -1291,7 +1300,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
 	s = 0.0;
 	b = 0.0;
 	if (_topup > 0 && nklp > 0) {
-	  if (dqk[nklp] && dqk[nklp-1]) {
+	  if (dqk[nklp] && dqk[nklp-1]/dqk[nklp-1] > 0) {
 	    if (type < 0) {
 	      b = 0.0;
 	    } else {
@@ -1315,7 +1324,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
 	  rq[ite][ie] = r + s;
 	  drq[ite][ie] = rd + s;
 	  if (_topup > 1 && s) {
-	    s = pow(fabs(s/drq[ite][ie]),0.5);
+	    s = pow(fabs(s/drq[ite][ie]), _pborn);
 	    if (ie < n_egrid-1 && s > xp[ite]) s = xp[ite];
 	    else xp[ite] = s;	    
 	    d = drq[ite][ie]*(1-s) + brq[ite][ie]*s;
@@ -1465,10 +1474,18 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
     pkep = NULL;    
     for (ie = 0; ie < n_egrid1; ie++) {
       e1 = egrid[ie];
+      if (ie == n_egrid) mb = 1;
+      else {
+	if (xborn == 0) {
+	  mb = 0;
+	} else {
+	  mb = -1;
+	}
+      }
       for (ite = 0; ite < n_tegrid; ite++) {
 	te = tegrid[ite];
 	type1 = CERadialQkBornMSub(k0, k1, k2, k3, k, kp, te, e1, 
-				   nq, q, rqt, 1);
+				   nq, q, rqt, mb);
 	for (iq = 0; iq < nq; iq++) {
 	  _rq[iq][ite][ie] = rqt[iq];
 	  _brq[iq][ite][ie] = rqt[iq];
@@ -1591,10 +1608,10 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
       
 	for (iq = 0; iq < nq; iq++) { 
 	  r = _qk[iq][0];
-	  rd = _qk[iq][0];
+	  rd = _dqk[iq][0];
 	  for (i = 1; i < nkl; i++) { 
 	    r += _qk[iq][i]; 
-	    rd += _qk[iq][i];
+	    rd += _dqk[iq][i];
 	    kl0 = pw_scratch.kl[i-1]; 
 	    kl1 = pw_scratch.kl[i]; 
 	    for (j = kl0+1; j < kl1; j++) {       
@@ -1616,7 +1633,7 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
 	if (_topup > 0 && i > 0) {
 	  for (iq = 0; iq < nq; iq++) {
 	    b = 0.0;
-	    if (_dqk[iq][i] && _dqk[iq][i-1]) {
+	    if (_dqk[iq][i] &&  _dqk[iq][i-1]/_dqk[iq][i] > 0) {
 	      if (k != kp || type1 == 0) {
 		c = _dqk[iq][i]/_dqk[iq][i-1];
 		if (c > 0) {
@@ -1638,11 +1655,12 @@ double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
 	    _rq[iq][ite][ie] += s;
 	    _drq[iq][ite][ie] += s;
 	    if (_topup > 1 && s) {
-	      s = fabs(s/_drq[iq][ite][ie]);
+	      s = pow(fabs(s/_drq[iq][ite][ie]), _pborn);
 	      if (ie < n_egrid-1 && s > _xp[iq][ite]) s = _xp[iq][ite];
 	      else _xp[iq][ite] = s;
 	      d = _drq[iq][ite][ie]*(1-s) + _brq[iq][ite][ie]*s;
 	      _rq[iq][ite][ie] = _rq[iq][ite][ie]-_drq[iq][ite][ie] + d;
+	      _drq[iq][ite][ie] = d;
 	    }
 	  } 
 	}
@@ -4560,6 +4578,10 @@ void SetOptionExcitation(char *s, char *sp, int ip, double dp) {
   }
   if (strcmp("excitation:eborn", s) == 0) {
     eborn = dp/HARTREE_EV;
+    return;
+  }
+  if (strcmp("excitation:pborn", s) == 0) {
+    _pborn = dp;
     return;
   }
   if (strcmp("excitation:progress_report", s) == 0) {
