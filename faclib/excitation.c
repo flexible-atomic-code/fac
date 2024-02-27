@@ -1989,7 +1989,7 @@ int CollisionStrengthUTA0(double *qkc, double *e, double *bethe0,
 	n--;
 	if (ty > type) type = ty;
 	for (ie = 0; ie < n_egrid1; ie++) {
-	  qkc[ie] += rq[ie]/(k+1.0);
+	  qkc[ie] += rq[ie]/(k+1.0);	  
 	}
       }
     }
@@ -2000,7 +2000,6 @@ int CollisionStrengthUTA0(double *qkc, double *e, double *bethe0,
   for (ie = 0; ie < n_egrid1; ie++) {
     qkc[ie] *= d;
   }
-
   if (type >= 0) {
     r = 0.0;
     if (Triangle(j1, j2, 2) && IsOdd(p1+p2)) {
@@ -3780,22 +3779,27 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     //ic = 0;
     int myrank = MPIRank(NULL);
     int ipr = 0;
+    int i0, j0, ilow0, iup0;
     for (i = 0; i < nlow; i++) {
       if (rid0) {
-	ilow = low[rid0[i].i];
+	i0 = rid0[i].i;
       } else {
-	ilow = low[i];
+	i0 = i;
       }
-      lev1 = GetLevel(ilow);
+      ilow0 = low[i0];
+      lev1 = GetLevel(ilow0);
       for (j = 0; j < nup; j++) {
 	if (rid1) {
-	  iup = up[rid1[j].i];
+	  j0 = rid1[j].i;
 	} else {
-	  iup = up[j];
+	  j0 = j;
 	}
-	lev2 = GetLevel(iup);
-	e = lev2->energy - lev1->energy;	
-	if (i < nlow-nc || j < nup-nc) {
+	iup0 = up[j];
+	lev2 = GetLevel(iup0);
+	e = lev2->energy - lev1->energy;
+	ilow = ilow0;
+	iup = iup0;
+	if (i0 < nlow-nc || j0 < nup-nc) {
 	  if (e < 0) {
 	    k = ilow;
 	    ilow = iup;
