@@ -9575,16 +9575,16 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2,
     }
     if (npts > 0) {
       npts = npts-2;
+      ic0 = npts;
+      ic1 = npts+1;
+      i0 = npts-1;
       for (i = npts-1; i < potential->maxrp; i++) {
-	_dwork1[i] = pow(potential->rad[i], k);
+	_dwork1[i] = pow(potential->rad[i0]/potential->rad[i], k);
       }
       for (i = 0; i < npts; i++) {
 	yk[i] = syk->yk[i];
       }
-      ic0 = npts;
-      ic1 = npts+1;
-      i0 = npts-1;
-      a = syk->yk[i0]*_dwork1[i0];
+      a = syk->yk[i0]/_dwork1[i0];
       for (i = npts; i < potential->maxrp; i++) {
 	b = potential->rad[i] - potential->rad[i0];
 	b = syk->yk[ic1]*b;
@@ -9594,13 +9594,13 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2,
 	  yk[i] = (a - syk->yk[ic0])*exp(b);
 	  yk[i] += syk->yk[ic0];
 	}
-	yk[i] /= _dwork1[i];
+	yk[i] *= _dwork1[i];
       }    
     }
   }
   if (syk == NULL || npts <= 0) {
     GetYk1(k, yk, orb1, orb2, type);
-    max = 0;
+    max = 0;    
     for (i = 0; i < potential->maxrp; i++) {
       _zk[i] *= yk[i];
       a = fabs(_zk[i]); 
@@ -9628,7 +9628,7 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2,
       i0--;
       b = fabs(a - _zk[i0]);
       _zk[i0] = log(b);
-    } 
+    }
     npts = i0+1;
     ic0 = npts;
     ic1 = npts+1;
@@ -9639,7 +9639,7 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2,
       for (i = 0; i < npts ; i++) {
 	syk->yk[i] = yk[i];
       }
-      syk->yk[ic0] = a;
+      syk->yk[ic0] = a/pow(potential->rad[i0],k);
       n = i1 - i0 + 1;
       a = 0.0;
       b = 0.0;
@@ -9652,7 +9652,7 @@ int GetYk(int k, double *yk, ORBITAL *orb1, ORBITAL *orb2,
 	a2 += max*max;
 	b2 += _zk[i]*max;
       }
-      syk->yk[ic1] = (a*b - n*b2)/(a*a - n*a2);       
+      syk->yk[ic1] = (a*b - n*b2)/(a*a - n*a2);
       if (syk->yk[ic1] >= 0) {
 	i1 = i0 + (i1-i0)*0.3;
 	if (i1 == i0) i1 = i0 + 1;
