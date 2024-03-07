@@ -8787,8 +8787,8 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
   F_HEADER fh;
   int ms[RC_TT], ir[RC_TT];
   int *ik, *ii, *ia, *io;
-  int nk, ni, na, nb, p, i, ntd, m, vn, nkk, nii, nki, nbi, nr, s, n, ib;
-  int it, id, ilo, iup, j0, nce, nci, nrr, ndr, nre, nea, kg, ig, n1;
+  int nk, ni, na, nb, p, i, ntd, m, vn, vni, nkk, nii, nki, nbi, nr, s, n, ib;
+  int it, id, ilo, iup, j0, nce, nci, nrr, ndr, nre, nea, kg, ig, n1, vn0;
   double dt, dd, rdt, rdd, *ra, *ra0, ek, ei, de, te, mp[3], br, rt, x;
   double **wr, *drs, eii;
   int *nbai, *nbtr, ncap, mdr, mea, mdrea;
@@ -8881,6 +8881,8 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
     printf("ipt: %d %g %g\n", ion->nele, ei-ek, eii);
     for (i = 0; i < ion->nlevels; i++) {
       vn = ion->vnl[i]/100;
+      if (i == 0) vn0 = vn;
+      vni = ion->vni[i]/100;
       if (ion->nk[i] == ion->nele) {
 	if (vn <= nexc) {
 	  if (ion->energy[i] < ei) {
@@ -8888,7 +8890,7 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
 	  }
 	  nk++;
 	}
-	if (vn > ncap && ion->energy[i] > ei) {
+	if (vn > ncap && vni > vn0 && ion->energy[i] > ei) {
 	  na++;
 	}
       } else {
@@ -8925,6 +8927,8 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
     n1 = 0;
     for (i = 0; i < ion->nlevels; i++) {
       vn = ion->vnl[i]/100;
+      if (i == 0) vn0 = vn;
+      vni = ion->vni[i]/100;
       if (ion->nk[i] == ion->nele) {
 	if (vn <= nexc) {
 	  if (ion->energy[i] < ei) {
@@ -8934,7 +8938,7 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
 	  ik[nk] = i;
 	  nk++;
 	}
-	if (vn > ncap && ion->energy[i] > ei) {
+	if (vn > ncap && vni > vn0 && ion->energy[i] > ei) {
 	  ia[na] = i;
 	  na++;
 	}
