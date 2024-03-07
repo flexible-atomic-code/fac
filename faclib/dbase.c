@@ -7764,7 +7764,7 @@ int ChannelAI(int b, int nmb, short *ncb,
 }
 
 void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
-  int k, i, j, n, nb, nlevs, clevs, ni0, ni1, vn, z;
+  int k, i, j, n, nb, nlevs, clevs, ni0, ni1, vn, vni, vn0, z;
   char ifn[1024], ofn[1024], buf[1024];
   char a[8];
   F_HEADER fh, fh1[7];
@@ -7994,6 +7994,8 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	for (i = 0; i < h0.nlevels; i++) {
 	  n = ReadENRecord(f0, &r0, swp);
 	  vn = abs(r0.p)/100;
+	  if (nb == 0 && i == 0) vn0 = vn;
+	  vni = VNIFromSName(r0.sname)/100;
 	  if (_ncombex[k] > 0) {
 	    for (ix = 0; ix < _ncombex[k]; ix++) {
 	      if (strstr(r0.sname, _pcombex[k][ix])) {
@@ -8003,7 +8005,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	    if (ix < _ncombex[k]) continue;
 	  }
 	  if ((nexc > 0 && vn > nexc) ||
-	      (ncap > 0 && vn > ncap && r0.energy > e1)) {
+	      (ncap > 0 && vn > ncap && vni > vn0 && r0.energy > e1)) {
 	    continue;
 	  }
 	  if (im[r0.ilev] == -2) {
@@ -8053,8 +8055,10 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	  for (i = 0; i < h0.nlevels; i++) {
 	    n = ReadENRecord(f0, &r0, swp);
 	    vn = abs(r0.p)/100;
+	    if (nb == 0 && i == 0) vn0 = vn;
+	    vni = VNIFromSName(r0.sname)/100;
 	    if ((nexc > 0 && vn > nexc) ||
-		(ncap > 0 && vn > ncap && r0.energy > e1)) {
+		(ncap > 0 && vn > ncap && vni > vn0 && r0.energy > e1)) {
 	      continue;
 	    }
 	    im[r0.ilev] = clevs;
