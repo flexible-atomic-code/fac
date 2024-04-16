@@ -2095,10 +2095,14 @@ static int SelectLevels(PyObject *p, int **t) {
 	}
 	for (j = 0; j < nlevels; j++) {
 	  lev = GetLevel(j);
-	  im = lev->pb;
-	  sym = GetSymmetry(lev->pj);
-	  s = (STATE *) ArrayGet(&(sym->states), im);
-	  ig = s->kgroup;
+	  if (lev->n_basis == 0) {
+	    ig = lev->iham;
+	  } else {
+	    im = lev->pb;
+	    sym = GetSymmetry(lev->pj);
+	    s = (STATE *) ArrayGet(&(sym->states), im);
+	    ig = s->kgroup;
+	  }
 	  if (ig < 0) { 
 	    if (!ValidBasis(s, ng, kg, nrec)) continue;
 	    (*t)[k] = j;
@@ -3367,13 +3371,13 @@ static PyObject *PRecStates(PyObject *self, PyObject *args) {
   ng = DecodeGroupArgs(gargs, &kg, NULL);
   if (ng <= 0) return NULL;
 
-  if (RecStates(n, ng, kg, fn) < 0) {
-    onError("RecStates error");
-    free(kg);
+  int r = RecStates(n, ng, kg, fn) < 0;
+  if (r < 0) {
+    char msg[128];
+    sprintf(msg, "RecStates error: %d", r);
+    onError(msg);
     return NULL;
   }
-
-  free(kg);
   
   Py_INCREF(Py_None);
   return Py_None;
