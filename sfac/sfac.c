@@ -305,10 +305,14 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
 	}
 	for (j = 0; j < nlevels; j++) {
 	  lev = GetLevel(j);
-	  im = lev->pb;
-	  sym = GetSymmetry(lev->pj);
-	  s = (STATE *) ArrayGet(&(sym->states), im);
-	  ig = s->kgroup;
+	  if (lev->n_basis == 0) {
+	    ig = lev->iham;
+	  } else {
+	    im = lev->pb;
+	    sym = GetSymmetry(lev->pj);
+	    s = (STATE *) ArrayGet(&(sym->states), im);
+	    ig = s->kgroup;
+	  }
 	  if (ig < 0) {
 	    if (!ValidBasis(s, ng, kg, nrec)) continue;
 	    (*t)[k] = j;
@@ -1441,14 +1445,11 @@ static int PRecStates(int argc, char *argv[], int argt[],
   ng = DecodeGroupArgs(&kg, 1, NULL, &(argv[1]), &(argt[1]), variables);
   if (ng <= 0) return -1;
   n = atoi(argv[2]);
-  if (RecStates(n, ng, kg, argv[0]) < 0) {
-    printf("RecStates Error\n");
-    free(kg);
+  int r = RecStates(n, ng, kg, argv[0]);
+  if (r < 0) {
+    printf("RecStates Error: %d\n", r);
     return -1;
   }
-
-  free(kg);
-  
   return 0;
 }
 

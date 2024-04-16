@@ -337,6 +337,7 @@ int          InGroups(int kg, int ng, int *kgroup);
 int          InitConfig(void);
 int          ReinitConfig(int m);
 int          SetNCG(void);
+void InitConfigData(void *p, int n);
 int ConfigToIList(CONFIG *c, int n, int *s);
 CONFIG *ConfigFromIList(int n, int *s);
 int NRConfigToIList(CONFIG *c, int n, int *s);

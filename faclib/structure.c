@@ -3947,6 +3947,7 @@ int SaveLevels(char *fn, int m, int n) {
   nele0 = -1;
   n0 = m;
   if (n < 0) n = n_levels - m;
+  if (n <= 0) return 0;
   fhdr.type = DB_EN;
   strcpy(fhdr.symbol, GetAtomicSymbol());
   fhdr.atom = GetAtomicNumber();

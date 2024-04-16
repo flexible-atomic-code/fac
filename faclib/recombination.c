@@ -321,6 +321,7 @@ int RecStates(int n, int k, int *kg, char *fn) {
   char *gn, rgn[GROUP_NAME_LEN];
   int nm;
 
+  if (k == 0) return 0;
   nm = 0;
   for (i = 0; i < k; i++) {
     g = GetGroup(kg[i]);
@@ -330,20 +331,25 @@ int RecStates(int n, int k, int *kg, char *fn) {
       if (c->shells[0].n > nm) nm = c->shells[0].n;
     }
   }
-  if (n < nm) return 0;
+  if (n < nm) {
+    free(kg);
+    return 0;
+  }
 
   nm++;
 
   if (pw_scratch.n_spec > nm) nm = pw_scratch.n_spec;
 
-  if (n >= nm) {
+  if (!TrueUTA(n) && n >= nm) {
     i = RecStatesFrozen(n, k, kg, fn);
+    free(kg);
     return i;
   }
 
   ns.n = n;
   ns.nq = 1;
   ncfgs = 0;
+  rcfg = NULL;
   for (i = 0; i < k; i++) {
     kg0 = kg[i];
     g = GetGroup(kg0);
@@ -370,6 +376,7 @@ int RecStates(int n, int k, int *kg, char *fn) {
 	  if (ShellClosed(c->shells)) continue;
 	  else {
 	    rcfg = malloc(sizeof(CONFIG));
+	    InitConfigData(rcfg, 1);
 	    rcfg->n_shells = c->n_shells;
 	    rcfg->shells = malloc(sizeof(SHELL)*rcfg->n_shells);
 	    memcpy(rcfg->shells, c->shells, sizeof(SHELL)*rcfg->n_shells);
@@ -377,23 +384,36 @@ int RecStates(int n, int k, int *kg, char *fn) {
 	  }
 	} else {
 	  rcfg = malloc(sizeof(CONFIG));
+	  InitConfigData(rcfg, 1);
 	  rcfg->n_shells = c->n_shells + 1;
 	  rcfg->shells = malloc(sizeof(SHELL)*rcfg->n_shells);
 	  memcpy(rcfg->shells+1, c->shells, sizeof(SHELL)*c->n_shells);
 	  memcpy(rcfg->shells, &ns, sizeof(SHELL));
 	}
 	
-	if (Couple(rcfg) < 0) return -3;
-	if (AddConfigToList(kg[i], rcfg) < 0) return -4;
+	if (Couple(rcfg) < 0) {
+	  free(kg);
+	  return -3;
+	}
+	if (AddConfigToList(kg[i], rcfg) < 0) {
+	  free(kg);
+	  return -4;
+	}
 	ncfgs++;
       }
     }
   }
-  if (ncfgs == 0) return 0;
-  nlevels = GetNumLevels();
-  nsym = MAX_SYMMETRIES;
+  if (ncfgs == 0) {
+    free(kg);
+    return 0;
+  }
   rec_complex[n_complex].n = n;
   rec_complex[n_complex].s0 = nlevels;
+
+  SolveStructure(fn, NULL, k, kg, 0, NULL, 0);
+  /*
+  nlevels = GetNumLevels();
+  nsym = MAX_SYMMETRIES;
   for (i = 0; i < nsym; i++) {
     HAMILTON *h = GetHamilton(i);
     m = ConstructHamilton(i, k, k, kg, 0, NULL, 111);
@@ -402,11 +422,12 @@ int RecStates(int n, int k, int *kg, char *fn) {
     if (j < 0) return -1;
     AddToLevels(h, 0, NULL);
   }
+  */
   rec_complex[n_complex].s1 = GetNumLevels()-1;
   n_complex++;
-  SortLevels(nlevels, -1, 0);
-  SaveLevels(fn, nlevels, -1);
-
+  //SortLevels(nlevels, -1, 0);
+  //SaveLevels(fn, nlevels, -1);
+  
   return 0;
 }
 

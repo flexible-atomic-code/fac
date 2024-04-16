@@ -169,7 +169,7 @@ int IndexJQ(int j, int q) {
   return i;
 }
     
-static void InitConfigData(void *p, int n) {
+void InitConfigData(void *p, int n) {
   CONFIG *d;
   int i;
 

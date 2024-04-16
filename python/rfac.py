@@ -827,8 +827,13 @@ def read_sp(filename):
 
 def read_wfun(fn, npi=0, rmax=None):
     r = np.loadtxt(fn, unpack=1)
-    h = np.loadtxt(fn, skiprows=6, comments='@', max_rows=1, usecols=3)
-    i = int(h)+1
+    d = np.loadtxt(fn, max_rows=24, comments='@',
+                   usecols=0, delimiter='=', dtype=str)
+    for i in range(24):
+        if d[i][1:].strip() == 'ilast':
+            break
+    h = np.loadtxt(fn, max_rows=24, comments='@', delimiter='=', usecols=1)
+    i = int(h[i])+1
     h = np.loadtxt(fn, comments='@', max_rows=3, usecols=3, unpack=1)
     n = int(h[0])
     k = int(h[1])
