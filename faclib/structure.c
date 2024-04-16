@@ -5500,6 +5500,7 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
   }
   for (i1 = 0; i1 < n1; i1++) {
     lev1 = GetLevel(is1[i1]);
+    if (lev1->n_basis == 0) continue;
     ih1 = lev1->iham;
     sym1 = GetSymmetry(lev1->pj);
     s1 = ArrayGet(&(sym1->states), lev1->pb);
@@ -5508,6 +5509,7 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
     ns1 = hams[ih1].nlevs;
     for (i2 = 0; i2 < n2; i2++) {
       lev2 = GetLevel(is2[i2]);
+      if (lev2->n_basis == 0) continue;
       ih2 = lev2->iham;
       sym2 = GetSymmetry(lev2->pj);
       s2 = ArrayGet(&(sym2->states), lev2->pb);
@@ -5545,6 +5547,7 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
       }
     }
   }
+
   ResetWidMPI();
 #pragma omp parallel default(shared) private(i1, i2, lev1, lev2, ih1, ih2, sym1, sym2, s1, s2, ne1, ne2, ns1, ns2, ns, ad, iz, is, i, nz)
   {
@@ -5554,6 +5557,7 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
       int skip = SkipWMPI(w++);
       if (skip) continue;
       lev1 = GetLevel(is1[i1]);
+      if (lev1->n_basis == 0) continue;
       ih1 = lev1->iham;
       sym1 = GetSymmetry(lev1->pj);
       s1 = ArrayGet(&(sym1->states), lev1->pb);
@@ -5561,6 +5565,7 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
       ne1 = GetGroup(s1->kgroup)->n_electrons;
       ns1 = hams[ih1].nlevs;
       lev2 = GetLevel(is2[i2]);
+      if (lev2->n_basis == 0) continue;
       ih2 = lev2->iham;
       sym2 = GetSymmetry(lev2->pj);
       s2 = ArrayGet(&(sym2->states), lev2->pb);
@@ -5619,6 +5624,7 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
       int skip = SkipWMPI(w++);
       if (skip) continue;
       lev1 = GetLevel(is1[i1]);
+      if (lev1->n_basis == 0) continue;
       ih1 = lev1->iham;
       sym1 = GetSymmetry(lev1->pj);
       s1 = ArrayGet(&(sym1->states), lev1->pb);
@@ -5626,6 +5632,7 @@ int PrepAngular(int n1, int *is1, int n2, int *is2) {
       ne1 = GetGroup(s1->kgroup)->n_electrons;
       ns1 = hams[ih1].nlevs;
       lev2 = GetLevel(is2[i2]);
+      if (lev2->n_basis == 0) continue;
       ih2 = lev2->iham;
       if (ih1 > ih2) continue;
       sym2 = GetSymmetry(lev2->pj);
