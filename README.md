@@ -43,32 +43,10 @@ This dir only affects the installation of SFAC executables.
 #### 2-4. Parallel computation
 Some of the functions have a parallel version using MPI. You can build with MPI
 enabled using the option `--with-mpi=***`, where `***` is the MPI implementation
-installed on your machine. It has been tested with lammpi and openmp.
-If you are using openmp, specify `--with-mpi=omp`.
-
-If a different version of MPI is used, you have to supply the compile and link
+installed on your machine. You have to supply the compile and link
 flags to the C compiler with `--with-mpicompile` and `--with-mpilink`.
 
-#### 2-5. MacOS X Big Sur
-Big Sur handles dynamically loaded libraries very differently. It no longer
-has libSystem.dylib and libSystem.B.dylib files, and no longer has standard
-C headers and librarries in the /usr/include and /usr/lib direrctores.
-It therefore breaks the third party gcc compilers, e.g., the one from
-MacPort installation. Here are steps to work around these issues:
-
-1. In /usr/local/lib directory, create two files libSystem.dylib and
-libSystem.B.dylib. It does not matter what are in the files, as long as they
-are reasonably sized. You can simply create two symlinks to some existing
-dylib files, and make sure /usr/local/lib is in your LD_LIBRARY_PATH env
-variable. This is to simply fool gcc and linker to believe that the two dylib
-files exist. The linker will actually find the libraries from Big Sur's shared
-cache, instead of from the files.
-
-2. Set env variable CC="gcc -I/Library/Developer/CommandLineTools/SDKs/MacOSX11.1.sdk/usr/include -L/Library/Developer/CommandLineTools/SDKs/MacOSX11.1.sdk/usr/lib" This is to instruct gcc and linker to find the standard C header and
-library files from the SDK locations, and the /usr/include and /usr/lib no
-longer have links to them.
-
-3. Proceed with ./configure as usual.
+MPI support in FAC is rather limited. The primary mean of parallelization is through shared memory OpenMP directives. configure with --with-mpi=omp to enable OpenMP.
 
 ## 3. Install SFAC interface
 To installs the SFAC interface, do
@@ -83,7 +61,7 @@ If you have Python 2.7 or later installed, then:
 make pfac
 make install-pfac
 ```
-This installs the PFAC interface into Python's default site-package dir.
+This installs the PFAC module into Python's default site-package dir corresponding to the python executable. To install for an alternative python, set env. var. PYTHON to the desired python executable, e.g., /usr/bin/python3, before configure, or invoke configure with ./configure PYTHON=/usr/bin/python3
 
 #### 4-1 Anaconda distribution
 If your are using Anaconda distribution for Python environment, it may be
