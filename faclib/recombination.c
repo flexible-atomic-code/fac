@@ -3227,7 +3227,7 @@ int SaveAI(int nlow, int *low, int nup, int *up, char *fn,
 	  r.rate = s;
 	  WriteAIRecord(f, &r);
 	} else {
-	  k = AutoionizeRate(s1, &e, low[i], up[j], msub);
+	  k = AutoionizeRate(s1, &e, ilow, iup, msub);
 	  if (k < 0) continue;
 	  r1.rate = rt;
 	  s = 0;
