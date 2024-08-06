@@ -7,6 +7,8 @@
 
 SHELL = /bin/sh
 
+PREFIX = @prefix@
+
 PYTHON = @PYTHON@
 
 CC = @CC@
@@ -40,8 +42,6 @@ sfac:	lib
 
 pfac:   lib
 	${PYTHON} setup.py build --force -ccompiler="${CC}" -extracomp="${CFLAGS}" -extralink="${LIBS}" -rmpylink="${RMPYLINK}" -addpylink="${ADDPYLINK}"
-mpy:
-	${PYTHON} setup.py build -mpy -extracomp="${CFLAGS}" -extralink="${LIBS}"
 
 doc:
 	cd doc; make
@@ -53,10 +53,8 @@ install:
 	cd sfac; make install
 
 install-pfac:
-	${PYTHON} setup.py install -ccompiler="${CC}"
-
-install-mpy:
-	cd python; make install
+	${PYTHON} -m pip install --prefix=${PREFIX} .
+#	${PYTHON} setup.py install -ccompiler="${CC}"
 
 clean:
 	rm -f *.so *.a *.o *~

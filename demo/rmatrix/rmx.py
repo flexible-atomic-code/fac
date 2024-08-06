@@ -45,6 +45,7 @@ RMatrixTargets(['g0','g1','g2'], ['g3'])
 
 nb = 25
 kmax = 30
+SetOrbMap(max(50,2*kmax+1))
 # slater integrals with l >= 12 are treated with no exchange.
 SetSlaterCut(12,12)
 
