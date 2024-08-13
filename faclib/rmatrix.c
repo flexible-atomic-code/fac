@@ -2226,9 +2226,11 @@ void PrepDiracCoulomb(RMATRIX *rmx, RBASIS *rbs, double r) {
   double wt0 = WallTime();  
 #pragma omp parallel default(shared)
   {
-    double e, a, rt, t1, c1, t2, c2;
+    double e, a, rt, t1, c1, t2, c2, zz;
     int i, j, k, ij, ka, ierr, iter;
     int w = 0;
+    zz = rmx->z;
+    if (zz < EPS10) zz = EPS10;
     for (j = 0; j < rbs->nkappa; j++) {
       for (i = 0; i < rmx->nts; i++) {
 	for (k = 0; k < dcfg0.nke; k++) {
@@ -2238,14 +2240,15 @@ void PrepDiracCoulomb(RMATRIX *rmx, RBASIS *rbs, double r) {
 	  ka = rbs->kappa[j];
 	  if (e > 0) {
 	    a = 0.5*ka*(ka+1.0);
-	    rt = a/(rmx->z + sqrt(rmx->z + 4*a*e));
+	    if (a < 0.1) a = 0.1;
+	    rt = a/(zz + sqrt(zz + 4*a*e));
 	    if (_gailitis_exprt > 0) rt *= _gailitis_exprt;
 	    if (rt < r) rt = r;
 	  } else {
 	    rt = r;
 	  }
 	  ierr = 0;
-	  DCOUL(rmx->z, e, ka, rt, &t1, &c1, &t2, &c2, &ierr);
+	  DCOUL(zz, e, ka, rt, &t1, &c1, &t2, &c2, &ierr);
 	  if (e > 0) {
 	    iter = 0;
 	    while (ierr) {
@@ -2258,11 +2261,11 @@ void PrepDiracCoulomb(RMATRIX *rmx, RBASIS *rbs, double r) {
 	      }
 	      rt *= _gailitis_exprf;
 	      ierr = 0;
-	      DCOUL(rmx->z, e, ka, rt, &t1, &c1, &t2, &c2, &ierr);
+	      DCOUL(zz, e, ka, rt, &t1, &c1, &t2, &c2, &ierr);
 	    }
 	    if (iter > _gailitis_expni) {
 	      ierr = 0;
-	      DCOUL(rmx->z, e-(a/r-rmx->z)/r, ka, r, &t1, &c1, &t2, &c2, &ierr);
+	      DCOUL(zz, e-(a/r-rmx->z)/r, ka, r, &t1, &c1, &t2, &c2, &ierr);
 	      ierr = -9999;
 	    } else if (rt > r) {
 	      IntegrateDiracCoulomb(rmx->z, ka, r, rt, e, &t1, &c1);
