@@ -54,7 +54,7 @@ typedef struct _SMATRIX_ {
 
 typedef struct _RMXCE_ {
   int nke, nsp, *isp, nes;
-  double *e, *es, **s, **ecs, ****ap, de;
+  double *e, *es, **s, **ecs, ****ap, ***sp, de;
   int *rcs;
   SMATRIX *smx;
   IDXARY its;
