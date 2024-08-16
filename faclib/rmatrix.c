@@ -2872,10 +2872,13 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
   int nkw = 2*npw;
   int ns = rmx[0].nts*(rmx[0].nts+1)/2;
   int nsw = _stark_nts*3+3;
+  int nswp = 0;
   int ns0 = 0;
   int ns1 = _stark_nts;
   int ns2 = _stark_nts*2;
   int ns3 = _stark_nts*3;
+  int ns4 = _stark_nts*4;
+  int ns5 = _stark_nts*5;
   int its0, its1, st0, k, ika0, ika1, j, p;
   isp = rs->isp;
   nsp = rs->nsp;
@@ -2889,7 +2892,19 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
      ** sw[ns1] is the shift
      ** sw[ns2] is the inelastic part of width
      ** sw[ns3] is the elastic difference term. 
+     ** sw[ns3+1] lower level elastic
+     ** sw[ns4+1] upper level elastic
      ** sw[ns3]+sw[ns2] should == sw[0]
+
+     ** for partial wave output
+     ** swp[ns0] total width
+     ** swp[ns1] total shift
+     ** swp[ns2] total inelastic
+     ** swp[ns3] lower level inelastic
+     ** swp[ns4] upper level inelastic
+     ** swp[ns5] elastic difference term
+     ** swp[ns5+1] lower level elastic
+     ** swp[ns5+2] upper level elastic
      **/
     sw = malloc(sizeof(double *)*nsw);
     for (i = 0; i < nsw; i++) {
@@ -2897,8 +2912,9 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
       for (j = 0; j < nes; j++) sw[i][j] = 0;
     }
     if (_stark_pw) {
-      swp = malloc(sizeof(double **)*_stark_nts*2);
-      for (i = 0; i < _stark_nts*2; i++) {
+      nswp = _stark_nts*5 + 3;
+      swp = malloc(sizeof(double **)*nswp);
+      for (i = 0; i < nswp; i++) {
 	swp[i] = malloc(sizeof(double *)*nes);
 	for (k = 0; k < nes; k++) {
 	  swp[i][k] = malloc(sizeof(double)*npw);
@@ -2914,7 +2930,8 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
   int nke = rs->nke;
   double *e = rs->e;  
   double **s = rs->s;
-  double et, ek;
+  double ***sp = rs->sp;
+  double et, ek, isw;
   int *ik0 = NULL;
   int *ik1 = NULL;
   if (dcfg0.n0 > 0 && dcfg0.eo) {
@@ -2933,14 +2950,23 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 	      rmx[0].ts[its0] == _stark_upper[i]) {
 	    double w0 = 1.0/(1.0+rmx[0].jts[its0]);
 	    ResetWidMPI();
-#pragma omp parallel default(shared) private(t, et)
+#pragma omp parallel default(shared) private(t, p, et, isw)
 	    {
 	      int w = 0;
 	      for (t = 0; t < rs->nes; t++) {
 		if (SkipWMPI(w++)) continue;
 		et = rs->es[t] + rmx[0].et[its0] - rmx[0].et0;
-		sw[ns2+i][t] += InterpLinear(rs->de, isp, nke, e,
-					     s[st0+its0], et)*w0;
+		isw = InterpLinear(rs->de, isp, nke, e,
+				   s[st0+its0], et)*w0;
+		sw[ns2+i][t] += isw;
+		if (_stark_pw) {
+		  for (p = 0; p < npw; p++) {
+		    isw = InterpLinear(rs->de, isp, nke, e,
+				       sp[st0+its0][p], et)*w0;
+		    swp[ns2+i][t][p] += isw;
+		    swp[ns3+i][t][p] += isw;
+		  }
+		}
 	      }
 	    }
 	  }
@@ -2948,14 +2974,23 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 	      rmx[0].ts[its1] == _stark_upper[i]) {
 	    double w0 = 1.0/(1.0+rmx[0].jts[its1]);
 	    ResetWidMPI();
-#pragma omp parallel default(shared) private(t, et)
+#pragma omp parallel default(shared) private(t, p, et, isw)
 	    {
 	      int w = 0;
 	      for (t = 0; t < nes; t++) {
 		if (SkipWMPI(w++)) continue;
 		et = rs->es[t] + rmx[0].et[its1] - rmx[0].et0;
-		sw[ns2+i][t] += InterpLinear(rs->de, isp, nke, e,
-					     s[st0+its0], et)*w0;
+		isw += InterpLinear(rs->de, isp, nke, e,
+				    s[st0+its0], et)*w0;
+		sw[ns2+i][t] += isw;
+		if (_stark_pw) {
+		  for (p = 0; p < npw; p++) {
+		    isw = InterpLinear(rs->de, isp, nke, e,
+				       sp[st0+its0][p], et)*w0;
+		    swp[ns2+i][t][p] += isw;
+		    swp[ns4+i][t][p] += isw;
+		  }
+		}
 	      }
 	    }
 	  }
@@ -3077,9 +3112,9 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 			   s0r, s1r, s0i, s1i, ssr, ssi, af, sw[ns0+ix][k], sw[ns1+ix][k]);
 		  }
 		  */
-		  if (_stark_pw && kl0 < npw) {
-		    swp[ns0+ix][k][kl0] += ssr;
-		    swp[ns1+ix][k][kl0] += ssi;
+		  if (_stark_pw && kl1 < npw) {
+		    swp[ns0+ix][k][kl1] += ssr;
+		    swp[ns1+ix][k][kl1] += ssi;
 		  }
 		}
 	      }
@@ -3162,6 +3197,15 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 	    //printf("edt1: %d %g %g %g\n", k, et, e[k], edt[k]);
 	    edt[k] = sw[ns3+1][k] + sw[ns3+2][k];
 	    //edt[k] = 0;
+	    if (_stark_pw) {
+	      for (p = 0; p < npw; p++) {
+		swp[ns5+1][k][p] = InterpLinear(rs->de, isp, nke, e,
+						sp[st0p+its0][p], et0)/w0;
+		swp[ns5+2][k][p] = InterpLinear(rs->de, isp, nke, e,
+						sp[st0+its1][p], et1)/w1;
+		swp[ns5][k][p] = swp[ns5+1][k][p] + swp[ns5+2][k][p];
+	      }
+	    }
 	    int nm0 = rmx[0].jts[its0]+1;
 	    int nm0s = nm0*nm0;
 	    int nm1 = rmx[0].jts[its1]+1;
@@ -3186,13 +3230,6 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 		      if (mi1p < -rmx[0].jts[its0] || mi1p > rmx[0].jts[its0]) {
 			continue;
 		      }
-		      /*
-		      double f1 = ClebschGordan(rmx[0].jts[its0], mi0p, 2, q,
-						rmx[0].jts[its1], mi0);
-		      double f2 = ClebschGordan(rmx[0].jts[its0], mi1p, 2, q,
-						rmx[0].jts[its1], mi1);
-		      double ff = f1*f2/w1;
-		      */
 		      double f1 = W3j(rmx[0].jts[its0], 2, rmx[0].jts[its1],
 				      -mi0p, q, mi0);
 		      double f2 = W3j(rmx[0].jts[its0], 2, rmx[0].jts[its1],
@@ -3218,6 +3255,7 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 						  ia1, et1);
 			double f = (rr1*rr0+ri1*ri0)*ff;
 			edt[k] -= f;
+			swp[ns5][k][p] -= f;
 		      }
 		    }
 		  }
@@ -3253,10 +3291,13 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 	  ek = rs->es[k];
 	  for (t = 0; t < npw; t++) {
 	    fprintf(f1[3],
-		    "%3d %3d %16.10E %3d %12.5E %12.5E\n",
+		    "%3d %3d %16.10E %3d %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E\n",
 		    rmx[0].ts[its0], rmx[0].ts[its1],
 		    ek*HARTREE_EV, t+rbs[0].kmin,
-		    swp[ns0+i][k][t], swp[ns1+i][k][t]);
+		    swp[ns0+i][k][t], swp[ns1+i][k][t],
+		    swp[ns2+i][k][t], swp[ns3+i][k][t],
+		    swp[ns4+i][k][t], swp[ns5][k][t],
+		    swp[ns5+1][k][t], swp[ns5+2][k][t]);
 	  }
 	}
 	fprintf(f1[3], "\n");
@@ -3273,7 +3314,7 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
     }
     free(sw);
     if (_stark_pw) {
-      for (i = 0; i < _stark_nts*2; i++) {
+      for (i = 0; i < nswp; i++) {
 	for (k = 0; k < nes; k++) {
 	  free(swp[i][k]);
 	}
@@ -3432,6 +3473,7 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
   SaveRMatrixCE(&rs, &rbs[0], &rmx[0], -1, fn, wt0);
   SMATRIX *smx = rs.smx;
   double ****ap = rs.ap;
+  double ***sp = rs.sp;
   int npw = rbs[0].kmax-rbs[0].kmin+1;
   int nkw = 2*npw;
   if (_stark_idx.n > 0) {
@@ -3471,6 +3513,15 @@ int RMatrixCE(char *fn, int np, char *bfn[], char *rfn[],
 	}
       }
       free(ap);
+    }
+    if (_stark_pw) {
+      for (i = 0; i < ns; i++) {
+	for (j = 0; j < npw; j++) {
+	  free(sp[i][j]);
+	}
+	free(sp[i]);
+      }
+      free(sp);
     }
   }
   for (i = 0; i < np; i++) {
@@ -3690,7 +3741,7 @@ int GetChanL(int j, int j0, int k0) {
 int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
 	       FILE **f, FILE **f1, char *fn, RMXCE *rs,
 	       int nke, double *e, int m, int mb, int idep) {
-  int i, j, k, t, p, q, h, i0, ns, *iwork, *ir, nkr, *ipr;
+  int i, j, k, t, p, q, h, i0, ns, *iwork, *ir, nkr, *ipr, msp;
   double et, ***sp, *r0, *r1, x, y, *er;
   int pp, jj, its0, its1, st0, ka0, ka1, mka0, mka1, npw, ika0, ika1;
   SMATRIX *smx;
@@ -3703,15 +3754,16 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
   }
   ns = rmx[0].nts*(rmx[0].nts+1)/2;
   smx = malloc(sizeof(SMATRIX)*rmx[0].nsym);
-  
+
+  msp = (m&1)|(_stark_idx.n > 0 && _stark_pw);
   npw = rbs[0].kmax-rbs[0].kmin+1;
-  if (m & 1) {
+  if (msp) {
     sp = malloc(sizeof(double **)*ns);
     for (i = 0; i < ns; i++) {
-      sp[i] = malloc(sizeof(double *)*nke);
-      for (j = 0; j < nke; j++) {
-	sp[i][j] = malloc(sizeof(double)*npw);
-	for (k = 0; k < npw; k++) {
+      sp[i] = malloc(sizeof(double *)*npw);
+      for (j = 0; j < npw; j++) {
+	sp[i][j] = malloc(sizeof(double)*nke);
+	for (k = 0; k < nke; k++) {
 	  sp[i][j][k] = 0.0;
 	}
       }
@@ -3764,6 +3816,7 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
     }
     rs->ap = ap;
     rs->smx = smx;
+    rs->sp = sp;
   } else {
     t = rs->nke+nke;
     rs->e = realloc(rs->e, sizeof(double)*t);
@@ -3963,8 +4016,8 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
 	    mka0 -= rbs[0].kmin;
 	    if (rbs[0].kmin > 0 && mka1 == rbs[0].kmin) continue;
 	    s[st0+its0][k] += x;
-	    if (m & 1) {
-	      sp[st0+its0][k][mka1] += x;
+	    if (msp) {
+	      sp[st0+its0][mka1][k] += x;
 	    }
 	    if (m & 2) {
 	      et = (e[k]-rmx[0].et[its0]+rmx[0].et0)*HARTREE_EV;
@@ -4001,6 +4054,16 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
 	      for (k = rs->nke; k < t; k++) {
 		rs->ap[i][q][h][k] = ap[i][q][h][k-rs->nke];
 	      }
+	    }
+	  }
+	}
+      }
+      if (_stark_pw) {
+	for (i = 0; i < ns; i++) {
+	  for (j = 0; j < npw; j++) {
+	    rs->sp[i][j] = realloc(rs->sp[i][j], sizeof(double)*t);
+	    for (k = rs->nke; k < t; k++) {
+	      rs->sp[i][j][k] = sp[i][j][k-rs->nke];
 	    }
 	  }
 	}
@@ -4043,20 +4106,21 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
 		    rmx[0].ts[its0], rmx[0].ts[its1],
 		    e[k]*HARTREE_EV, et,
 		    (e[k]-rmx[0].et[its1]+rmx[0].et0)*HARTREE_EV,
-		    j+rbs[0].kmin, sp[st0+its0][k][j]);
+		    j+rbs[0].kmin, sp[st0+its0][j][k]);
 	  }
 	}
 	fprintf(f1[0], "\n");
       }
     }
-
-    for (i = 0; i < ns; i++) {
-      for (j = 0; j < nke; j++) {
-	free(sp[i][j]);
+    if (!_stark_pw) {
+      for (i = 0; i < ns; i++) {
+	for (j = 0; j < npw; j++) {
+	  free(sp[i][j]);
+	}
+	free(sp[i]);
       }
-      free(sp[i]);
+      free(sp);
     }
-    free(sp);
   }
   int onke = rs->nke;
   rs->nke += nke;
@@ -4119,6 +4183,15 @@ int RMatrixCEW(int np, RBASIS *rbs, RMATRIX *rmx,
 	}
       }
       free(ap);
+    }
+    if (_stark_pw) {
+      for (i = 0; i < ns; i++) {
+	for (j = 0; j < npw; j++) {
+	  free(sp[i][j]);
+	}
+	free(sp[i]);
+      }
+      free(sp);
     }
   }
 
