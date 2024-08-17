@@ -34,7 +34,7 @@ def e2v(e, m=0):
         k = e/const.Hartree_eV;
         k = 2.0*k*(1.0 + 0.5*const.Alpha**2*k);
         k = const.Alpha**2*k;
-        k = sqrt(k/(1.0+k));
+        k = np.sqrt(k/(1.0+k));
         k /= const.Alpha;
         k *= const.RBohr*1e-8*const.Rate_AU*1E-10;
     else:
@@ -42,7 +42,7 @@ def e2v(e, m=0):
         k = e/const.Hartree_eV;
         k = 2.0*m*k*(1.0+0.5*const.Alpha**2*k/m);
         k = const.Alpha**2*k;
-        k = sqrt(k/(m*m+k));
+        k = np.sqrt(k/(m*m+k));
         k /= const.Alpha;
         k *= const.RBohr*1e-8*const.Rate_AU*1E-10;  
 
