@@ -12,7 +12,7 @@ C     q1 iregular small for e > 0, ignore for e < 0
 C     ierr error code returned by coulcc
       subroutine dcoul(z, e, k, r, p, q, p1, q1, ierr)
       implicit none     
-      integer k, ierr, kfn, inorm, nx, ip
+      integer k, ierr, kfn, inorm, nx, ip, ix
       parameter (nx = 4)
       double precision z, e, r, p, q, s, p1, q1, c, ki, zp, gam
       double precision lambda, y, yh, qi, x0, b1, b2, np
@@ -59,11 +59,15 @@ C     ierr error code returned by coulcc
             xp(ip) = xp(ip-1) + EPS
          enddo
          do ip = 1, nx
+            ix = 0
             call coulcc(x,
      +           eta+yh*xp(ip),
      +           zlmin,
      +           1, fc, gc, fcp, gcp, sig, 
-     +           11, kfn, ierr)
+     +           11, kfn, ix)
+            if (ix .ne. 0) then
+               ierr = ix
+            endif
             omega = IONE*(HALFPI*(lambda - y - 0.5) - sig(1))
             if (inorm .gt. 0 .and. z > 0) then
                np = y - gam

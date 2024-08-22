@@ -23,6 +23,7 @@ USE (rcsid);
 #endif
 
 #include "init.h"
+#include "cf77.h"
 #include "stoken.h"
 #include "mpiutil.h"
 
@@ -5376,6 +5377,36 @@ static int PFillClosedShell(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PDiracCoulomb(int argc, char *argv[], int argt[],
+			 ARRAY *variables) {
+  double z, e, r;
+  double p, q, u, v;
+  int k, ierr;
+
+  ierr = 1;
+  if (argc < 4) return -1;
+  z = atof(argv[0]);
+  e = atof(argv[1]);
+  k = atoi(argv[2]);
+  r = atof(argv[3]);
+  if (argc > 4) {
+    ierr = atoi(argv[4]);
+  }
+  if (ierr < 0) {
+    int n = (int) e;
+    u = 0.0;
+    v = 0.0;
+    e = RadialDiracCoulomb(1, &p, &q, &r, z, n, k);
+    printf("%d %d %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E\n",
+	   n, k, e*HARTREE_EV, r, p, q, u, v);
+  } else {
+    e /= HARTREE_EV;
+    DCOUL(z, e, k, r, &p, &q, &u, &v, &ierr);
+    printf("%d %d %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E\n",
+	   ierr, k, e*HARTREE_EV, r, p, q, u, v);
+  }
+}
+  
 static METHOD methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -5602,6 +5633,7 @@ static METHOD methods[] = {
   {"LoadSCPot", PLoadSCPot, METH_VARARGS},
   {"SetSlaterScale", PSetSlaterScale, METH_VARARGS},
   {"FillClosedShell", PFillClosedShell, METH_VARARGS},
+  {"DiracCoulomb", PDiracCoulomb, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
  
