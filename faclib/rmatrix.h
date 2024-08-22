@@ -67,9 +67,11 @@ typedef struct _DCFG_ {
   double *fs0, *fc0, *gs0, *gc0;
   double *a, *b, *c, *d, *e, *p, *p2, *rm;
   double *afs, *afc, *ags, *agc;
+  double *va, *vb;
+  int *xch, *ich;
   int nmultipoles, ngailitis, nlam, pdirection;
   double rgailitis, degenerate, accuracy;
-  int lrw, liw;
+  int nch, nov, lrw, liw;
   RMATRIX *rmx;
   int nr, mr, ierr;  
   double energy;
@@ -126,4 +128,6 @@ double InterpLinear(double de, int *isp, int nke, double *ea,
 		    double *ra, double e);
 void SortGroupEnergy(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx);
 int GetChanL(int j, int j0, int k0);
+int IgnoreChan(RMATRIX *rmx, RBASIS *rbs, int i);
+
 #endif

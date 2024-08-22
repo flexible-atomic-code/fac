@@ -850,8 +850,10 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
     if (_veff[i] < emin) emin = _veff[i];
   }
   dr = pot->rad[pot->ib1]-pot->rad[pot->ib];
-  ke = TWO_PI*(2*nr+5)/dr;
+  ke = TWO_PI*(5*nr+5)/dr;
   emax = 0.5*ke*ke;
+  e = emin + 0.25*emax;
+  emax = Max(e, emax);
   ke = TWO_PI*(nr+1)/dr;
   e = 0.5*ke*ke;
   de = 0.5*e;
@@ -879,8 +881,8 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
   }
   if (niter == max_iteration) {
     if (_on_error >= 0) {
-      printf("Max iteration before finding correct nodes in RadialBasisOuter1 %d %d %d %d\n",
-	     nodes, nr, orb->n, orb->kappa);
+      printf("Max iteration before finding correct nodes in RadialBasisOuter1 %d %d %d %d %g %g %g\n",
+	     nodes, nr, orb->n, orb->kappa, emin, emax, e);
     }
     //free(p);
     return -2;
@@ -890,7 +892,6 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
   de = emax-emin;
   ep = _eneabserr;
   while (niter < max_iteration) {
-    de *= 0.1;
     while (nodes == nr && niter < max_iteration) {
       niter++;
       e += de;
@@ -905,11 +906,11 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
 	nodes = CountNodes(p, pot, ib0, i2);
       }
       nodes += IntegrateRadial(p, e, pot, i2, 1.0, ib1, bqp1, 1);
-      //printf("nd0: %d %d %d %d %d %d %15.8E %15.8E %15.8E\n", niter, orb->n, orb->kappa, i2, nodes, nr, e, de, ep);
     }
     if (nodes-nr == 1 && de < ep) break;
     e -= de;
     nodes = nr;
+    de *= 0.25;
   }
   if (niter == max_iteration) {
     if (_on_error >= 0) {
@@ -926,7 +927,6 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
     de = emax-emin;
     niter = 0;
     while (niter < max_iteration) {
-      de *= 0.1;
       while (nodes == nr && niter < max_iteration) {
 	niter++;
 	e -= de;
@@ -946,6 +946,7 @@ int RadialBasisOuter(ORBITAL *orb, POTENTIAL *pot) {
       if (nodes-nr == -1 && de < ep) break;
       e += de;
       nodes = nr;
+      de *= 0.25;
     }  
     if (niter == max_iteration) {
       if (_on_error >= 0) {
