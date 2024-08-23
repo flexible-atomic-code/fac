@@ -1227,7 +1227,7 @@ int RadialBasisBQP(ORBITAL *orb, POTENTIAL *pot, double pbqp) {
   ep = _eneabserr;
   niter = 0;
   while (niter < max_iteration) {
-    de *= 0.1;
+    de *= 0.25;
     nodes = nr;
     while (nodes <= nr+1-mb && niter < max_iteration) {
       niter++;
@@ -1258,7 +1258,7 @@ int RadialBasisBQP(ORBITAL *orb, POTENTIAL *pot, double pbqp) {
     de = emax-emin;
     niter = 0;    
     while (niter < max_iteration) {
-      de *= 0.1;
+      de *= 0.25;
       while (nodes >= nr && niter < max_iteration) {
 	niter++;
 	e -= de;
@@ -1574,7 +1574,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
   ep = _eneabserr;
   niter = 0;
   while (niter < max_iteration) {
-    de *= 0.1;
+    de *= 0.25;
     nodes = nr;
     while (nodes == nr && niter < max_iteration) {
       niter++;
@@ -1605,7 +1605,7 @@ int RadialBound(ORBITAL *orb, POTENTIAL *pot) {
     de = emax-emin;
     niter = 0;    
     while (niter < max_iteration) {
-      de *= 0.1;
+      de *= 0.25;
       while (nodes == nr && niter < max_iteration) {
 	niter++;
 	e -= de;

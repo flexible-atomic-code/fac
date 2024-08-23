@@ -3154,11 +3154,11 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 		    }
 		  }
 		} else {
+		  sw[ns4+i][t] += isw;
+		  if (rmx[0].ts[its0] == _stark_lower[i]) {
+		    sw[ns6+i][t] += isw;
+		  }
 		  if (_stark_pw) {
-		    sw[ns4+i][t] += isw;
-		    if (rmx[0].ts[its0] == _stark_lower[i]) {
-		      sw[ns6+i][t] += isw;
-		    }
 		    for (p = 0; p < npw; p++) {
 		      isw = InterpLinear(rs->de, isp, nke, e,
 					 sp[st0+its0][p], et)*w0;
@@ -3434,7 +3434,9 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 						  ia1, et1);
 			double f = (rr1*rr0+ri1*ri0)*ff;
 			edt[k] -= f;
-			swp[ns7][k][p] -= f;
+			if (_stark_pw) {
+			  swp[ns7][k][p] -= f;
+			}
 		      }
 		    }
 		  }
