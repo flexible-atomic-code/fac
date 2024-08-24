@@ -253,6 +253,7 @@ void SaveSCPot(int md, char *fn, double sca);
 double FreeKineticEnergy(double ne, double t, double *u);
 double EffectiveTe(double ne, double ek);
 void SetSlaterScale(int m, char *s0, char *s1, double x);
+AVERAGE_CONFIG *AverageConfig(void);
 
 #endif
 

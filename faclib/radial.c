@@ -272,6 +272,10 @@ int GetRadTiming(RAD_TIMING *t) {
 }
 #endif
 
+AVERAGE_CONFIG *AverageConfig(void) {
+  return &average_config;
+}
+
 void LoadSCPot(char *fn) { 
   FILE *f;
   char buf[1024];
@@ -4754,8 +4758,8 @@ int SolveDirac(ORBITAL *orb) {
   }
   err = RadialSolver(orb, potential);
   if (err) { 
-    MPrintf(-1, "Error occured in RadialSolver, %d\n", err);
-    MPrintf(-1, "%d %d %10.3E\n", orb->n, orb->kappa, orb->energy);
+    MPrintf(-1, "Error occured in RadialSolver: %d %d %d %10.3E\n",
+	    err, orb->n, orb->kappa, orb->energy);
     average_config.n_shells = 0;
     GetPotential("error.pot", 0);
     if (err < -1 && orb->wfun != NULL) {

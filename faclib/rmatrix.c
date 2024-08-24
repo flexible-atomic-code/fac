@@ -528,7 +528,7 @@ void ExtrapolateButtle(RBASIS *rbs, int t, int m, double *e,
 }
     
 int RMatrixBasis(char *fn, int kmax, int nb) {
-  int k, i, j, k2, ib0, ib1, kappa, t, in;
+  int k, i, j, k2, ib0, ib1, kappa, t, in, ierr;
   int nkb0, nkb1, n, n0, nmax, kb, ki, kmin, ni;
   double e0, e1, ep, a0, a1, b, rb0, rb1, bb, c0, c1;
   double r01, r10, r0, r1, r2, p0, p1, q0, q1, x0, x1;
@@ -672,8 +672,9 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
     }
   }
   ResetWidMPI();
-#pragma omp parallel default(shared) private(k, k2, t, j, kappa, i, orbf, r0, r1, r2, in, b, p1, q1, x1, a1, p0, q0, x0, a0, r01, r10, c0, c1)
+#pragma omp parallel default(shared) private(k, k2, t, j, kappa, i, orbf, r0, r1, r2, in, b, p1, q1, x1, a1, p0, q0, x0, a0, r01, r10, c0, c1, pot)
   {
+  pot = RadialPotential();
   for (k = kmin; k <= kmax; k++) {
     k2 = 2*k;
     t = k2 - 1;
@@ -690,7 +691,21 @@ int RMatrixBasis(char *fn, int kmax, int nb) {
 	orbf.n = 1000000;
 	orbf.kappa = kappa;
 	orbf.energy = rbasis.ebuttle[t][i];
-	RadialSolver(&orbf, pot);
+	pot->flag = -1;
+	ierr = RadialSolver(&orbf, pot);
+	if (ierr) {
+	  MPrintf(-1, "Error occured in RadialSolver: %d %d %d %10.3E\n",
+		  ierr, orbf.n, orbf.kappa, orbf.energy);
+	  AverageConfig()->n_shells = 0;
+	  GetPotential("error.pot", 0);
+	  if (ierr < -1 && orbf.wfun != NULL) {
+	    orbf.isol=10;
+	    orbf.ilast = pot->maxrp-1;
+	    WaveFuncTableOrb("error.wav", &orbf);
+	    free(orbf.wfun);
+	  }
+	  Abort(1);      
+	}
 	r0 = 0.0;
 	r1 = 0.0;
 	r2 = 0.0;
@@ -3140,7 +3155,7 @@ void SaveRMatrixCE(RMXCE *rs, RBASIS *rbs, RMATRIX *rmx,
 	      for (t = 0; t < nes; t++) {
 		if (SkipWMPI(w++)) continue;
 		et = rs->es[t] + rmx[0].et[its1] - rmx[0].et0;
-		isw += InterpLinear(rs->de, isp, nke, e,
+		isw = InterpLinear(rs->de, isp, nke, e,
 				    s[st0+its0], et)*w0;
 		sw[ns2+i][t] += isw;
 		if (rmx[0].ts[its1] == _stark_lower[i]) {
