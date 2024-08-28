@@ -4407,7 +4407,7 @@ int DeinitFile(TFILE *f, F_HEADER *fhdr) {
     break;
   case DB_RC:
     FSEEK(f, rc_header.position, SEEK_SET);
-    if (rc_header.length > 0) {
+    if (rc_header.length > 0 || rc_header.nde == 0) {
       n = WriteRCHeader(f, &rc_header);
     }
     break;
@@ -8376,6 +8376,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
       for (nb = 0; nb < fh.nblocks; nb++) {
 	n = ReadRCHeader(f0, &h6, swp);
 	if (n == 0) break;
+	if (h6.ntransitions == 0) continue;
 	h6.mexc = nexc0;
 	InitFile(f1[6], &fh1[6], &h6);
 	for (i = 0; i < h6.ntransitions; i++) {

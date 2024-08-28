@@ -8884,7 +8884,7 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
       if (i == 0) vn0 = vn;
       vni = ion->vni[i]/100;
       if (ion->nk[i] == ion->nele) {
-	if (vn <= nexc) {
+	if (vn <= nexc || i == ion->ground) {
 	  if (ion->energy[i] < ei) {
 	    nb++;
 	  }
@@ -8930,7 +8930,7 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
       if (i == 0) vn0 = vn;
       vni = ion->vni[i]/100;
       if (ion->nk[i] == ion->nele) {
-	if (vn <= nexc) {
+	if (vn <= nexc || i == ion->ground) {
 	  if (ion->energy[i] < ei) {
 	    io[nb] = i;
 	    nb++;
@@ -9244,6 +9244,7 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
     printf("nrs: %d %d %d %d %d %d %d %d\n",
 	   ion->nele, nce, nci, nrr, ndr, nre, nea, mdrea);
     rh.nele = ion->nele;
+    int nbt = 0;
     if (nce) {
       rh.type = RC_CE;
       rh.nde = 1;
@@ -9263,6 +9264,7 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
 	}
       }
       DeinitFile(f, &fh);
+      nbt++;
     }
     if (nci) {
       rh.type = RC_CI;
@@ -9283,6 +9285,7 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
 	}
       }      
       DeinitFile(f, &fh);
+      nbt++;
     }
     if (nrr) {
       rh.type = RC_RR;
@@ -9302,7 +9305,8 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
 	  }
 	}
       } 
-      DeinitFile(f, &fh);     
+      DeinitFile(f, &fh);
+      nbt++;
     }    
     if (ndr && !mdrea) {
       rh.type = RC_DR;
@@ -9325,6 +9329,7 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
 	}
       }
       DeinitFile(f, &fh);
+      nbt++;
     }
     if (nre) {
       rh.type = RC_RE;
@@ -9344,7 +9349,8 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
 	  }
 	}
       }  
-      DeinitFile(f, &fh);    
+      DeinitFile(f, &fh);
+      nbt++;
     }
     if (nea && !mdrea) {
       rh.type = RC_EA;
@@ -9372,7 +9378,8 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
 	  }
 	}
       }  
-      DeinitFile(f, &fh);       
+      DeinitFile(f, &fh);
+      nbt++;
     }
 
     if (mdrea && (ndr || nea)) {
@@ -9423,8 +9430,15 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
 	}
       }  
       DeinitFile(f, &fh);
+      nbt++;
     }
-    
+
+    if (nbt == 0) {
+      rh.type = RC_TT;
+      rh.nde = 0;
+      InitFile(f, &fh, &rh);
+      DeinitFile(f, &fh);
+    }
     if (nk > 0) {
       FreeIdxAry(&iad, 0);
     }
