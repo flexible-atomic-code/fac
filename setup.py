@@ -15,9 +15,12 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-from distutils.core import setup, Extension
+try:
+    from setuptools import distutils, setup, Extension
+except:
+    import distutils
+    from distutils.core import setup, Extension
 from distutils import sysconfig
-import distutils
 from distutils.ccompiler import CCompiler
 from distutils.unixccompiler import UnixCCompiler
 from distutils.util import get_platform
@@ -121,7 +124,7 @@ for s in x:
     elif (s[0:6] == '-bsfac'):
         bsfac = 'SFAC-%s.%s.tar'%(VERSION, get_platform())
     elif (s[0:4] == '-mpy'):
-        pyinc = sysconfig.et_config_var('INCLUDEPY')
+        pyinc = sysconfig.get_config_var('INCLUDEPY')
         pylib = (sysconfig.get_config_var('LIBPL') +
                  '/' + sysconfig.get_config_var('LDLIBRARY'))
         os.system('cd python; export PYINC=%s PYLIB=%s; make mpy'%(pyinc, pylib))
