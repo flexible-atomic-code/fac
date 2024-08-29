@@ -1913,7 +1913,9 @@ int WriteENFRecord(TFILE *f, ENF_RECORD *r) {
 
 int WriteTRRecord(TFILE *f, TR_RECORD *r, TR_EXTRA *rx) {
   int n, m = 0;
-
+  
+  if (1+r->strength == 1) return 0;
+  
   if (tr_header.ntransitions == 0) {
     SetLockMPI();
     if (tr_header.ntransitions == 0) {
@@ -1951,6 +1953,7 @@ int WriteTRRecord(TFILE *f, TR_RECORD *r, TR_EXTRA *rx) {
     MPrintf(-1, "WriteTRRecord invalid strength: %d %d %g\n",
 	    r->lower, r->upper, r->strength);
   }
+
   WSF0(r->lower);
   WSF0(r->upper);
   WSF0(r->strength);
@@ -2396,6 +2399,8 @@ int WriteRRRecord(TFILE *f, RR_RECORD *r) {
 int WriteAIRecord(TFILE *f, AI_RECORD *r) {
   int n, m = 0;
 
+  if (1+r->rate == 1) return 0;
+  
   if (ai_header.ntransitions == 0) {
     SetLockMPI();
     if (ai_header.ntransitions == 0) {
