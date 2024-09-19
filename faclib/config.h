@@ -360,4 +360,6 @@ short VNIFromSName(char *sn);
 int CompareCfgPointer(const void *p1, const void *p2);
 void SetOptionConfig(char *s, char *sp, int ip, double dp);
 char *GetSpecSymbols();
+int OrderConfigShells(CONFIG *cfg);
+int OrderConfigShellsNR(CONFIG *cfg);
 #endif

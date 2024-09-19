@@ -846,6 +846,7 @@ int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg, int *nqp) {
     free(sr);
   }
   *nqp += inq;
+
   return ncfg;
 }
 
@@ -890,6 +891,7 @@ int DistributeElectronsNR(CONFIG **cfg, char *scfg, int *nqp) {
     free(sr);
   }
   *nqp += inq;
+
   return ncfg;
 }
 
@@ -1174,7 +1176,25 @@ int GetConfigFromStringNR(CONFIG **cfg, char *scfg0) {
   free(dcfg);
   free(dnc);
 
-  return ncfg;
+  k = 0;
+  for (i = 0; i < ncfg; i++) {
+    if (OrderConfigShellsNR(&(*cfg)[i]) >= 0) {
+      k++;
+    }
+  }
+  if (k == ncfg) return ncfg;
+  CONFIG *tcf;
+  tcf = *cfg;
+  *cfg = (CONFIG *) malloc(sizeof(CONFIG)*k);
+  j = 0;
+  for (i = 0; i < ncfg; i++) {
+    if (tcf[i].n_shells >= 0) {
+      memcpy(&(*cfg)[j], &tcf[i], sizeof(CONFIG));
+      j++;
+    }
+  }
+  free(tcf);
+  return k;
 }
 
 /* 
@@ -1190,7 +1210,27 @@ int GetConfigFromStringNR(CONFIG **cfg, char *scfg0) {
 ** NOTE:        
 */
 int GetConfigFromString(CONFIG **cfg, char *scfg) {
-  return GetConfigOrAverageFromString(cfg, NULL, scfg);
+  int nc = GetConfigOrAverageFromString(cfg, NULL, scfg);
+  int i, j, n;
+  n = 0;
+  for (i = 0; i < nc; i++) {
+    if (OrderConfigShells(&(*cfg)[i]) >= 0) {
+      n++;
+    }
+  }
+  if (n == nc) return nc;
+  CONFIG *tcf;
+  tcf = *cfg;
+  *cfg = (CONFIG *) malloc(sizeof(CONFIG)*n);
+  j = 0;
+  for (i = 0; i < nc; i++) {
+    if (tcf[i].n_shells >= 0) {
+      memcpy(&(*cfg)[j], &tcf[i], sizeof(CONFIG));
+      j++;
+    }
+  }
+  free(tcf);
+  return n;
 }
 
 /* 
@@ -1306,6 +1346,90 @@ int SpecSymbol(char *s, int kl) {
   return 0;
 }
 
+int OrderConfigShells(CONFIG *cfg) {
+  int i, i0, mq, ns;
+  
+  if (cfg->n_shells <= 1) return 0;
+  qsort(cfg->shells, cfg->n_shells, sizeof(SHELL), CompareShellInvert);
+  i0 = 0;
+  mq = GetJFromKappa(cfg->shells[0].kappa)+1;
+  i = 1;
+  ns = 0;
+  while (i < cfg->n_shells) {
+    if (cfg->shells[i].n == cfg->shells[i0].n &&
+	cfg->shells[i].kappa == cfg->shells[i0].kappa) {
+      cfg->shells[i0].nq += cfg->shells[i].nq;
+      if (cfg->shells[i0].nq > mq) {
+	free(cfg->shells);
+	cfg->n_shells = -1;
+	return -1;
+      }
+      cfg->shells[i].nq = 0;
+      ns++;
+    } else {
+      i0 = i;
+      mq = GetJFromKappa(cfg->shells[i0].kappa)+1;
+    }
+    i++;    
+  }
+  if (ns > 0) {
+    SHELL *t = cfg->shells;
+    cfg->shells = (SHELL *) malloc(sizeof(SHELL)*(cfg->n_shells-ns));
+    i0 = 0;
+    for (i = 0; i < cfg->n_shells; i++) {
+      if (t[i].nq > 0) {
+	memcpy(&cfg->shells[i0], &t[i], sizeof(SHELL));
+	i0++;
+      }
+    }
+    cfg->n_shells = i0;
+    free(t);
+  }
+  return cfg->n_shells;
+}
+
+int OrderConfigShellsNR(CONFIG *cfg) {
+  int i, i0, mq, ns;
+  
+  if (cfg->n_shells <= 1) return 0;
+  qsort(cfg->shells, cfg->n_shells, sizeof(SHELL), CompareShellInvert);
+  i0 = 0;
+  mq = 2*(cfg->shells[0].kappa) + 1;
+  i = 1;
+  ns = 0;
+  while (i < cfg->n_shells) {
+    if (cfg->shells[i].n == cfg->shells[i0].n &&
+	cfg->shells[i].kappa == cfg->shells[i0].kappa) {
+      cfg->shells[i0].nq += cfg->shells[i].nq;
+      if (cfg->shells[i0].nq > mq) {
+	free(cfg->shells);
+	cfg->n_shells = -1;
+	return -1;
+      }
+      cfg->shells[i].nq = 0;
+      ns++;
+    } else {
+      i0 = i;
+      mq = 2*(cfg->shells[i0].kappa) + 1;
+    }
+    i++;    
+  }
+  if (ns > 0) {
+    SHELL *t = cfg->shells;
+    cfg->shells = (SHELL *) malloc(sizeof(SHELL)*(cfg->n_shells-ns));
+    i0 = 0;
+    for (i = 0; i < cfg->n_shells; i++) {
+      if (t[i].nq > 0) {
+	memcpy(&cfg->shells[i0], &t[i], sizeof(SHELL));
+	i0++;
+      }
+    }  
+    cfg->n_shells = i0;
+    free(t);
+  }
+  return cfg->n_shells;
+}
+
 /* 
 ** FUNCTION:    Couple
 ** PURPOSE:     recursively construct all possible states for a Config.
@@ -1333,13 +1457,14 @@ int Couple(CONFIG *cfg) {
   }
 
   /* make sure that the shells are sorted in inverse order */
+  /* already ensured in order
   for (i = 1; i < cfg->n_shells; i++) {
     if (CompareShell(&cfg->shells[i-1], &cfg->shells[i]) < 0) {
       qsort(cfg->shells, cfg->n_shells, sizeof(SHELL), CompareShellInvert);
       break;
     }
   }
-
+  */
   if (TrueUTA(cfg->shells[0].n)) {
     cfg->csfs = NULL;
     cfg->n_csfs = 0;
