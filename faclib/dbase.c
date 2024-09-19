@@ -1914,7 +1914,9 @@ int WriteENFRecord(TFILE *f, ENF_RECORD *r) {
 int WriteTRRecord(TFILE *f, TR_RECORD *r, TR_EXTRA *rx) {
   int n, m = 0;
   
-  if (1+r->strength == 1) return 0;
+  if (1.0 == 1.0 + (double)(r->strength)) {
+    return 0;
+  }
   
   if (tr_header.ntransitions == 0) {
     SetLockMPI();
@@ -2399,7 +2401,9 @@ int WriteRRRecord(TFILE *f, RR_RECORD *r) {
 int WriteAIRecord(TFILE *f, AI_RECORD *r) {
   int n, m = 0;
 
-  if (1+r->rate == 1) return 0;
+  if (1.0 == 1.0 + (double)(r->rate)) {
+    return 0;
+  }
   
   if (ai_header.ntransitions == 0) {
     SetLockMPI();
