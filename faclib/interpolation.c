@@ -738,7 +738,7 @@ void PrepCEFCrossRecord(CEF_RECORD *r, CEF_HEADER *h, double *data) {
 
   cs = r->strength;
   for (j = 0; j < m; j++) {
-    y[j] = log(Max(MINCS,cs[j]));
+    y[j] = Max(MINCS,cs[j]);
   }
   y[m] = r->born[0];
 }
@@ -787,7 +787,7 @@ void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
     }
     y[m] = r->born[0];
   }
-
+  
   for (j = 0; j < m; j++) {
     y[j] = Max(MINCS, y[j]);
   }
@@ -806,9 +806,11 @@ void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
       w[j] = r->params[k];
     }
   }
+  /*
   for (j = 0; j < m; j++) {
     y[j] = log(y[j]);
   }
+  */
 }
 
 double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
@@ -842,10 +844,10 @@ double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
   w = x + m1;
 
   if (x0 < x[m-1]) {
-    n = 3;
+    n = 2;
     one = 1;
     UVIP3P(n, m, x, y, one, &x0, &a);
-    a = exp(a);
+    //a = exp(a);
   } else {
     x0 = e/(et0 + e);
     y0 = exp(y[m-1]);
@@ -941,10 +943,10 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
   w = x + m1;
 
   if (x0 < x[m-1]) {
-    n = 3;
+    n = 2;
     one = 1;
     UVIP3P(n, m, x, y, one, &x0, &a);
-    a = exp(a);
+    //a = exp(a);
     if (h->msub) {
       UVIP3P(n, m, x, w, one, &x0, &b);
       if (b < 0.0) b = 0.0;
@@ -1816,7 +1818,7 @@ double InterpolateCICross(double e1, double eth, double bms,
   } else {
     b = e1*bms/eth;
     x = log(1+b);    
-    UVIP3P(3, h->n_usr, xg, y, 1, &x, &tc);
+    UVIP3P(2, h->n_usr, xg, y, 1, &x, &tc);
     tc = exp(tc)*b/(1.0+b);
   }
 
@@ -1836,7 +1838,7 @@ double InterpolateCIMCross(double e1, double eth, double bms,
   int i, j, np;
 
   if (e1 <= 0) return 0.0;
-  np = 3;
+  np = 2;
   for (i = 0; i < h->n_usr; i++) {
     j = q*h->n_usr + i;
     b = bms*h->usr_egrid[i]/eth;
