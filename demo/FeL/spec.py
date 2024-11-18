@@ -3,7 +3,7 @@ from pfac import const
 import os
 
 z = 26
-neles = range(3,4)
+neles = range(8,9)
 
 dir0 = 'data/'
 den = [1.0]
@@ -17,13 +17,13 @@ for nele in neles:
     (temp, logt, population) = get_tgrid(z, nele)
     nt = len(temp)
     nd = len(den)
-    print 'NION = 3'
+    print('NION = 3')
     spectrum([nele], temp, den, population,
              'Fe', dir0=dir0, dir1=dir1, nion=3)
-    print 'NION = 2'
+    print('NION = 2')
     spectrum([nele], temp, den, population,
              'Fe', dir0=dir0, dir1=dir1, nion=2)
-    print 'NION = 1'
+    print('NION = 1')
     spectrum([nele], temp, den, population,
              'Fe', dir0=dir0, dir1=dir1, nion=1)
 

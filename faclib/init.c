@@ -119,7 +119,7 @@ void SetLepton(int t, double m0, double e0, char *fn) {
   RATE_AU = _RATE_AU*(m*e4);
   RATE_AU10 = _RATE_AU10*(m*e4);
   RATE_AU12 = _RATE_AU12*(m*e4);
-  AREA_AU20 = _AREA_AU20*(m*e4);
+  AREA_AU20 = _AREA_AU20*/(m*m*e4);
   VOLUME_AU = _VOLUME_AU/(m*m*m*e6);
   RBOHR = _RBOHR/(m*e2);
   VAU8 = _VAU8*e2;

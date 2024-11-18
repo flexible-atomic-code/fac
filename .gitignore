@@ -72,6 +72,10 @@ demo/*/*.ham
 *.ind
 *.out
 *.toc
+*.synctex.gz
+*-converted-to.pdf
+doc/*.log
+doc/*/*.log
 
 # manual (it should be pushed in release-pdf branch by circle-ci)
 doc/manual.pdf
