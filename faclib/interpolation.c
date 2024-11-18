@@ -2680,6 +2680,7 @@ int RRCross(char *ifn, char *ofn, int i0, int i1,
 	    }
 	    phi = 2.0*PI*FINE_STRUCTURE_CONST*tc*AREA_AU20;
 	    rr = phi * pow(FINE_STRUCTURE_CONST*eph, 2) / (2.0*ee);
+	    rr /= 1 + 0.5*FINE_STRUCTURE_CONST2*ee;
 	    rr /= (mem_en_table[r.f].j + 1.0);
 	    phi /= (mem_en_table[r.b].j + 1.0);
 	  }
