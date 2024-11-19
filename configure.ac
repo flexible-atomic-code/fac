@@ -177,6 +177,28 @@ AC_ARG_WITH(lapacklib,
 	[ --with-lapacklib	LAPACK Libs],
 	[lapacklib=$withval])
 
+AC_ARG_VAR(PYPREFIX, [prefix of python site-packages])
+AC_ARG_VAR(PIPOPTS, [options passed to pip install])
+
+if test "x$PYPREFIX" == "x"
+then
+  PYPREFIX=$prefix
+  if test "x$PYPREFIX" == "xNONE"
+  then
+    PYPREFIX=$ac_default_prefix
+  fi	 
+fi
+
+#debian deriviatives appends a local into python prefix,
+#remove it if our prefix already has a local in it.
+
+pypath=`$PYTHON -c 'import sysconfig;print(sysconfig.get_path("purelib",vars={"base":"/local"}))'`
+if test "${pypath/#\/local\/local/}" != "${pypath}"
+then
+  PYPREFIX={$PYPREFIX/%\/local/}
+fi
+echo "PYPREFIX = ${PYPREFIX}"
+
 # setup libs
 if test "x$blaslib" == "x"
 then

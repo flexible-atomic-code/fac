@@ -9,6 +9,10 @@ SHELL = /bin/sh
 
 PREFIX = @prefix@
 
+PYPREFIX = @PYPREFIX@
+
+PIPOPTS = @PIPOPTS@
+
 PYTHON = @PYTHON@
 
 CC = @CC@
@@ -53,8 +57,7 @@ install:
 	cd sfac; make install
 
 install-pfac:
-	${PYTHON} -m pip install --prefix=${PREFIX} .
-#	${PYTHON} setup.py install -ccompiler="${CC}"
+	${PYTHON} -m pip install ${PIPOPTS} --prefix=${PYPREFIX} .
 
 clean:
 	rm -f *.so *.a *.o *~
