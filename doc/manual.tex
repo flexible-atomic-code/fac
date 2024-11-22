@@ -2895,11 +2895,9 @@ returned instead of the cross sections.
 Specify a plasma screening model. \var{z} is the number of free electrons per
 ion in the plasma, \var{n} is the electron density in unit of
 $10^{24}$~cm$^{-3}$. \var{t} is the electron temperature in eV. \var{m} is the
-model choices. $m=0$ uses a uniform ioni-sphere model, in which case only
-\var{z} and \var{n} are required input. $m=1$ uses a non-uniform ion-sphere
+model choices. $m=0$ uses either the ion-sphere model (when $u=0$) or Stewart-Pyatt screening model (when $u>0$). $m=1$ uses a non-uniform ion-sphere
 model where free electrons follow Fermi-Dirac distribution, in which case,
-\var{t} is a required parameter. $m=2$ uses the Stewart-Pyatt screening model,
-in which case, \var{u} is a required parameter, corresponding to the $z^{*}$
+\var{t} is a required parameter.
 in this model.
 \end{fundesc}
 

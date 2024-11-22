@@ -63,7 +63,7 @@ make install-pfac
 ```
 This installs the PFAC module into Python's default site-package dir corresponding to the python executable. To install for an alternative python, set env. var. PYTHON to the desired python executable, e.g., /usr/bin/python3, before configure, or invoke configure with ./configure PYTHON=/usr/bin/python3
 
-install-pfac has been updated to use "pip install --prefix=$PREFIX", where PREFIX is /usr/local by default. This should install python modules under $PREFIX/lib/python#.$/site-packages or in some systems dist-packages. On some linux distributions, it appears to install modules under $PREFIX/local/lib/python#.#/. e.g., if PREFIX=/usr/local, the install directory is /usr/local/local/. You may need to set the PYTHONPATH appropriately for python to find pfac.
+install-pfac has been updated to use "pip install --prefix=$PYPREFIX", where PYPREFIX is the same as PREFIX=/usr/local by default. This should install python modules under $PYPREFIX/lib/python#.$/site-packages or in some systems dist-packages. PYPREFIX can be set when running configure. An extra option can be set during configure, PIPOPTS, which are passed to pip install. In newer versions of PIP, a virtual env is preferred, and it may refuse to install pfac into system python directories. In this case, set PIPOPTS=--break-system-packages will force pip to install pfac without virtual env setup.
 
 #### 4-1 Anaconda distribution
 If your are using Anaconda distribution for Python environment, it may be
