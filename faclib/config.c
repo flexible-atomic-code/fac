@@ -738,9 +738,11 @@ int ApplyRestriction(int ncfg, CONFIG *cfg, int nc, SHELL_RESTRICTION *sr) {
 	break;
       }
       if (c == 0) {
-	if (cfg[i].n_shells >= 0) {
+	if (cfg[i].n_shells > 0) {
 	  cfg[i].n_shells = -1;
 	  free(cfg[i].shells);
+	  cfg[i].shells = NULL;
+	} else {
 	  cfg[i].shells = NULL;
 	}
       }

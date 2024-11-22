@@ -17,7 +17,7 @@
 #
 
 import string
-import fac
+from pfac import fac
 
 # spectroscopic notation of orbital angular momentums.
 _orbital_symbols = {}
