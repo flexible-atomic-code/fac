@@ -743,6 +743,7 @@ int ApplyRestriction(int ncfg, CONFIG *cfg, int nc, SHELL_RESTRICTION *sr) {
 	  free(cfg[i].shells);
 	  cfg[i].shells = NULL;
 	} else {
+	  cfg[i].n_shells = -1;
 	  cfg[i].shells = NULL;
 	}
       }
@@ -1178,6 +1179,8 @@ int GetConfigFromStringNR(CONFIG **cfg, char *scfg0) {
   free(dcfg);
   free(dnc);
 
+  if (ncfg <= 0) return 0;
+  
   k = 0;
   for (i = 0; i < ncfg; i++) {
     if (OrderConfigShellsNR(&(*cfg)[i]) >= 0) {
@@ -1213,6 +1216,7 @@ int GetConfigFromStringNR(CONFIG **cfg, char *scfg0) {
 */
 int GetConfigFromString(CONFIG **cfg, char *scfg) {
   int nc = GetConfigOrAverageFromString(cfg, NULL, scfg);
+  if (nc <= 0) return 0;
   int i, j, n;
   n = 0;
   for (i = 0; i < nc; i++) {
