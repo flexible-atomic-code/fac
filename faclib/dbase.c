@@ -5183,14 +5183,14 @@ int PrintTRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 	  gf = OscillatorStrength(h.multipole, e, r.strength, &a);
 	  a /= (mem_en_table[r.upper].j + 1.0);
 	  a *= RATE_AU;
-	  fprintf(f2, "%5d %4d %5d %4d %13.6E %11.4E %13.6E %13.6E %13.6E %10.3E\n",
+	  fprintf(f2, "%6d %4d %6d %4d %13.6E %11.4E %13.6E %13.6E %13.6E %10.3E\n",
 		  r.upper, mem_en_table[r.upper].j, 
 		  r.lower, mem_en_table[r.lower].j,
 		  (e*HARTREE_EV), 
 		  (rx.sdev*HARTREE_EV), gf, a, r.strength, rx.sci);
 	} else {
 	  e = rx.energy;
-	  fprintf(f2, "%5d %5d %13.6E %11.4E %13.6E %10.3E\n",
+	  fprintf(f2, "%6d %6d %13.6E %11.4E %13.6E %10.3E\n",
 		  r.upper, r.lower, e, rx.sdev, r.strength, rx.sci);
 	}
       } else {

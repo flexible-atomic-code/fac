@@ -265,7 +265,17 @@ def _read_value(lines, cls):
 def _get_header(lines):
     """ Read fac header """
     header = {}
-    header['FAC'] = lines[0][4:-1]
+    a = lines[0][4:-1].split('[')
+    header['FAC'] = a[0]
+    if len(a) > 1:
+        a = a[1][:-1].split('.')
+        header['nthreads'] = int(a[0])
+        header['uta'] = int(a[1])
+        header['utaci'] = int(a[2])
+    else:
+        header['nthreads'] = 0
+        header['uta'] = 0
+        header['utaci'] = 0        
     lines = lines[1:]
     header['Endian'], lines = _read_value(lines, int)
     header['TSess'], lines = _read_value(lines, int)
@@ -449,20 +459,36 @@ def read_tr(filename):
         block['gf'] = np.zeros(ntrans, dtype=float)
         block['rate'] = np.zeros(ntrans, dtype=float)
         block['multipole'] = np.zeros(ntrans, dtype=float)
+        if header['uta'] > 0:
+            block['Shift'] = np.zeros(ntrans, dtype=float)
+            block['rci'] = np.zeros(ntrans, dtype=float)
 
         for i, line in enumerate(lines):
             if line.strip() == '':  # if empty
                 blocks = read_blocks(lines[i+1:])
                 return (block, ) + blocks
-            block['upper_index'][i] = int(line[:6])
-            block['upper_2J'][i] = int(line[7:9])
-            block['lower_index'][i] = int(line[10:16])
-            block['lower_2J'][i] = int(line[17:19])
-            block['Delta E'][i] = float(line[20:33])
-            block['gf'][i] = float(line[34:47])
-            block['rate'][i] = float(line[48:61])
-            block['multipole'][i] = float(line[62:75])
-
+            if header['uta'] == 0:
+                block['upper_index'][i] = int(line[:6])
+                block['upper_2J'][i] = int(line[7:9])
+                block['lower_index'][i] = int(line[10:16])
+                block['lower_2J'][i] = int(line[17:19])
+                block['Delta E'][i] = float(line[20:33])
+                block['gf'][i] = float(line[34:47])
+                block['rate'][i] = float(line[48:61])
+                block['multipole'][i] = float(line[62:75])
+            else:
+                a = line.split()
+                block['upper_index'][i] = int(a[0])
+                block['upper_2J'][i] = int(a[1])
+                block['lower_index'][i] = int(a[2])
+                block['lower_2J'][i] = int(a[3])
+                block['Delta E'][i] = float(a[4])
+                block['Shift'][i] = float(a[5])
+                block['gf'][i] = float(a[6])
+                block['rate'][i] = float(a[7])
+                block['multipole'][i] = float(a[8])
+                block['rci'][i] = float(a[9])
+                
         return (block, )
 
     return header, read_blocks(lines)
