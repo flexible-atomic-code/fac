@@ -68,7 +68,10 @@ def cfgnr(nq):
     if len(nq) == 0:
         return s
     for n,k,q in nq:
-        s += ' %d%s%d'%(n,fac.SPECSYMBOL[k],q)
+        if type(q) == int:
+            s += ' %d%s%d'%(n,fac.SPECSYMBOL[k],q)
+        else:
+            s += ' %d%s%g'%(n,fac.SPECSYMBOL[k],q)
     return s[1:]
 
 def nlq(s):
@@ -939,6 +942,19 @@ def read_pot(fn, cfg=None, header=None):
                    max_rows=nc, usecols=range(1,10))
     if len(cfg) == 0:
         return d
+    if cfg == 'bnd':
+        ns = np.int32(d[1])
+        ks = np.int32(d[2])
+        nlq = []
+        for n in range(min(ns),max(ns)+1):
+            for k in range(n):
+                w = np.where((ns==n)&((ks==k)|(ks==-(k+1))))[0]
+                if len(w) == 0:
+                    continue
+                if np.mean(d[-1][w]) >= 0:
+                    continue
+                nlq.append((n,k,round(np.sum(d[3][w]),2)))
+        return cfgnr(nlq)
     if (cfg[-1] == '+'):
         j = 1
     elif (cfg[-1] == '-'):

@@ -24,6 +24,9 @@ from types import *
 import time, os, copy
 
 def grdcfg0(z, k):
+    r = GetGroundProp(z, k)
+    if r[0] != '':
+        return r[0]
     s = ''
     nq = 0
     for n in range(1, 11):

@@ -975,6 +975,7 @@ void SetReferencePotential(POTENTIAL *h, POTENTIAL *p, int hlike) {
   } else {
     h->hlike = 0;
   }
+  h->sps = 1;
   h->nse = 0;
   h->mse = 0;
   h->pse = 0;
@@ -1767,6 +1768,10 @@ int GetAWGrid(double **a) {
   return n_awgrid;
 }
 
+int OptimizeMaxIter(void) {
+  return optimize_control.maxiter;
+}
+
 void SetOptimizeMaxIter(int m) {
   optimize_control.maxiter = m;
 }
@@ -2034,7 +2039,7 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
 int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
   ORBITAL *orb;
   double *w, small, large, *w0, *wx, *wx0, wmin;
-  int jmax, i, k1, m, i0, i1;
+  int jmax, i, k1, m, mm, i0, i1;
   double a, b, dn0, u, jps0, jps1;
   
   w = _xk;
@@ -2062,6 +2067,9 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
     wx0 = potential->VXF;
     wmin = _sc_wmin;
     if (potential->ups > 0) {
+      if (potential->mps == 0 && SPMode() > 3) {
+	wmin = 10.0;
+      }
       jmax = potential->maxrp-1;
     } else {
       jmax = potential->ips;
@@ -2092,10 +2100,13 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
 
   if (jmax > 0) {
     b = 0.0;
+    mm = 0;
     for (m = 0; m <= jmax; m++) {
-      if (w[m] > b) b = w[m];
+      if (w[m] > b) {
+	b = w[m];
+	mm = m;
+      }
     }
-    
     b *= wmin;
     b = Max(b, 1e-20);
     dn0 = 0.0;
@@ -2113,7 +2124,7 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
       for (m = 0; m < potential->maxrp; m++) {
 	w0[m] = b*w0[m] + a*w[m];
       }
-      if (md == 1) {
+      if (md == 1 && potential->vxf == 2) {
 	for (m = 0; m < potential->maxrp; m++) {
 	  wx0[m] = b*wx0[m] + a*wx[m];
 	}
@@ -2122,7 +2133,7 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
       for (m = 0; m < potential->maxrp; m++) {
 	w0[m] = w[m];
       }
-      if (md == 1) {
+      if (md == 1 && potential->vxf == 2) {
 	for (m = 0; m < potential->maxrp; m++) {
 	  wx0[m] = wx[m];
 	}
@@ -3247,7 +3258,11 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
       potential->hxs = hxs0*(1-ahx);
     }
     SetPotential(acfg, iter);
-    a = Max(optimize_control.dph[0][NDPH-1], optimize_control.dph[1][NDPH-1]);
+    if (potential->mps == 0 && potential->ups > 0 && SPMode() > 3) {
+      a = optimize_control.dph[0][NDPH-1];
+    } else {
+      a = Max(optimize_control.dph[0][NDPH-1], optimize_control.dph[1][NDPH-1]);
+    }
     tol = 0.0;
     atol = 0.0;
     for (i = 0; i < acfg->n_shells; i++) {

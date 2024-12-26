@@ -69,5 +69,10 @@ void SetupFermi(void);
 double FermiRMS(double c, double a);
 double FermiParamC(double r, double a);
 void SetOptionNucleus(char *s, char *sp, int ip, double dp);
+int GetGround2J(int z, int k);
+double GetGroundIP(int z, int k);
+char *GetGroundLev(int z, int k);
+char *GetGroundCfg(int z, int k);
+
 #endif
 

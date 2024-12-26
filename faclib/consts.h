@@ -207,6 +207,7 @@ extern double AMU;
 /* nucleus */
 #define N_ELEMENTS 120
 #define N_ELEMENTS1 (N_ELEMENTS+1)
+#define N_ELEMENTS2 (N_ELEMENTS*(N_ELEMENTS+1)/2)
 #define NISO 58
 #define XFERMI0 (-10.0)
 #define XFERMI1 (+35.0)

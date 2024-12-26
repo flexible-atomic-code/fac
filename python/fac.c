@@ -6615,6 +6615,25 @@ static PyObject *PRemoveClosedShell(PyObject *self, PyObject *args) {
   return Py_BuildValue("sss", r.ncomplex, r.sname, r.name);
 }
 
+static PyObject *PGetGroundProp(PyObject *self, PyObject *args) {
+  double ipot;
+  int j2, z, k;
+  char glev[16];
+  char gcfg[128];
+
+  if (!PyArg_ParseTuple(args, "ii", &z, &k)) return NULL;
+  if (z > N_ELEMENTS) return NULL;
+  if (z < 1) return NULL;
+  if (k > z) return NULL;
+  if (k < 1) return NULL;
+  ipot = GetGroundIP(z, k);
+  j2 = GetGround2J(z, k);
+  strncpy(glev, GetGroundLev(z, k), 16);
+  strncpy(gcfg, GetGroundCfg(z, k), 128);
+
+  return Py_BuildValue("ssid", gcfg, glev, j2, ipot);
+}
+
 static struct PyMethodDef fac_methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -6869,6 +6888,7 @@ static struct PyMethodDef fac_methods[] = {
   {"XCPotential", PXCPotential, METH_VARARGS},
   {"FillClosedShell", PFillClosedShell, METH_VARARGS},
   {"RemoveClosedShell", PRemoveClosedShell, METH_VARARGS},
+  {"GetGroundProp", PGetGroundProp, METH_VARARGS},
   {NULL, NULL}
 };
 

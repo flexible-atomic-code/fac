@@ -79,6 +79,7 @@ static int _remove_closed = 0;
 static int _ncombex[N_ELEMENTS1];
 static char **_pcombex[N_ELEMENTS1];
 static char _scombex[N_ELEMENTS1][2048];
+static int _adj_ip = 1;
 
 static int _ic_iai[100];
 static int _ix_iai[100];
@@ -7803,7 +7804,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
   int nexc, ncap, nt, nd, ix, ibx, ifx, ib, cn0, cn1, cn2;
   int ia, *nm, *nklevs, *igk, *ifk, kk, kk1;
   short ***nc;
-  double t0, dt, d0, dd, *egk;
+  double t0, dt, d0, dd, *egk, eip;
   float ***pai;
 
   ncap = 0;
@@ -7903,7 +7904,12 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
       }
       nlevs += h0.nlevels;
     }
-    
+    if (_adj_ip) {
+      eip = GetGroundIP(z, k);
+      if (eip > 0) {
+	e1 = e0 + eip/HARTREE_EV;
+      }
+    }
     printf("check levels: %d %d %s %d\n", z, k, ifn, nlevs);
     if (k < k1) {
       de[k-k0] = de[k+1-k0]+ (e1p - e0);
@@ -8942,6 +8948,10 @@ void SetOptionDBase(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "dbase:remove_closed")) {
     _remove_closed = ip;
+    return;
+  }
+  if (0 == strcmp(s, "dbase:adj_ip")) {
+    _adj_ip = ip;
     return;
   }
 }
