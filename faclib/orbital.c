@@ -63,12 +63,19 @@ static int _sp_nzs = 0;
 static double *_sp_zs = NULL;
 static double *_sp_zw = NULL;
 static double _sp_zu = 0.0;
-static int _sp_mode = 1;
+// _sp_mode = 1, use SP approx. solution for y
+// _sp_mode = 2, integrate SP ode, only on the 1st optimize loop
+// _sp_mode = 3, integrate SP ode, on every optimize loop
+static int _sp_mode = 3;
 static int _debye_mode = 0; 
 static int _sp_print = 0;
+static int _sp_piter0 = 0;
+static int _sp_piter1 = 0;
 static int _ionsph_miniter = 10;
 static int _ionsph_maxiter = 1024;
 static double _ionsph_ifermi = 1.0;
+// _ionsph_bmode=0, mu not updated during SP solution iteration
+// _ionsph_bmode=1, mu updated, just as regular ionsph model
 static int _ionsph_bmode = 0;
 static double _icf_tol = EPS3;
 static int _icf_maxiter = 1024;
@@ -3581,7 +3588,11 @@ int SetPotentialZ(POTENTIAL *pot) {
   }  
   SetPotentialVP(pot);
   SetPotentialSE(pot);
-  if (pot->sps == 0) SetPotentialPS(pot, -1);
+
+  if (pot->sps == 0) {
+    SetPotentialPS(pot, -1);
+  }
+  
   return 0;
 }
 
@@ -4274,7 +4285,7 @@ int SetPotentialPS(POTENTIAL *pot, int iter) {
 }
 
 void SetPotentialIPS(POTENTIAL *pot, int iter) {
-  int i, ii;
+  int i, ii, maxit;
   double n0, r0, x;
   if (pot->mps == 1) {//debye screening
     if (iter > 0) return;
@@ -4318,9 +4329,6 @@ void SetPotentialIPS(POTENTIAL *pot, int iter) {
     return;
   }
 
-  if (pot->ups > 0) {
-    if (iter > 0 && (_sp_mode == 0 || _sp_mode == 2)) return;
-  }
   if (pot->tps <= 0) {
     r0 = pot->rps;
     n0 = pot->nps;
@@ -4341,14 +4349,21 @@ void SetPotentialIPS(POTENTIAL *pot, int iter) {
     return;
   }
 
-  double x0, x1, dx;
+  if (pot->ups > 0) {
+    if (iter <= 0) return;
+    if (iter > 1 && (_sp_mode == 0 || _sp_mode == 2)) return;
+  }
+  
+  double x0, x1, dx, tol;
+  maxit = OptimizeMaxIter()+1;
+  tol = EPS7;
   i = 0;
   ii = 0;
   dx = 0;
   x0 = 0.0;
   x1 = 0.0;
   x = pot->aps;
-  r0 = Max(1,pot->zps)*EPS7;
+  r0 = Max(1,pot->zps)*tol;
   pot->xps = 1.0;
   n0 = FreeElectronDensity(pot, 0.0, x, pot->zps, -1, iter);
   if (pot->ups > 0 && _ionsph_bmode == 0) {
@@ -4356,16 +4371,22 @@ void SetPotentialIPS(POTENTIAL *pot, int iter) {
       goto END;
     }
     if (fabs(n0-pot->zps) < r0) goto END;
+    dx = 2.0;
     if (n0 < pot->zps) {
       x0 = pot->xps;
       x1 = x0;
       while (n0 < pot->zps) {
 	x0 = x1;
-	x1 *= 1.25;
+	x1 *= dx;
 	pot->xps = x1;
-	n0 = FreeElectronDensity(pot, 0.0, x, pot->zps, -1, iter);
+	n0 = FreeElectronDensity(pot, 0.0, x, pot->zps, -1, ii*maxit+iter);
+	if (ii > _ionsph_maxiter-10 || (_sp_print > 0 && ii%_sp_print == 0)) {
+	  printf("ion sphere iter0: %d %d %g %g %g %g %g\n",
+		 iter, ii, pot->zps, n0, pot->xps, x0, x1);
+	}
 	ii++;
 	if (fabs(n0-pot->zps) < r0) goto END;
+	dx *= 2;
 	if (ii >= _ionsph_maxiter) {
 	  printf("max ion sphere iter0: %d %d %g %g %g %g %g\n",
 		 iter, ii, pot->zps, n0, pot->xps, x0, x1);
@@ -4377,11 +4398,16 @@ void SetPotentialIPS(POTENTIAL *pot, int iter) {
       x0 = x1;
       while (n0 > pot->zps) {
 	x1 = x0;
-	x0 /= 1.25;
+	x0 /= dx;
 	pot->xps = x0;
-	n0 = FreeElectronDensity(pot, 0.0, x, pot->zps, -1, iter);
+	n0 = FreeElectronDensity(pot, 0.0, x, pot->zps, -1, ii*maxit+iter);
+	if (ii > _ionsph_maxiter-10 || (_sp_print > 0 && ii%_sp_print == 0)) {
+	  printf("ion sphere iter1: %d %d %g %g %g %g %g\n",
+		 iter, ii, pot->zps, n0, pot->xps, x0, x1);
+	}
 	ii++;
 	if (fabs(n0-pot->zps) < r0) goto END;
+	dx *= 2;
 	if (ii >= _ionsph_maxiter) {
 	  printf("max ion sphere iter1: %d %d %g %g %g %g %g\n",
 		 iter, ii, pot->zps, n0, pot->xps, x0, x1);
@@ -4393,9 +4419,9 @@ void SetPotentialIPS(POTENTIAL *pot, int iter) {
     pot->xps = sqrt(x0*x1);
     while(fabs(n0-pot->zps) > r0) {
       i++;
-      n0 = FreeElectronDensity(pot, 0.0, x, pot->zps, -1, iter);
+      n0 = FreeElectronDensity(pot, 0.0, x, pot->zps, -1, i*maxit+iter);
       if (i > _ionsph_maxiter-10 || (_sp_print > 0 && i%_sp_print == 0)) {
-	printf("ion sphere iter0: %d %d %d %g %g %g %g %g %g %g %g %g %g\n",
+	printf("ion sphere iter2: %d %d %d %g %g %g %g %g %g %g %g %g %g\n",
 	       iter, i, ii, pot->zps, n0, dx, x0, x1, x,
 	       pot->xps, pot->aps, pot->rps, pot->dps);
       }
@@ -4406,7 +4432,12 @@ void SetPotentialIPS(POTENTIAL *pot, int iter) {
       } else {
 	break;
       }
-      pot->xps = sqrt(x0*x1);
+      if (x1/x0 > 2) {
+	pot->xps = sqrt(x0*x1);
+      } else {
+	pot->xps = 0.5*(x0+x1);
+      }
+      if (fabs(x1-x0)/pot->xps < EPS3*tol && n0 <= pot->zps) break;
       if (i >= _ionsph_maxiter) {
 	printf("max ion sphere iter2: %d %d %g %g %g %g %g\n",
 	       iter, i, pot->zps, n0, pot->xps, x0, x1);
@@ -4424,7 +4455,7 @@ void SetPotentialIPS(POTENTIAL *pot, int iter) {
     while (n0 < pot->zps) {
       x0 = x1;
       x1 = pot->aps + dx;
-      n0 = FreeElectronDensity(pot, 0.0, x1, pot->zps, -1, iter);      
+      n0 = FreeElectronDensity(pot, 0.0, x1, pot->zps, -1, ii*maxit+iter);      
       ii++;
       if (fabs(n0-pot->zps) < r0) goto END;
       if (n0 < pot->zps) dx *= 2;
@@ -4440,7 +4471,7 @@ void SetPotentialIPS(POTENTIAL *pot, int iter) {
     while (n0 > pot->zps) {
       x1 = x0;
       x0 = pot->aps - dx;
-      n0 = FreeElectronDensity(pot, 0.0, x0, pot->zps, -1, iter);
+      n0 = FreeElectronDensity(pot, 0.0, x0, pot->zps, -1, ii*maxit+iter);
       ii++;
       if (fabs(n0-pot->zps) < r0) goto END;
       if (n0 > pot->zps) dx *= 2;
@@ -4455,9 +4486,9 @@ void SetPotentialIPS(POTENTIAL *pot, int iter) {
   x = 0.5*(x0+x1);
   while (fabs(n0-pot->zps) > r0) {
     i++;    
-    n0 = FreeElectronDensity(pot, 0.0, x, pot->zps, -1, iter);
+    n0 = FreeElectronDensity(pot, 0.0, x, pot->zps, -1, i*maxit+iter);
     if (i > _ionsph_maxiter-10 || (_sp_print > 0 && i%_sp_print == 0)) {
-      printf("ion sphere iter1: %d %d %d %g %g %g %g %g %g %g %g %g %g\n",
+      printf("ion sphere iter5: %d %d %d %g %g %g %g %g %g %g %g %g %g\n",
 	     iter, i, ii, pot->zps, n0, dx, x0, x1, x,
 	     pot->xps, pot->aps, pot->rps, pot->dps);
     }
@@ -4477,7 +4508,7 @@ void SetPotentialIPS(POTENTIAL *pot, int iter) {
   }
  END:
   if (_sp_print < 0) {
-      printf("ion sphere iter2: %d %d %d %g %g %g %g %g %g %g %g %g %g\n",
+      printf("ion sphere iter6: %d %d %d %g %g %g %g %g %g %g %g %g %g\n",
 	     iter, i, ii, pot->zps, n0, dx, x0, x1, x,
 	     pot->xps, pot->aps, pot->rps, pot->dps);
   }
@@ -4709,17 +4740,19 @@ double FreeElectronDensity(POTENTIAL *pot, double e0, double u,
 
 double StewartPyattIntegrand(double x, double a, double fa, double y,
 			     double y0, double g, double z, double nb) {
-  double ys, zs, r;
+  double ys, zs, r, r0;
   int m;
+
   if (y0 > 0) {
     m = 1;
   } else {
     m = 0;
   }
-  r = InterpFermiRM1(y, m);
-  if (nb >= 0) {
-    r += nb;
+  r0 = InterpFermiRM1(y, m);
+  if (nb > 0) {
+    r0 += nb;
   }
+  r = 0.0;
   if (_sp_nzs <= 0) {
     if (_icf_nfft > 0) {
       double *rw = _icf_dw + _icf_nfft*3;
@@ -4755,13 +4788,13 @@ double StewartPyattIntegrand(double x, double a, double fa, double y,
     ys /= zs;
     r -= ys;
   }
-  r /= (1+z);
+  r = (r0+r)/(1+z);
   return r;
 }
 
 void DerivSPY(int *neq, double *t, double *y, double *yd) {
-  double x = exp(*t);
-  yd[0] = x*y[1];
+  double x = *t;
+  yd[0] = y[1];
   double rho = 0.0;  
   if (_icf_nfft > 0) {
     rho = x*y[9];
@@ -4769,14 +4802,14 @@ void DerivSPY(int *neq, double *t, double *y, double *yd) {
   } else {
     rho = x/y[10];
   }
-  double y0 = y[0]/x;
-  double y1 = 0.0;
-  if (y[11] >= -1e-10) {
-    y1 = y0;
-  }
+  double z;
+  z = (x - y[14])/(y[15] - y[14]);
+  z = (1-z)*y[12] + z*y[13];  
+  double y0 = (y[0]-z)/x;
+  double y1 = 1.0;
   double s = StewartPyattIntegrand(rho, y[2], y[3], y0, y1,
 				   y[4], y[5], y[11]);
-  yd[1] = x*x*s;
+  yd[1] = x*s;
 }
 
 FCALLSCSUB4(DerivSPY, DERIVSPY, derivspy, PINT, PDOUBLE, DOUBLEV, DOUBLEV)
@@ -4785,19 +4818,21 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 			    double *eps, double *icf,
 			    double eth, double tps,
 			    double eref, double ewd,
-			    double u, double zn, int md, int iter,
+			    double u, double zn, int md, int miter,
 			    double ups, double fa,
 			    double rps, double dps, double *aps) {
-  int i, k, ii, mps;
+  int i, k, ii, mps, iter, ips, maxit;
   double a = 4.0/PI, g, e0, x, y, ye, r2, y0, y1, xk, xj, xs, x1;
   double x0, xm, xd, yr, y2, ym, u1, u2, u3, u6, x2, x3, b;
   double *rad, *drdx, *vt;
 
+  maxit = OptimizeMaxIter() + 1;
+  iter = miter%maxit;
+  ips = miter/maxit;
   mps = pot->mps;
   rad = pot->rad;
   drdx = pot->dr_drho;
   vt = pot->VT[0];
-  
   if (md < 0) {
     md = _relativistic_fermi;
   }
@@ -4954,7 +4989,7 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
       u1 = ups+1.0;
       if (ifermi) {
 	b = ups+_fermi_rm1[2][NFRM1];
-	b /= u1;
+	b = sqrt(b/u1);	
       } else {
 	b = 1.0;
       }
@@ -4975,10 +5010,12 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
       xj = (2*x1/b +x1*x1)/u2;
       xk = x3/u3/(b*b*b);
       ye = (xj - x1*x1/u2)/b;
-      if (_ionsph_ifermi && (_sp_mode == 2 || (_sp_mode == 3 && iter > 1))) {
+      if (_ionsph_ifermi &&
+	  (_sp_mode%10 == 2 || _sp_mode%10 == 3)
+	  && iter > 0) {
 	double *rwork = _dwork3;
 	int iwork[22];
-	double rtol, atol[2], ysp[12], t, t0, kc, *wb;
+	double rtol, atol[2], ysp[16], t, t0, kc, dt, dx, hdx;
 	int neq, itol, itask, istate, iopt, mf, lrw, liw, ib;
 	lrw = pot->maxrp;
 	liw = 22;
@@ -4990,16 +5027,7 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 	itask = 4;
 	istate = 1;
 	iopt = 0;
-	mf = 10;
-	wb = pot->NPS;
-	for (i = pot->maxrp-1; i > 10; i--) {      
-	  x = pot->rad[i]/pot->dps;
-	  ym = (ye/x)*exp(b*(x1-x));
-	  _veff[i] = ym;
-	  if (ups*ym > _sp_yeps) {
-	    break;
-	  }
-	}
+	mf = 22;
 	ysp[2] = u;
 	ysp[3] = y0;
 	ysp[4] = g;
@@ -5009,69 +5037,139 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 	ysp[8] = pot->qr;
 	ysp[9] = pot->dps;
 	ysp[10] = pot->rps/pot->dps;
-	ysp[0] = ye*exp(b*(x1-x));
-	ysp[1] = -ye*b*exp(b*(x1-x));
-	x0 = x;
-	t0 = log(x0);
-	i--;
-	ib = 0;
-	for (; i >= 0; i--) {
-	  x = pot->rad[i]/pot->dps;
-	  t = log(x);
-	  if (_sp_mode == 3) {
-	    if (pot->NC > 1) {
-	      r2 = pot->rad[i]*pot->rad[i]*FOUR_PI*pot->nps;
-	      yr = 0.5*(wb[i]+wb[i+1])*(pot->NC-1)/pot->NC;
-	      ysp[11] = yr/r2;
-	    } else {
-	      ysp[11] = 0.0;
-	    }
-	  } else {
-	    ysp[11] = -1;
+	dt = pot->dps*pot->tps;
+	if (_sp_mode >= 10) {
+	  t0 = -pot->zps/dt;
+	  for (i = pot->maxrp-1; i >= 0; i--) {
+	    x0 = pot->rad[i]/pot->dps;	    
+	    t = ye*exp(b*(x1-x0));
+	    _veff[i] = (t0+t*pot->xps)/x0;
+	    if (fabs(t/t0) >= EPS2) break;
 	  }
-	  rwork[0] = t;
-	  while (t0 > t) {	  
-	    LSODE(C_FUNCTION(DERIVSPY, derivspy), neq, ysp, &t0, t,
-		  itol, rtol, atol, itask, &istate, iopt, rwork, lrw, iwork,
-		  liw, NULL, mf);
-	    if (istate == -1) istate = 2;
-	    else if (istate < 0) {
-	      printf("PSODE error in StewartPyatt: %d %d %g",
-		     istate, vt==NULL, rwork[13]);
-	      Abort(1);
+	  ysp[0] = t0 + t*pot->xps;
+	  ysp[1] = -b*t*pot->xps;
+	} else {
+	  i = 0;
+	  x0 = pot->rad[i]/pot->dps;
+	  ysp[1] = -xj/pot->xps;
+	  ysp[0] = x0*ysp[1];
+	}
+	t0 = x0;	
+	ysp[12] = (vt[i]*pot->rad[i]-pot->ZPS[i])/dt;
+	ysp[14] = t0;
+	_veff[i] = ysp[0]/x0;
+	_dwork1[i] = ysp[1];
+	if (_sp_mode >= 10) {
+	  for (i--; i >= 0; i--) {
+	    x = pot->rad[i]/pot->dps;
+	    dx = x - x0;
+	    hdx = 0.5*dx;
+	    ysp[11] = 0.0;
+	    ysp[13] = (vt[i]*pot->rad[i]-pot->ZPS[i])/dt;
+	    ysp[15] = x;
+	    t = x0;
+	    rwork[0] = ysp[0];
+	    rwork[1] = ysp[1];
+	    DerivSPY(&neq, &t, ysp, rwork+10);
+	    t = x0 + hdx;
+	    ysp[0] = rwork[0] + rwork[10]*hdx;
+	    ysp[1] = rwork[1] + rwork[11]*hdx;
+	    DerivSPY(&neq, &t, ysp, rwork+12);
+	    ysp[0] = rwork[0] + rwork[12]*hdx;
+	    ysp[1] = rwork[1] + rwork[13]*hdx;
+	    DerivSPY(&neq, &t, ysp, rwork+14);
+	    ysp[0] = rwork[0] + rwork[14]*dx;
+	    ysp[1] = rwork[1] + rwork[15]*dx;
+	    t = x;
+	    DerivSPY(&neq, &t, ysp, rwork+16);
+	    ysp[0] = rwork[0] + (hdx/3.)*(rwork[10]+
+					  2*rwork[12]+
+					  2*rwork[14]+
+					  rwork[16]);
+	    ysp[1] = rwork[1] + (hdx/3.)*(rwork[11]+
+					  2*rwork[13]+
+					  2*rwork[15]+
+					  rwork[17]);
+	    x0 = x;
+	    _veff[i] = ysp[0]/x;
+	    ysp[12] = ysp[13];
+	    ysp[14] = ysp[15];
+	  }
+	} else {
+	  t0 = -pot->zps/dt;
+	  rtol = ysp[0] - t0;
+	  for (i++; i < pot->maxrp; i++) {
+	    x = pot->rad[i]/pot->dps;
+	    dx = x - x0;
+	    hdx = 0.5*dx;
+	    ysp[11] = 0.0;
+	    ysp[13] = (vt[i]*pot->rad[i]-pot->ZPS[i])/dt;
+	    ysp[15] = x;
+	    t = x0;
+	    rwork[0] = ysp[0];
+	    rwork[1] = ysp[1];
+	    DerivSPY(&neq, &t, ysp, rwork+10);
+	    _dwork2[i-1] = rwork[11];
+	    t = x0 + hdx;
+	    ysp[0] = rwork[0] + rwork[10]*hdx;
+	    ysp[1] = rwork[1] + rwork[11]*hdx;
+	    DerivSPY(&neq, &t, ysp, rwork+12);
+	    ysp[0] = rwork[0] + rwork[12]*hdx;
+	    ysp[1] = rwork[1] + rwork[13]*hdx;
+	    DerivSPY(&neq, &t, ysp, rwork+14);
+	    ysp[0] = rwork[0] + rwork[14]*dx;
+	    ysp[1] = rwork[1] + rwork[15]*dx;
+	    t = x;
+	    DerivSPY(&neq, &t, ysp, rwork+16);
+	    ysp[0] = rwork[0] + (hdx/3.)*(rwork[10]+
+					  2*rwork[12]+
+					  2*rwork[14]+
+					  rwork[16]);
+	    ysp[1] = rwork[1] + (hdx/3.)*(rwork[11]+
+					  2*rwork[13]+
+					  2*rwork[15]+
+					  rwork[17]);
+	    if (fabs((ysp[13]-ysp[12])/ysp[13]) < EPS3) {
+	      if (x > x1) {
+		t = ye*exp(b*(x1-x));
+		if (fabs(t/t0) < EPS2) break;
+		t = ysp[0]-t0;
+		if (t < rtol) {
+		  rtol = t;
+		} else {
+		  break;
+		}
+	      }
+	      t = (ysp[0]-ysp[13])/x;
+	      if (t < EPS4/pot->ups) break;
+	    }
+	    ysp[12] = ysp[13];
+	    ysp[14] = ysp[15];
+	    _veff[i] = ysp[0]/x;
+	    _dwork1[i] = ysp[1];
+	    x0 = x;
+	  }
+	  k = i-1;
+	  if (i < pot->maxrp) {
+	    ysp[0] = _veff[k]*x0;
+	    t = ysp[0]-t0;
+	    for (; i < pot->maxrp; i++) {
+	      x = pot->rad[i]/pot->dps;
+	      _veff[i] = (t0 + t*exp(b*(x0-x)))/x;
 	    }
 	  }
-	  x0 = x;
-	  t0 = log(x0);
-	  _veff[i] = ysp[0]/x;
-	  if (_veff[i] > _fermi_ymx) {
-	    ib = i;
-	    if (iter > 1) {
-	      ym = -vt[i]/pot->tps;
-	    } else {
-	      if (x <= x1) {
-		ym = xk/x - xj + x*x/u6;
-	      } else {
-		ym = (ye/x)*exp(b*(x1-x));
+	  if (_sp_piter0 > 0 || _sp_piter1 > 0) {
+	    if ((_sp_piter0 == 0 || iter == _sp_piter0) &&
+		(_sp_piter1 == 0 || ips == _sp_piter1)) {
+	      for (i = 0; i < pot->maxrp; i++) {
+		x = pot->rad[i]/pot->dps;
+		t = (vt[i]*pot->rad[i]-pot->ZPS[i])/dt;
+		dx = ExpM1(-pot->ups*(_veff[i]-t/x));
+		hdx = pot->NPS[i]/(FOUR_PI*pot->rad[i]*pot->rad[i]*pot->nps);
+		MPrintf(0, "spy: %4d %4d %4d %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E %15.8E\n", iter, ips, i, pot->rad[i], b, ye, x1, x, t, _veff[i]*x, _veff[i]*x-t, _dwork1[i], _dwork2[i], hdx);
 	      }
 	    }
-	    kc = _veff[i]/ym;
-	    break;
 	  }
-	}
-      
-	for (i--; i >= 0; i--) {
-	  x = pot->rad[i]/pot->dps;
-	  if (iter > 1) {
-	    ym = -vt[i]/pot->tps;
-	  } else {
-	    if (x <= x1) {
-	      ym = xk/x - xj + x*x/u6;
-	    } else {
-	      ym = (ye/x)*exp(b*(x1-x));
-	    }
-	  }
-	  _veff[i] = ym*kc;
 	}
       }    
      
@@ -5089,14 +5187,33 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 	} else {
 	  y1 = (ye/x)*exp(b*(x1-x));
 	}
-	if (_sp_mode == 1 && iter > 1) {
-	  y1 = (y1-ym)-(vt[i]-pot->ZPS[i]/rad[i])/tps;	  
-	} else if (_sp_mode == 2) {
-	  y1 = _veff[i];
-	} else if (_sp_mode == 3 && iter > 1) {
-	  y1 = _veff[i];
+	double vc = (vt[i]-pot->ZPS[i]/rad[i])/tps;
+	double xf = pot->xps;
+	if (_sp_mode == 1) {
+	  y1 = xf * ((y1-ym) - vc);
+	} else if (_sp_mode == 2 || _sp_mode == 12) {
+	  y1 = _veff[i] - vc;
+	} else if (_sp_mode == 3 || _sp_mode == 13) {
+	  y1 = _veff[i] - vc;
+	} else if (_sp_mode == 4) {
+	  if (i <= pot->ips) {
+	    y1 = xf * (-vt[i]/tps);
+	  } else {
+	    k = pot->ips;
+	    x2 = rad[k]/dps;
+	    xs = xk/x2;
+	    if (x2 <= x1) {
+	      y2 = xs - xj + x2*x2/u6;
+	    } else {
+	      y2 = (ye/x2)*exp(b*(x1-x2));
+	    }
+	    y1 = (y1-ym) - vc;
+	    y2 = (y2-xs) - vc;
+	    y1 = xf * y1 * (-vt[k])/(tps*y2);
+	  }
+	} else if (_sp_mode == 5) {
+	  y1 = xf * (-vt[i]/tps);
 	}
-	y1 *= pot->xps;
 
 	if (ifermi) {
 	  xs = InterpFermiRM1(y1, 1);	  
@@ -5125,7 +5242,7 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 	  continue;
 	}
 	r2 = rad[i]*rad[i];
-	y = (-vt[i])/tps;
+	y = -vt[i]/tps;
 	if (ifermi) {
 	  ye = InterpFermiRM1(y, 1) + 1;
 	  eps[i] = a*r2*ye*y0;
@@ -5964,7 +6081,10 @@ void SetOptionOrbital(char *s, char *sp, int ip, double dp) {
     return;
   }
   if (0 == strcmp(s, "orbital:sp_print")) {
-    _sp_print = ip;
+    _sp_print = ip%10;
+    _sp_piter0 = ip/10;
+    _sp_piter1 = _sp_piter0%10000;
+    _sp_piter0 = _sp_piter0/10000;
     return;
   }
   if (0 == strcmp(s, "orbital:icf_tol")) {

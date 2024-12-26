@@ -122,6 +122,7 @@ double GetPhaseShift(int k);
 int SetAverageConfig(int nshells, int *n, int *kappa, double *nq);
 void SetConfigEnergyMode(int m);
 int ConfigEnergyMode(void);
+int OptimizeMaxIter(void);
 void SetOptimizeMaxIter(int m);
 void SetOptimizeStabilizer(double m);
 void SetOptimizeTolerance(double c);

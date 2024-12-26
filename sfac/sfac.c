@@ -5406,7 +5406,30 @@ static int PDiracCoulomb(int argc, char *argv[], int argt[],
 	   ierr, k, e*HARTREE_EV, r, p, q, u, v);
   }
 }
+
+static int PGetGroundProp(int argc, char *argv[], int argt[],
+			  ARRAY *variables) {
+  int z, k;
   
+  if (argc != 2) return -1;
+  if (argt[0] != NUMBER) return -1;
+  if (argt[1] != NUMBER) return -1;
+
+  z = atoi(argv[0]);
+  k = atoi(argv[1]);
+  if (z > N_ELEMENTS) return -1;
+  if (z < 1) return -1;
+  if (k > z) return -1;
+  if (k < 1) return -1;
+  
+  printf("%s\n", GetGroundCfg(z, k));
+  printf("%s\n", GetGroundLev(z, k));
+  printf("%d\n", GetGround2J(z, k));
+  printf("%15.8E\n", GetGroundIP(z, k));
+
+  return 0;
+}
+
 static METHOD methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -5634,6 +5657,7 @@ static METHOD methods[] = {
   {"SetSlaterScale", PSetSlaterScale, METH_VARARGS},
   {"FillClosedShell", PFillClosedShell, METH_VARARGS},
   {"DiracCoulomb", PDiracCoulomb, METH_VARARGS},
+  {"GetGroundProp", PGetGroundProp, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
  
