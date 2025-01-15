@@ -26,7 +26,7 @@ from sys import version_info
 from pfac import fac
 from pfac import const
 from pfac import util
-import os
+import os, datetime
 from multiprocessing import Pool, cpu_count
 
 def e2v(e, m=0):
@@ -2100,3 +2100,28 @@ def jsp_zd(de, t, zp, zs):
             break
         d = 0.5*(dmin+dmax)
     return d
+
+def jj2lsj(pref, dd='.', ex='jj2lsj'):
+    i = 0;
+    fb = '%s_%03d'%(pref,i)
+    ofn = '%s.LS'%(pref)
+    r = os.system('rm -rf %s/%s'%(dd,ofn))
+    while (True):
+        if (not os.path.exists('%s/%s.c'%(dd,fb))):
+            break
+        dt = datetime.datetime.now()
+        print('%s %s %s @ %s'%(dd,fb,ofn,dt))
+        with open('%s/jj2lsj.in'%(dd),'w') as f:
+            f.write('%s\n'%fb)
+            f.write('Y\n')
+            f.write('Y\n')
+            f.write('Y\n')
+        r = os.system('cd %s; %s < jj2lsj.in > jj2lsj.out 2>&1'%(dd,ex))
+        if (os.path.exists('%s/%s.lsj.lbl'%(dd,fb))):
+            if (not os.path.exists('%s/%s'%(dd,ofn))):
+                r = os.system('cd %s; cat %s.lsj.lbl > %s'%(dd,fb,ofn))
+            else:
+                r = os.system('cd %s; cat %s.lsj.lbl >> %s'%(dd,fb,ofn))
+        i = i + 1        
+        fb = '%s_%03d'%(pref,i)
+        ofn = '%s.LS'%(pref)
