@@ -114,7 +114,9 @@ def nlq(s):
     return n,l,q
 
 def nlqs(s):
-    return [nlq(x) for x in s.split(' ')]
+    r = np.array([nlq(x) for x in s.split(' ')])
+    i = np.argsort(r[:,0]*100 + r[:,1])
+    return r[i,:]
 
 def voigt_fwhm(gw, lw):
     return 0.5346*lw + np.sqrt(0.2166*lw**2 + gw**2)
