@@ -11486,6 +11486,13 @@ int ReinitRadial(int m) {
   FreeYkArray();
   if (m < 2) {
     FreeGOSArray();
+    int i;
+    for (i = 0; i < potential->maxrp; i++) {
+      potential->ZPS[i] = 0;
+      potential->NPS[i] = 0;
+      potential->EPS[i] = 0;
+      potential->VPS[i] = 0;
+    }
     if (m == 0) {
       if (optimize_control.n_screen > 0) {
 	free(optimize_control.screened_n);
