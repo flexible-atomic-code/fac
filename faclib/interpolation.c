@@ -850,7 +850,7 @@ double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
     //a = exp(a);
   } else {
     x0 = e/(et0 + e);
-    y0 = exp(y[m-1]);
+    y0 = y[m-1];
     if (data[1] > -EPS10) {
       if (XCEMode() == 1) {
 	e0 = ((x[m]*et0/(1.0-x[m]))+eth1)/HARTREE_EV;
@@ -955,7 +955,7 @@ double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
     }
   } else {
     x0 = e/(et0 + e);
-    y0 = exp(y[m-1]);
+    y0 = y[m-1];
     if (data[1] > -EPS10) {
       if (XCEMode() == 1) {
 	e0 = ((x[m]*et0/(1.0-x[m]))+eth1)/HARTREE_EV;

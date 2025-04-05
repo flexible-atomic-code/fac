@@ -2070,7 +2070,7 @@ def ipd_more(d, t, zp, zs):
     return j
 
 def ipd_ek(d, t, zp, zs):
-    j = 6.964e-7*(zp+1.)**(2./3) * (d*1e24)**(1/3.)
+    j = 2.3e-7*(zp+1.)*((1+1./zs)*d*1e24)**(1/3.)
 
     return j
 
