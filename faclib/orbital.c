@@ -3268,7 +3268,7 @@ void InitializePS(POTENTIAL *pot) {
     } 
     if (pot->zps <= 0 || (pot->mps == 0 && 1+pot->ups != 1)) {
       pot->zps = (z0-pot->NC);
-      if (pot->ihx < 0) pot->zps -= pot->ihx;
+      if (pot->ihx < 0 && pot->NC > 0.999) pot->zps -= pot->ihx;
     }
     if (pot->ups < 0) {      
       pot->ups = pot->zps;
@@ -5225,6 +5225,7 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 	  }
 	  icf[i] = 1 - (x2+1)/(xs+1.0);
 	  if (icf[i] < 0) icf[i] = 0.0;
+	  _dwork1[i] = -ExpM1(-ups*y1);
 	} else {
 	  eps[i] = a*r2*FermiIntegral(y1+u, y1, g);
 	  FERMID(0.5, u, EPS10, &y0, &ii);
@@ -5232,6 +5233,7 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 	  icf[i] = (1 - (y0/y)*exp(-ups*y1));
 	  if (icf[i] < 1E-99) icf[i] = 0.0;
 	  eps[i] *= icf[i];
+	  _dwork1[i] = -ExpM1(-ups*y1);
 	}
 	if (eps[i] < 1E-99) eps[i] = 0.0;
       }
@@ -5250,7 +5252,18 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 	  eps[i] = a*r2*FermiIntegral(y+u, y, g);
 	}
 	if (eps[i] < 1E-99) eps[i] = 0.0;
+	_dwork1[i] = -ExpM1(-ups*y);
       }
+    }
+    if (drdx && i2 > i0) {
+      for (i = i0; i <= i2; i++) {
+	_dwork1[i] *= rad[i]*rad[i]*drdx[i];
+      }
+      pot->cps = 3*Simpson(_dwork1, i0, i2);
+      if (i0 == 0) {
+	pot->cps += rad[0]*rad[0]*rad[0];
+      }
+      pot->cps = pow(pot->cps, ONETHIRD);
     }
   }
   if (drdx && i2 > i0) {

@@ -1842,6 +1842,7 @@ int SetRadialGrid(int maxrp, double ratio, double asymp,
   potential->tps = 0;
   potential->ups = 0;
   potential->rps = 0;
+  potential->cps = 0;
   potential->dps = 0;
   potential->aps = 0;
   potential->fps = 0;
@@ -2672,6 +2673,7 @@ int GetPotential(char *s, int m) {
   fprintf(f, "#    tps = %15.8E\n", potential->tps);
   fprintf(f, "#    ups = %15.8E\n", potential->ups);
   fprintf(f, "#    rps = %15.8E\n", potential->rps);
+  fprintf(f, "#    cps = %15.8E\n", potential->cps);  
   fprintf(f, "#    dps = %15.8E\n", potential->dps);
   fprintf(f, "#    aps = %15.8E\n", potential->aps);
   fprintf(f, "#    bps = %15.8E\n", potential->bps);

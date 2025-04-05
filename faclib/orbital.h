@@ -53,7 +53,7 @@ typedef struct _POTENTIAL_ {
   double sturm_idx;
   int nws;  
   double *dws;
-  double zps, nps, tps, rps, dps, aps, bps, nbt, nbs, nqf;
+  double zps, nps, tps, rps, cps, dps, aps, bps, nbt, nbs, nqf;
   double fps, ups, xps, jps, qps, gps, sf0, sf1, efm, eth, ewd;
   int mps, kps, vxf, ips, sps, iqf, miter, vxm;
   double *Z, *dZ, *dZ2, *rad, *rho, *mqrho, *dr_drho, *dr_drho2, *vtr;
