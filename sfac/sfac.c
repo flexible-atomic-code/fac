@@ -443,7 +443,7 @@ static int PClosed(int argc, char *argv[], int argt[], ARRAY *variables) {
   CONFIG *cfg;
   int i, j, kl, n, nq, ncfg;
   char *p;
-  char s[16], st[16];
+  char s[16], st[64];
   int ns, k;
 
   if (argc == 0) _closed_shells[0] = '\0';
@@ -735,7 +735,7 @@ static int PRemoveConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   for (k = 0; k < ng; k++) {
     RemoveGroup(kg[k]);
   }
-  ReinitStructure(1);
+  ReinitStructure(0);
   ReinitRecouple(0);
   if (ng > 0) free(kg);
 
@@ -1270,20 +1270,22 @@ static int PMemENTable(int argc, char *argv[], int argt[],
 
 static int POptimizeGroup(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
-  int ng, *kg, i;
+  int ng, *kg;
+  char sid[GROUP_NAME_LEN];
 
   if (argc == 0) {
-    AddOptGrp(0, NULL);
+    AddOptGrp(NULL, 0, NULL);
     return 0;
   }
 
-  for (i = 0; i < argc; i++) {
-    ng = DecodeGroupArgs(&kg, 1, NULL, &argv[i], &argt[i], variables);
-    if (ng > 0) {
-      AddOptGrp(ng, kg);
-      free(kg);
-    }
+  if (argc != 2) return -1;
+  strncpy(sid, argv[0], GROUP_NAME_LEN-1);
+  ng = DecodeGroupArgs(&kg, 1, NULL, &argv[1], &argt[1], variables);
+  if (ng > 0) {
+    AddOptGrp(sid, ng, kg);
+    free(kg);
   }
+  
   return 0;
 }
 
@@ -1586,7 +1588,7 @@ static int PReinit(int argc, char *argv[], int argt[],
       m_recouple = -1;
       m_radial = 0;
       m_dbase = 0;
-      m_structure = 2;
+      m_structure = 0;
       m_excitation = 0;
       m_recombination = 0;
       m_ionization = 0;
@@ -5405,6 +5407,22 @@ static int PDiracCoulomb(int argc, char *argv[], int argt[],
     printf("%d %d %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E\n",
 	   ierr, k, e*HARTREE_EV, r, p, q, u, v);
   }
+  return 0;
+}
+
+static int PConfigUTA(int argc, char *argv[], int argt[],
+		      ARRAY *variables) {
+  char *s;
+  CONFIG_GROUP *g;
+  int k, u;
+
+  if (argc != 2) return -1;
+
+  k = GroupExists(argv[0]);
+  if (k < 0) return -1;
+  g = GetGroup(k);
+  ConfigUTA(g, u>0);
+  return 0;
 }
 
 static int PGetGroundProp(int argc, char *argv[], int argt[],
@@ -5473,6 +5491,7 @@ static METHOD methods[] = {
   {"CITableMSub", PCITableMSub, METH_VARARGS},
   {"ClearLevelTable", PClearLevelTable, METH_VARARGS},
   {"ClearOrbitalTable", PClearOrbitalTable, METH_VARARGS},
+  {"ConfigUTA", PConfigUTA, METH_VARARGS},
   {"Closed", PClosed, METH_VARARGS},
   {"Config", PConfig, METH_VARARGS},
   {"ReadConfig", PReadConfig, METH_VARARGS},

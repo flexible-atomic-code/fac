@@ -221,10 +221,10 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
 		   int m, int lower, int upper, int *ks) {  
   LEVEL *lev1, *lev2;
   SYMMETRY *sym;
-  STATE *s;
+  STATE *s, *v;
   CONFIG *cfg;
-  int t, j, p, k, mk, m0, p1, p2;
-  double wb, si, te, wm, eg;
+  int r, t, j, p, k, mk, m0, p1, p2;
+  double wb, si, te, wm, eg, w1, w2;
 
   m0 = m;
   *strength = 0.0;
@@ -242,12 +242,40 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
   if (m < 0 && IsOdd(p1+p2+m)) return 0;
 
   te = lev2->energy - lev1->energy;
-  
+
+  mk = 0;
   if (lev1->n_basis > 0 && lev2->n_basis > 0) {
-    k = TRMultipole(strength, &te, m, lower, upper);
+    if (TransUTA() == 0) {
+      k = TRMultipole(strength, &te, m, lower, upper);
+      mk = (k == 0);
+    } else {
+      sym = GetSymmetry(lev1->pj);
+      DecodePJ(lev1->pj, &p, &j);
+      *strength = 0.0;
+      wm = 0.0;
+      for (t = 0; t < lev1->n_basis; t++) {
+	s = (STATE *) ArrayGet(&(sym->states), lev1->basis[t]);
+	w1 = lev1->mixing[t]*lev1->mixing[t];
+	for (r = 0; r < lev2->n_basis; r++) {
+	  v = (STATE *) ArrayGet(&(sym->states), lev2->basis[r]);
+	  w2 = lev2->mixing[r]*lev2->mixing[r];
+	  k = TRMultipoleUTA0(&si, rx, m, s->kgroup, v->kgroup,
+			      s->kcfg, v->kcfg, te, p1, p2, NULL);
+	  if (k == 0) continue;
+	  wb = (j+1.0)*w1*w2;
+	  if (wb > wm) {
+	    wm = wb;
+	    mk = k;
+	  }
+	  if (m0 != 0) si *= si;
+	  *strength += wb*si;
+	}
+      }
+      if (m0 != 0) *strength = sqrt(*strength);
+    }
     rx->energy = te;
     rx->sdev = 0.0;    
-    return k == 0;
+    return mk;
   }
   if (lev1->n_basis == 0 && lev2->n_basis == 0) {
     k = TRMultipoleUTA0(strength, rx, m, lev1->iham, lev2->iham,

@@ -59,6 +59,7 @@ static double _eground[200];
 static int iuta = 0;
 static int utaci = 1;
 static int cuta = 0;
+static int tuta = 0;
 static int itrf = 0;
 static double clock_start=0, clock_last=0;
 
@@ -215,6 +216,10 @@ void SetUTA(int m, int mci) {
     cuta = m;
   }
   if (mci >= 0) utaci = mci;
+}
+
+int TransUTA(void) {
+  return tuta;
 }
 
 int IsUTA(void) {
@@ -778,7 +783,7 @@ void PrintTransReport(int nproc, double t0, int *ntrans,
   if (nt > 0) mdta = mdt/nt;
   if (n1 > 0) mdt1 = mdt/n1;
   if (n0 > 0) mdt0 = mdt/n0;
-  MPrintf(md, "%s %05d: %08d(%08d,%08d)trans in %8.2Es, %8.2E(%8.2E,%8.2E)ms/tran @ %11.4Es\n",
+  MPrintf(md, "%s %06d: %09d(%09d,%09d)trans in %8.2Es, %8.2E(%8.2E,%8.2E)ms/tran @ %11.4Es\n",
 	  sid, ip, ((int)(nt+0.25)), n0, n1, dt, mdta, mdt0, mdt1, ClockNow(0));
   if (ip < 0) free(ntrans);
 }
@@ -8566,8 +8571,8 @@ void InitIdxDat(void *d, int nb) {
 int PreloadEN(char *fn, int i0, int i1, int j0, int j1) {
   FILE *f;
   char buf[2048];
-  int i, im, n;
-  double e, em;
+  int i, im, n, nb;
+  double e, em, de;
   IDXDAT d, *ip;
   
   f = fopen(fn, "r");
@@ -8584,18 +8589,18 @@ int PreloadEN(char *fn, int i0, int i1, int j0, int j1) {
   _idxmap.j1 = 0;
   _idxmap.im1 = 0;
   _idxmap.jm1 = 0;
+
   while (1) {
     if (NULL == fgets(buf, 2048, f)) break;
-    n = sscanf(buf, "%d %d %lf %lf", &im, &i, &em, &e);
-    if (n != 4) continue;
-    if (e <= 0 && im > 0) continue;
+    n = sscanf(buf, "%d %d %lf %lf %lf", &im, &i, &em, &e, &de);
+    if (n != 5) continue;
+    nb = strlen(buf);
+    if (nb < 2) continue;
+    if (buf[nb-1] != '\n') continue;
+    if (1+e==1 && im > 0) continue;
     e /= HARTREE_EV;
     d.i = im;
-    if (im == 0) {
-      d.e = 0.0;
-    } else {
-      d.e = e;
-    }
+    d.e = e;
     if (i > 0 || im == 0) {
       ArraySet(_idxmap.imap, i, &d, InitIdxDat);
       if (_idxmap.i1 < i) _idxmap.i1 = i;
@@ -8621,10 +8626,12 @@ int PreloadEN(char *fn, int i0, int i1, int j0, int j1) {
   _idxmap.ni = 1 + (_idxmap.im1 - _idxmap.im0);
   _idxmap.nj = 1 + (_idxmap.jm1 - _idxmap.jm0);
   _idxmap.nij = _idxmap.ni*_idxmap.nj;
-  if (_idxmap.nij > 0) {
+
+  if (_idxmap.ni > 0 && _idxmap.nj > 0 && _idxmap.nij > 0) {
     _idxmap.mask = malloc(sizeof(long)*_idxmap.nij);
     for (i = 0; i < _idxmap.nij; i++) _idxmap.mask[i] = 0;
   }
+
   return 0;
 }
 
@@ -8952,6 +8959,10 @@ void SetOptionDBase(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "dbase:adj_ip")) {
     _adj_ip = ip;
+    return;
+  }
+  if (0 == strcmp(s, "dbase:tuta")) {
+    tuta = ip;
     return;
   }
 }

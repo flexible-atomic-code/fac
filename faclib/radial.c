@@ -236,6 +236,8 @@ static int _nmp = 0;
 static double *_dmp[2][2][MAXMP];
 
 static int _config_energy = -1;
+static int _config_energy_psr = 0;
+static char _config_energy_pfn[1024];
 static double _sturm_idx = 0;
 static double _sturm_eref = 0;
 static int _sturm_nref = 0;
@@ -5462,6 +5464,7 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
   int k, kk, i, md, md1;
   int nog, iog, **og, *gp, ngp;
   double e0;
+  char *sid, pfn[2048];
 
   if (optimize_control.mce < 0) return 0;
   if (kg == NULL) ng = 0;
@@ -5490,6 +5493,7 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	  if (SkipOptGrp(g)) continue;
 	  gp[ngp++] = og[iog][k+1];
 	}
+	sid = GetOptGrpId(iog);
       } else {
 	ngp = 1;
 	if (kg) kk = kg[iog];
@@ -5504,28 +5508,55 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	if (SkipOptGrp(g)) {
 	  ngp = 0;
 	}
+	sid = g->name;
       }
       if (ngp == 0) {
 	continue;
       }
       if (md == 0) {
-	if (OptimizeRadial(ngp, gp, -1, NULL, 1) < 0) {
-	  ReinitRadial(1);
-	  ClearOrbitalTable(0);
-	  continue;
+	if (_config_energy_psr == 2) {
+	  sprintf(pfn, "%s%s.pot", _config_energy_pfn, sid);
+	  if (RestorePotential(pfn, potential) < 0) {
+	    ReinitRadial(1);
+	    ClearOrbitalTable(0);
+	    continue;
+	  }
+	} else {
+	  if (OptimizeRadial(ngp, gp, -1, NULL, 1) < 0) {
+	    ReinitRadial(1);
+	    ClearOrbitalTable(0);
+	    continue;
+	  }
+	  if (mr > 0) RefineRadial(mr, 0, 0, -1);
+	  if (_config_energy_psr == 1) {
+	    sprintf(pfn, "%s%s.pot", _config_energy_pfn, sid);
+	    SavePotential(pfn, potential);
+	  }
 	}
-	if (mr > 0) RefineRadial(mr, 0, 0, -1);
       }
       for (k = 0; k < ngp; k++) {	
 	g = GetGroup(gp[k]);
 	for (i = 0; i < g->n_cfgs; i++) {
 	  if (md > 0) {
-	    if (OptimizeRadial(1, gp+k, i, NULL, 1) < 0) {
-	      ReinitRadial(1);
-	      ClearOrbitalTable(0);
-	      continue;
+	    if (_config_energy_psr == 2) {
+	      sprintf(pfn, "%s%s%d.pot", _config_energy_pfn, g->name, i);
+	      if (RestorePotential(pfn, potential) < 0) {
+		ReinitRadial(1);
+		ClearOrbitalTable(0);
+		continue;
+	      }
+	    } else {
+	      if (OptimizeRadial(1, gp+k, i, NULL, 1) < 0) {
+		ReinitRadial(1);
+		ClearOrbitalTable(0);
+		continue;
+	      }
+	      if (mr > 0) RefineRadial(mr, 0, 0, -1);
+	      if (_config_energy_psr == 1) {
+		sprintf(pfn, "%s%s%d.pot", _config_energy_pfn, g->name, i);
+		SavePotential(pfn, potential);
+	      }
 	    }
-	    if (mr > 0) RefineRadial(mr, 0, 0, -1);
 	  }
 	  cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
 	  e0 = AverageEnergyConfigMode(cfg, md1);
@@ -6354,6 +6385,7 @@ double AverageEnergyConfigMode(CONFIG *cfg, int md) {
     }
     x += r;
   }
+
   return x;
 }
 
@@ -12712,6 +12744,14 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "radial:config_energy")) {
     _config_energy = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:config_energy_psr")) {
+    _config_energy_psr = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:config_energy_pfn")) {
+    strncpy(_config_energy_pfn, sp, 1023);
     return;
   }
   if (0 == strcmp(s, "radial:sturm_idx")) {

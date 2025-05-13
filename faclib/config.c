@@ -54,6 +54,7 @@ static int max_groups = MAX_GROUPS;
 static int n_groups = 0;
 static int n_optgrps = 0;
 static int *optgrps[MAX_OPTGRPS];
+static char optgrp_ids[MAX_OPTGRPS][GROUP_NAME_LEN];
 
 /*
 ** VARIABLE:    symmetry_list
@@ -100,6 +101,13 @@ static int _cfghmask = 0;
 static ARRAY **_cfghasha = NULL;
 #define MAXNRN 10
 static int _nrk[MAXNRN+1];
+
+static int _sfac_addcfg = 1;
+static int _uta_ncsf = 0;
+
+int GetSFACAddCfg() {
+  return _sfac_addcfg;
+}
 
 char *GetSpecSymbols() {
   return spec_symbols;
@@ -2091,13 +2099,13 @@ int GroupExists(char *name) {
 
   if (n_groups < _ugid) {
     for (i = n_groups - 1; i >= 0; i--) {
-      if (strncmp(name, cfg_groups[i].name, GROUP_NAME_LEN) == 0) 
+      if (strncmp(name, cfg_groups[i].name, GROUP_NAME_LEN-1) == 0) 
 	break;
     }
   } else {
     int *ip, *id, n;
     char c[GROUP_NAME_LEN];
-    strncpy(c, name, GROUP_NAME_LEN);    
+    strncpy(c, name, GROUP_NAME_LEN-1);    
     for (i = 0; i < GROUP_NAME_LEN; i++) {
       if (!c[i]) break;
     }
@@ -2118,13 +2126,18 @@ int **GetOptGrps(int *n) {
   return optgrps;
 }
 
-int AddOptGrp(int n, int *kg) {
+char *GetOptGrpId(int i) {
+  return optgrp_ids[i];
+}
+
+int AddOptGrp(char *sid, int n, int *kg) {
   int i, k;
 
   if (n <= 0) {
     for (i = 0; i < n_optgrps; i++) {
       free(optgrps[i]);
       optgrps[i] = NULL;
+      optgrp_ids[i][0] = '\0';
     }
     n_optgrps = 0;
     return 0;
@@ -2135,6 +2148,11 @@ int AddOptGrp(int n, int *kg) {
     return -1;
   }
   i = n_optgrps;
+  if (sid) {
+    strncpy(optgrp_ids[i], sid, GROUP_NAME_LEN-1);
+  } else {
+    sprintf(optgrp_ids[i], "_%d_", i);
+  }
   optgrps[i] = (int *) malloc(sizeof(int)*(n+1));
   optgrps[i][0] = n;
   for (k = 0; k < n; k++) {
@@ -2155,16 +2173,24 @@ int AddOptGrp(int n, int *kg) {
 ** NOTE:        
 */
 int AddGroup(char *name) {
+  int i, *ip;
+  char *c;
   if (name == NULL) return -1;
+
   if (n_groups == max_groups) {
     max_groups += MAX_GROUPS;
     cfg_groups = (CONFIG_GROUP *) realloc(cfg_groups,
 					  max_groups*sizeof(CONFIG_GROUP));
+    for (i = n_groups; i < max_groups; i++) {
+      cfg_groups[i].name[0] = '\0';
+      cfg_groups[i].n_cfgs = 0;
+      ArrayInit(&(cfg_groups[i].cfg_list), sizeof(CONFIG), CONFIGS_BLOCK);
+    }
   }  
-  strncpy(cfg_groups[n_groups].name, name, GROUP_NAME_LEN);
+  strncpy(cfg_groups[n_groups].name, name, GROUP_NAME_LEN-1);
   cfg_groups[n_groups].nmax = 0;
-  int i, *ip;
-  char *c;
+  cfg_groups[n_groups].gweight = 1.0;
+  cfg_groups[n_groups].n_csfs = 0;
   c = cfg_groups[n_groups].name;
   for (i = 0; i < GROUP_NAME_LEN; i++) {
     if (!c[i]) break;
@@ -2174,7 +2200,7 @@ int AddGroup(char *name) {
   }
   ip = (int *)c;
   MultiSet(_grpidx, ip, &n_groups, NULL, InitIntData, NULL);
-  
+
   n_groups++;  
   return n_groups-1;
 }
@@ -2487,7 +2513,55 @@ int IsShellNR(int n, int k) {
   if (_nrk[0] > 0) return k >= _nrk[0];
   return 0;
 }
+
+void ConfigUTA(CONFIG_GROUP *g, int iu) {
+  CONFIG *c;
+  SYMMETRY *sym;
+  STATE *s;
+  int i, k, m;
   
+  if (g->n_cfgs == 0) return;
+  c = (CONFIG *) ArrayGet(&(g->cfg_list), 0);
+  if (c->n_csfs == 0 && iu > 0) return;
+  if (c->n_csfs > 0 && iu == 0) return;
+  if (iu == 0) {
+    for (i = 0; i < g->n_cfgs; i++) {
+      c = (CONFIG *) ArrayGet(&(g->cfg_list), i);
+      k = c->igroup;
+      if (Couple(c) >= 0) {
+	c->symstate = malloc(sizeof(int)*c->n_csfs);
+	AddConfigToSymmetry(k, i, c);
+      }
+    }
+  } else {
+    if (!IsUTA()) {
+      SetUTA(1, -1);
+      SetUTA(0, -1);
+    }
+    k = c->igroup;
+    for (i = 0; i < MAX_SYMMETRIES; i++) {
+      sym = GetSymmetry(i);
+      for (m = 0; m < sym->n_states; m++) {
+	s = ArrayGet(&(sym->states), m);
+	if (s->kgroup == k) {
+	  ArrayTrim(&(sym->states), m, NULL);
+	  sym->n_states = m;
+	  break;
+	}
+      }
+    }
+    for (i = 0; i < g->n_cfgs; i++) {
+      c = (CONFIG *) ArrayGet(&(g->cfg_list), i);
+      if (c->n_csfs > 0) {
+	if (c->symstate) free(c->symstate);
+	free(c->csfs);
+	c->n_csfs = 0;
+      }
+    }
+    g->n_csfs = 0;
+  }
+}
+
 /* 
 ** FUNCTION:    AddConfigToList
 ** PURPOSE:     add a configuration to the specified group,
@@ -2514,6 +2588,13 @@ int AddConfigToList(int k, CONFIG *cfg) {
     if (m && cfg->shells[i].n > m) {
       FreeConfigData(cfg);
       return 0;
+    }
+  }
+  if (cfg_groups[k].n_cfgs > 0 && cfg_groups[k].n_csfs == 0) {
+    if (cfg->n_csfs > 0) {
+      if (cfg->symstate) free(cfg->symstate);
+      free(cfg->csfs);
+      cfg->n_csfs = 0;
     }
   }
   clist = &(cfg_groups[k].cfg_list);
@@ -2610,19 +2691,31 @@ int AddConfigToList(int k, CONFIG *cfg) {
   cfg->icfg = cfg_groups[k].n_cfgs;
   CONFIG *acfg = ArrayAppend(clist, cfg, InitConfigData);
   if (acfg == NULL) return -1;
+  cfg_groups[k].gweight *= cfg->sweight;
   if (cfg_groups[k].n_cfgs == 0) {
     cfg_groups[k].n_electrons = cfg->n_electrons;
   } else if (cfg_groups[k].n_electrons != cfg->n_electrons) {
     printf("Error: AddConfigToList, Configurations in a group ");
     printf("must have the same number of electrons\n");
     return -1;
+  } else if (cfg_groups[k].n_csfs > 0 && cfg->n_csfs == 0) {
+    printf("Error: AddConfigToList UTA to non-UTA group\n");
+    return -1;
+  } else if (cfg_groups[k].n_csfs == 0 && cfg->n_csfs > 0) {
+    printf("Error: AddConfigToList non-UTA to UTA group\n");
+    return -1;
   }
+  
   if (cfg->n_csfs > 0) {    
-    AddConfigToSymmetry(k, cfg_groups[k].n_cfgs, cfg); 
+    AddConfigToSymmetry(k, cfg_groups[k].n_cfgs, cfg);
+    cfg_groups[k].n_csfs += cfg->n_csfs;
   }
   cfg_groups[k].n_cfgs++;
   if (cfg->shells[0].n > cfg_groups[k].nmax) {
     cfg_groups[k].nmax = cfg->shells[0].n;
+  }
+  if (_uta_ncsf > 0 && cfg_groups[k].n_csfs >= _uta_ncsf) {
+    ConfigUTA(&cfg_groups[k], 1);
   }
 
   i = ConfigIndex(acfg);
@@ -3399,7 +3492,7 @@ int ReinitConfig(int m) {
 
   if (m) return 0;
 
-  AddOptGrp(0, NULL);
+  AddOptGrp(NULL, 0, NULL);
   for (i = 0; i < n_groups; i++) {
     ArrayFree(&(cfg_groups[i].cfg_list), FreeConfigData);
     cfg_groups[i].n_cfgs = 0;
@@ -3448,6 +3541,14 @@ void SetOptionConfig(char *s, char *sp, int ip, double dp) {
       n = ip/10;
       for (i = n; i <= MAXNRN; i++) _nrk[i] = (ip)%10;
     }
+    return;
+  }
+  if (0 == strcmp(s, "config:sfac_addcfg")) {
+    _sfac_addcfg = ip;
+    return;
+  }
+  if (0 == strcmp(s, "config:uta_ncsf")) {
+    _uta_ncsf = ip;
     return;
   }
 }
