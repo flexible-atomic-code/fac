@@ -692,6 +692,7 @@ int SwapEndianRCRecord(RC_RECORD *r);
 double IonDensity(char *fn, int k);
 double IonRadiation(char *fn, int k, int m);
 void SetUTA(int m, int mci);
+int TransUTA(void);
 int IsUTA(void);
 int TrueUTA(int n);
 int CurrentUTA(int *iu, int *ici);

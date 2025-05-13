@@ -6999,7 +6999,7 @@ void SaveTransitionMBPT(MBPT_TR *mtr) {
       if (mbpt_angzm > 0 && TotalSize() >= mbpt_angzm*1e9) {
 	MPrintf(0, "CleanAngZArray: %2d %12.5E %12.5E\n",
 		m, WallTime()-wt0, TotalSize());
-	CleanAngZArray();
+	CleanAngZArray(1);
       }
       DeinitFile(f, &fhdr);
       fflush(stdout);

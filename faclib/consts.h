@@ -254,7 +254,7 @@ extern double AMU;
 #define LEVEL_NAME_LEN     1024
 #define GROUP_NAME_LEN     17
 #define MAX_GROUPS         1024
-#define MAX_OPTGRPS        1024
+#define MAX_OPTGRPS        8192
 #define MAX_SYMMETRIES     512
 #define CONFIGS_BLOCK      256
 #define STATES_BLOCK       2048

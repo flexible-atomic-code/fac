@@ -496,14 +496,14 @@ static PyObject *PClosed(PyObject *self, PyObject *args) {
   PyObject *q;
   int i, j, kl, n, nq, ncfg;
   char *p, argv[513];
-  char s[16], st[16];
+  char s[16], st[64];
   int ns, k;
   int argc;
 
   if (sfac_file) {
     SFACStatement("Closed", args, NULL);
     Py_INCREF(Py_None);
-    return Py_None;
+    //return Py_None;
   }
 
   argc = PyTuple_Size(args);
@@ -608,7 +608,9 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
   if (sfac_file) {
     SFACStatement("Config", args, keywds);
     Py_INCREF(Py_None);
-    return Py_None;
+    if (GetSFACAddCfg() == 0) {
+      return Py_None;
+    }
   }
   scfg[MCHSHELL] = '\0';
   gname[GROUP_NAME_LEN] = '\0';
@@ -802,7 +804,7 @@ static PyObject *PRemoveConfig(PyObject *self, PyObject *args) {
   for (k = 0; k < ng; k++) {
     RemoveGroup(kg[k]);
   }
-  ReinitStructure(1);
+  ReinitStructure(0);
   ReinitRecouple(0);
   if (ng > 0) free(kg);
 
@@ -818,7 +820,9 @@ static PyObject *PListConfig(PyObject *self, PyObject *args) {
   if (sfac_file) {
     SFACStatement("ListConfig", args, NULL);
     Py_INCREF(Py_None);
-    return Py_None;
+    if (GetSFACAddCfg() == 0) {
+      return Py_None;
+    }
   }
 
   s = NULL;
@@ -855,12 +859,35 @@ static PyObject *PGroupStat(PyObject *self, PyObject *args) {
 
   k = GroupExists(s);
   if (k < 0) {
-    return Py_BuildValue("(iii)", k, 0, 0);
+    return Py_BuildValue("(iiiid)", k, 0, 0, 0, 0.0);
   }
   g = GetGroup(k);
-  return Py_BuildValue("(iii)", k, g->n_cfgs, g->n_electrons);
+  return Py_BuildValue("(iiiid)",
+		       k, g->n_cfgs, g->n_electrons, g->n_csfs, g->gweight);
 }  
   
+static PyObject *PConfigUTA(PyObject *self, PyObject *args) {
+  char *s;
+  CONFIG_GROUP *g;
+  int k, u;
+  
+  if (sfac_file) {
+    SFACStatement("ConfigUTA", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  
+  if (!PyArg_ParseTuple(args, "si", &s, &u)) return NULL;
+
+  k = GroupExists(s);
+  Py_INCREF(Py_None);
+  if (k < 0) return Py_None;
+  
+  g = GetGroup(k);
+  ConfigUTA(g, u>0);
+  return Py_None;
+}
+
 static PyObject *PAvgConfig(PyObject *self, PyObject *args) {
   char *s;
   int ns, *n, *kappa;
@@ -989,7 +1016,7 @@ static PyObject *PSetPotentialMode(PyObject *self, PyObject *args) {
   if (sfac_file) {
     SFACStatement("SetPotentialMode", args, NULL);
     Py_INCREF(Py_None);
-    return Py_None;
+    //return Py_None;
   }
 
   h = 1E31;
@@ -1013,7 +1040,7 @@ static PyObject *PSetRadialGrid(PyObject *self, PyObject *args) {
   if (sfac_file) {
     SFACStatement("SetRadialGrid", args, NULL);
     Py_INCREF(Py_None);
-    return Py_None;
+    //return Py_None;    
   }
 
   maxrp = -1;
@@ -1424,7 +1451,9 @@ static PyObject *PSetAtom(PyObject *self, PyObject *args) {
   if (sfac_file) {
     SFACStatement("SetAtom", args, NULL);
     Py_INCREF(Py_None);
-    return Py_None;
+    if (GetSFACAddCfg() == 0) {
+      return Py_None;
+    }
   }
 
   mass = -1.0;
@@ -1495,8 +1524,9 @@ static PyObject *PSetHydrogenicNL(PyObject *self, PyObject *args) {
 }  
 
 static PyObject *POptimizeGroup(PyObject *self, PyObject *args) {
-  int ng, *kg, np, i;  
+  int ng, *kg, np;  
   PyObject *p;
+  char sid[GROUP_NAME_LEN];
 
   if (sfac_file) {
     SFACStatement("OptimizeGroup", args, NULL);
@@ -1506,19 +1536,24 @@ static PyObject *POptimizeGroup(PyObject *self, PyObject *args) {
 
   np = PySequence_Length(args);
   if (np == 0) {
-    AddOptGrp(0, NULL);
+    AddOptGrp(NULL, 0, NULL);
     Py_INCREF(Py_None);
     return Py_None;
   }
-  for (i = 0; i < np; i++) {
-    p = PySequence_GetItem(args, i);
-    ng = DecodeGroupArgs(p, &kg, NULL);
-    if (ng > 0) {
-      AddOptGrp(ng, kg);
-      free(kg);
-    }
-    Py_DECREF(p);
+  
+  if (np != 2) return NULL;
+  
+  p = PySequence_GetItem(args, 0);
+  strncpy(sid, PyUnicode_AsString(p), GROUP_NAME_LEN-1);
+  Py_DECREF(p);
+  p = PySequence_GetItem(args, 1);
+  ng = DecodeGroupArgs(p, &kg, NULL);
+  if (ng > 0) {
+    AddOptGrp(sid, ng, kg);
+    free(kg);
   }
+  Py_DECREF(p);
+
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -1857,7 +1892,7 @@ static PyObject *PSetUTA(PyObject *self, PyObject *args) {
   if (sfac_file) {
     SFACStatement("SetUTA", args, NULL);
     Py_INCREF(Py_None);
-    return Py_None;
+    //return Py_None;
   }
   
   mci = 1;
@@ -2215,7 +2250,7 @@ static PyObject *PSetOption(PyObject *self, PyObject *args) {
   if (sfac_file) {
     SFACStatement("SetOption", args, NULL);
     Py_INCREF(Py_None);
-    return Py_None;
+    //return Py_None;
   }
   if (!(PyArg_ParseTuple(args, "sO", &s, &p))) return NULL;
   if (PyLong_Check(p)) {
@@ -4715,7 +4750,7 @@ static PyObject *PReinit(PyObject *self, PyObject *args, PyObject *keywds) {
       m_recouple = -1;
       m_radial = 0;
       m_dbase = 0;
-      m_structure = 2;
+      m_structure = 0;
       m_excitation = 0;
       m_recombination = 0;
       m_ionization = 0;
@@ -4788,7 +4823,7 @@ static PyObject *PPrint(PyObject *self, PyObject *args) {
   if (sfac_file) {
     SFACStatement("Print", args, NULL);
     Py_INCREF(Py_None);
-    return Py_None;
+    //return Py_None;
   }
 
   n = PyTuple_Size(args);
@@ -6133,7 +6168,9 @@ static PyObject *PInitializeMPI(PyObject *self, PyObject *args) {
   if (sfac_file) {
     SFACStatement("InitializeMPI", args, NULL);
     Py_INCREF(Py_None);
-    return Py_None;
+    if (GetSFACAddCfg() == 0) {
+      return Py_None;
+    }
   }
 
   int n = -1;
@@ -6666,6 +6703,7 @@ static struct PyMethodDef fac_methods[] = {
   {"RemoveConfig", PRemoveConfig, METH_VARARGS},
   {"ListConfig", PListConfig, METH_VARARGS},
   {"GetConfigNR", PGetConfigNR, METH_VARARGS},
+  {"ConfigUTA", PConfigUTA, METH_VARARGS},
   {"GroupStat", PGroupStat, METH_VARARGS},
   {"Closed", PClosed, METH_VARARGS},
   {"CutMixing", PCutMixing, METH_VARARGS},

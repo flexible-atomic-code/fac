@@ -217,8 +217,9 @@ typedef struct _CONFIG_GROUP_ {
   int n_cfgs;
   int n_electrons;
   int nmax;
+  int n_csfs;
   ARRAY cfg_list;
-  double sweight;
+  double sweight, gweight;
   char name[GROUP_NAME_LEN]; 
 } CONFIG_GROUP;
 
@@ -258,6 +259,7 @@ typedef struct _SYMMETRY_ {
   ARRAY states;
 } SYMMETRY;
 
+int GetSFACAddCfg(void);
 int ShellDegeneracy(int g, int nq);
 int          ShellsFromString(char *scfg, double *dnq, SHELL **shell);
 int          ShellsFromStringNR(char *scfg, double *dnq, SHELL **shell);
@@ -307,8 +309,9 @@ int          GetAverageConfig(int ng, int *kg, int ic, double *weight, int wm,
 int          GroupIndex(char *name);
 int          GroupExists(char *name);
 int          AddConfigToList(int k, CONFIG *cfg);
-int          AddOptGrp(int n, int *kg);
+int          AddOptGrp(char *sid, int n, int *kg);
 int          **GetOptGrps(int *n);
+char         *GetOptGrpId(int i);
 int          AddGroup(char *name);
 int          RemoveGroup(int k);
 CONFIG_GROUP *GetGroup(int k);
@@ -362,4 +365,6 @@ void SetOptionConfig(char *s, char *sp, int ip, double dp);
 char *GetSpecSymbols();
 int OrderConfigShells(CONFIG *cfg);
 int OrderConfigShellsNR(CONFIG *cfg);
+void ConfigUTA(CONFIG_GROUP *g, int u);
+
 #endif

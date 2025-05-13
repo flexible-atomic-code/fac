@@ -72,6 +72,7 @@ static int rydberg_ignored = 0;
 static double angz_cut = ANGZCUT;
 static double mix_cut = MIXCUT;
 static double mix_cut2 = MIXCUT2;
+static int max_nbs = 0;
 static double perturb_threshold = -1;
 static double perturb_eth = 1e-3/_HARTREE_EV;
 static double perturb_emintol = 5e-2/_HARTREE_EV;
@@ -122,15 +123,13 @@ double EGroundIon(int k) {
 }
 
 void SetMaxHams(int n) {
-  FreeHamsArray();
-  FreeAngZArray();
-  if (hams) free(hams);
+  FreeAngZArray(0);
   if (n <= 0) {
     _max_hams = MAX_HAMS;
   } else {
     _max_hams = n;
   }
-  InitAngZArray();
+  InitAngZArray(0);
 }
 
 void SetMaxKMBPT(int m) {
@@ -2886,6 +2885,7 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
 	lev.pj = c->sweight < 0;
 	if (c->energy == 0) {
 	  c->energy = AverageEnergyConfig(c);
+	  c->energy += c->delta+c->shift;
 	}
 	lev.energy = c->energy+_eoffset;
 	if (ArrayAppend(levels, &lev, InitLevelData) == NULL) {
@@ -2997,7 +2997,19 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
     }
     SortMixing(0, m, &lev, sym);
     GetPrincipleBasis(lev.mixing, m, lev.kpb);
-
+    if (max_nbs > 0 && lev.n_basis > max_nbs) {
+      lev.n_basis = max_nbs;
+    }
+    if (lev.n_basis < t) {
+      a = 0.0;
+      for (t = 0; t < lev.n_basis; t++) {
+	a += lev.mixing[t]*lev.mixing[t];
+      }
+      a = sqrt(a);
+      for (t = 0; t < lev.n_basis; t++) {
+	lev.mixing[t] /= a;
+      }
+    }
     if (s->kgroup < 0) {
       lev.ibase = -(s->kgroup + 1);
       lev.iham = -1;      
@@ -6622,8 +6634,11 @@ double FreeAngZDatum(ANGZ_DATUM *ap) {
   return s;
 }
 
-int InitAngZArray(void) {
-  hams = malloc(sizeof(SHAMILTON)*_max_hams);
+int InitAngZArray(int m) {
+  if (m == 0) {
+    hams = malloc(sizeof(SHAMILTON)*_max_hams);
+  }
+  
   angz_dim = _max_hams;
   angz_dim2 = angz_dim*angz_dim;
 
@@ -6652,9 +6667,13 @@ int InitAngZArray(void) {
   return 0;
 }
 
-int FreeAngZArray(void) {
+int FreeAngZArray(int m) {
   int i;
 
+  if (m == 0) {
+    FreeHamsArray();
+  }
+  
   if (angz_dim2 > 0) {
     double s1 = 0;
     double s2 = 0;
@@ -6672,6 +6691,7 @@ int FreeAngZArray(void) {
 	FreeAngZDatum(&(angmz_array[i]));
       }
       free(angmz_array);
+      angmz_array = NULL;
     }
     angz_dim = 0;
     angz_dim2 = 0;
@@ -6700,6 +6720,7 @@ void FreeHamsArray() {
     }
     hams[i].nbasis = 0;
   }
+  free(hams);
   nhams = 0;
 }
 
@@ -6940,7 +6961,7 @@ int InitStructure(void) {
     _vground_ion[i] = NULL;
   }
 
-  InitAngZArray();
+  InitAngZArray(0);
   nhams = 0;
 
   n_levels = 0;
@@ -6985,9 +7006,9 @@ int InitStructure(void) {
   return 0;
 }
 
-void CleanAngZArray() {
-  FreeAngZArray();
-  InitAngZArray();
+void CleanAngZArray(int m) {
+  FreeAngZArray(m);
+  InitAngZArray(m);
 }
 
 int ReinitStructure(int m) {
@@ -6996,17 +7017,20 @@ int ReinitStructure(int m) {
   } else {
 #pragma omp barrier
 #pragma omp master
-    if (m < 2) {
-      FreeHamsArray();
-      FreeAngZArray();
+    if (m == 0) {
+      FreeAngZArray(0);
       ClearLevelTable();
-      InitAngZArray();
+      InitAngZArray(0);
       int i;
       for (i = 0; i < MAX_SYMMETRIES; i++) {
 	_allhams[i].heff = NULL;
       }
     } else {
-      CleanAngZArray();
+      if (m == 1) {
+	CleanAngZArray(0);
+      } else {
+	CleanAngZArray(1);
+      }
     }
 #pragma omp barrier
   }
@@ -7080,6 +7104,10 @@ void SetOptionStructure(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "structure:diag_bignore")) {
     diag_bignore = dp;
+    return;
+  }
+  if (0 == strcmp(s, "structure:max_nbs")) {
+    max_nbs = ip;
     return;
   }
   if (0 == strcmp(s, "structure:mix_cut")) {
