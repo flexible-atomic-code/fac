@@ -88,6 +88,7 @@ typedef struct _SHELL_ {
   int n;
   int kappa;
   int nq;
+  int nr; 
 } SHELL;
   
  
@@ -217,7 +218,7 @@ typedef struct _CONFIG_GROUP_ {
   int n_cfgs;
   int n_electrons;
   int nmax;
-  int n_csfs;
+  int n_csfs, nr;
   ARRAY cfg_list;
   double sweight, gweight;
   char name[GROUP_NAME_LEN]; 
@@ -366,5 +367,6 @@ char *GetSpecSymbols();
 int OrderConfigShells(CONFIG *cfg);
 int OrderConfigShellsNR(CONFIG *cfg);
 void ConfigUTA(CONFIG_GROUP *g, int u);
+void ConfigNonRel(CONFIG_GROUP *g);
 
 #endif

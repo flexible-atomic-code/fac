@@ -2881,7 +2881,7 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
       for (j = 0; j < g->n_cfgs; j++) {
 	lev.pb = j;
 	c = GetConfigFromGroup(kg[i], j);
-	lev.ilev = ((int)(fabs(c->sweight)+0.25))-1;
+	lev.ilev = ((int)(fabs(c ->sweight)+0.25))-1;
 	lev.pj = c->sweight < 0;
 	if (c->energy == 0) {
 	  c->energy = AverageEnergyConfig(c);
@@ -3585,10 +3585,46 @@ int SolveStructureFrozen(char *fn, int ng, int *kg, int nc, int *kc,
 }
 
 int SolveStructure(char *fn, char *hfn,
-		   int ng, int *kg, int ngp, int *kgp, int ip) {
+		   int ngi, int *kg, int ngp, int *kgp, int ip) {
   int ng0, nlevels, ns, k, i, md, rh;
+  int ng, ngs, ngu, *kgu;
   HAMILTON *h;
+  CONFIG_GROUP *g;
 
+  ng = abs(ngi);
+  if (ngi > 0) {
+    kgu = malloc(sizeof(int)*ng);
+    ngu = 0;
+    ngs = 0;
+    for (i = 0; i < ng; i++) {
+      g = GetGroup(kg[i]);
+      if (g->n_csfs == 0) {
+	kgu[ngu] = kg[i];
+	ngu++;
+      } else {
+	if (ngs < i) {
+	  kg[ngs] = kg[i];
+	}
+	ngs++;
+      }
+    }
+    if (ngs > 0) {
+      k = SolveStructure(fn, hfn, -ngs, kg, ngp, kgp, ip);
+      if (k < 0) {
+	return k;
+      }
+    }
+    if (ngu > 0) {
+      k = SolveStructure(fn, hfn, -ngu, kgu, 0, NULL, 0);
+      if (k < 0) {
+	return k;
+      }
+    } else {
+      free(kgu);
+    }
+    return 0;
+  }
+  
   if (ip > 10) {
     int n0, n1, k1;
     k1 = ip%100;
@@ -3851,12 +3887,6 @@ int SolveStructure(char *fn, char *hfn,
 	  }
 	}
 	if (alldone) break;
-	/*
-	if (iter < 10) {
-	  mth *= 1.2;
-	  if (mth > 0.1) mth = 0.1;
-	}
-	*/
       }
     }
   }
