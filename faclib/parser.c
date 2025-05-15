@@ -38,7 +38,7 @@ USE (rcsid);
 #define IN_QUOTE 2
 #define IN_OZONE 3
 
-#define NN 32
+#define NN 64
 
 static int state;
 static int tokpos;

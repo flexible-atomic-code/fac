@@ -75,6 +75,7 @@ static SYMMETRY *symmetry_list;
 **              rather, it represents any of the previous symbols.
 */
 static char spec_symbols[MAX_SPEC_SYMBOLS+2] = "spdfghiklmnoqrtuvwxyz*"; 
+static char all_spec_symbols[2*MAX_SPEC_SYMBOLS+2] = "sSpPdDfFgGhHiIkKlLmMnNoOqQrRtTuUvVwWxXyYzZ*@"; 
 
 #define NJQ 25
 #define NJ2 10
@@ -104,6 +105,7 @@ static int _nrk[MAXNRN+1];
 
 static int _sfac_addcfg = 1;
 static int _uta_ncsf = 0;
+static int _nr_ncfg = 0;
 
 int GetSFACAddCfg() {
   return _sfac_addcfg;
@@ -255,6 +257,7 @@ static int DistributeElectronsShell(CONFIG **cfg, int ns, SHELL *shell,
       (*cfg)[t].shells = (SHELL *) malloc(sizeof(SHELL));
       (*cfg)[t].shells[0].n = shell[t].n;
       (*cfg)[t].shells[0].kappa = shell[t].kappa;
+      (*cfg)[t].shells[0].nr = shell[t].nr;
       (*cfg)[t].shells[0].nq = 1;
     }
     return ns;
@@ -266,6 +269,7 @@ static int DistributeElectronsShell(CONFIG **cfg, int ns, SHELL *shell,
     (*cfg)->shells = (SHELL *) malloc(sizeof(SHELL));
     (*cfg)->shells[0].n = shell[0].n;
     (*cfg)->shells[0].kappa = shell[0].kappa;
+    (*cfg)->shells[0].nr = shell[0].nr;
     (*cfg)->shells[0].nq = nq;
     return 1;
   } 
@@ -406,15 +410,14 @@ int ShellsFromString(char *scfg, double *dnq, SHELL **shell) {
   int nn, nkl, nkappa;
   int n[16];
   int kl[512];
-  int kappa[1024];
-  int i, j, t, k, kl2, ns;
+  int kappa[1024], nr[1024];
+  int i, j, t, k, kl2, ns, iu;
   char *s;
     
   SetParserQuote("[", "]");
-  SetParserBreak(spec_symbols);
+  SetParserBreak(all_spec_symbols);
   SetParserWhite("");
   SetParserEscape('\0');
-
   next = 0;
   r = 0;
   r = Parse(token, 512, scfg, &next, &brkpos, &quotepos);
@@ -439,8 +442,8 @@ int ShellsFromString(char *scfg, double *dnq, SHELL **shell) {
     r = Parse(token, 512, scfg, &next, &brkpos, &quotepos);
   }
   if (brkpos >= 0) {
-    kl[0] = brkpos;
-    if (brkpos == MAX_SPEC_SYMBOLS) {
+    kl[0] = brkpos/2;
+    if (kl[0] == MAX_SPEC_SYMBOLS) {
       if (n[nn-1] >= 512) {
 	printf("not all L-terms are allowed for n >= %d\n", 512);
 	exit(1);
@@ -451,14 +454,16 @@ int ShellsFromString(char *scfg, double *dnq, SHELL **shell) {
       }
     } else {
       nkl = 1;
-      kl[0] = brkpos;
     }
+    iu = brkpos%2;
     nkappa = 0;
     for (i = 0; i < nkl; i++) {
       kl2 = 2*kl[i];
       if (kl2 > 0) {
-	kappa[nkappa++] = GetKappaFromJL(kl2-1, kl2);
+	nr[nkappa] = iu;
+	kappa[nkappa++] = GetKappaFromJL(kl2-1, kl2);	
       }
+      nr[nkappa] = iu;
       kappa[nkappa++] = GetKappaFromJL(kl2+1, kl2);
     }
     *dnq = atof(&(scfg[next]));
@@ -477,12 +482,14 @@ int ShellsFromString(char *scfg, double *dnq, SHELL **shell) {
     nkappa = 0;
     for (k = 0; k < nkl; k++) {
       while (*s == ' ' || *s == '\t') s++;
-      GetJLFromSymbol(s, &j, &kl[k]);
+      iu = GetJLFromSymbol(s, &j, &kl[k]);
       kl2 = 2*kl[k];
       if (j != 1 && kl2 > 0) {
+	nr[nkappa] = iu;
 	kappa[nkappa++] = GetKappaFromJL(kl2-1, kl2);
       }
       if (j != -1) {
+	nr[nkappa] = iu;
 	kappa[nkappa++] = GetKappaFromJL(kl2+1, kl2);
       }
       while (*s) s++;
@@ -502,6 +509,7 @@ int ShellsFromString(char *scfg, double *dnq, SHELL **shell) {
       if (kl2/2 >= n[i]) continue;
       (*shell)[t].n = n[i];
       (*shell)[t].kappa = kappa[k];
+      (*shell)[t].nr = nr[k];
       t++;
     }
   }
@@ -526,7 +534,7 @@ int ShellsFromStringNR(char *scfg, double *dnq, SHELL **shell) {
   char *s;
       
   SetParserQuote("[", "]");
-  SetParserBreak(spec_symbols);
+  SetParserBreak(all_spec_symbols);
   SetParserWhite("");
   SetParserEscape('\0');
 
@@ -554,7 +562,7 @@ int ShellsFromStringNR(char *scfg, double *dnq, SHELL **shell) {
     r = Parse(token, 512, scfg, &next, &brkpos, &quotepos);
   }
   if (brkpos >= 0) {
-    kl[0] = brkpos;
+    kl[0] = brkpos/2;
     if (brkpos == MAX_SPEC_SYMBOLS) {
       if (n[nn-1] >= 512) {
 	printf("not all L-terms are allowed for n >= %d\n", 512);
@@ -566,7 +574,7 @@ int ShellsFromStringNR(char *scfg, double *dnq, SHELL **shell) {
       }
     } else {
       nkl = 1;
-      kl[0] = brkpos;
+      kl[0] = brkpos/2;
     }
     nkappa = 0;
     for (i = 0; i < nkl; i++) {
@@ -1304,7 +1312,7 @@ int GetAverageConfigFromString(int **n, int **kappa,
 **              value can be taken.
 */
 int GetJLFromSymbol(char *s, int *j, int *kl) {
-  int i;
+  int i, iu;
   char s0[16], *p;
 
   strncpy(s0, s, 16);
@@ -1324,10 +1332,16 @@ int GetJLFromSymbol(char *s, int *j, int *kl) {
   if (kl) {
     if (isdigit(s0[0])) *kl = atoi(s0);
     else {
+      if (isupper(s0[0])) {
+	iu = 1;
+	s0[0] = tolower(s0[0]);
+      } else {
+	iu = 0;
+      }
       for (i = 0; i < MAX_SPEC_SYMBOLS; i++) {
 	if (spec_symbols[i] == s0[0]) {
 	  *kl = i;
-	  return 0;
+	  return iu;
 	}
       }
       return -1;
@@ -2191,6 +2205,7 @@ int AddGroup(char *name) {
   cfg_groups[n_groups].nmax = 0;
   cfg_groups[n_groups].gweight = 1.0;
   cfg_groups[n_groups].n_csfs = 0;
+  cfg_groups[n_groups].nr = 0;
   c = cfg_groups[n_groups].name;
   for (i = 0; i < GROUP_NAME_LEN; i++) {
     if (!c[i]) break;
@@ -2315,6 +2330,7 @@ CONFIG *ConfigFromIListM(int n, int *s, int m) {
     if (s[i]) {
       if (m == 0) {
 	IntToShell(i, &c->shells[j].n, &c->shells[j].kappa);
+	c->shells[j].nr = 0;
       } else {
 	IntToNRShell(i, &c->shells[j].n, &c->shells[j].kappa);
       }
@@ -2495,11 +2511,12 @@ int FactorNR(CONFIG *c, int n, int k) {
   int kl, i, q;
 
   kl = GetLFromKappa(k);
-  if (!IsShellNR(n, kl/2)) return 0;
 
   q = 0;
   for (i = 0; i < c->n_shells; i++) {
-    if (GetLFromKappa(c->shells[i].kappa) == kl) {
+    if (c->shells[i].nr &&
+	n == c->shells[i].n &&
+	GetLFromKappa(c->shells[i].kappa) == kl) {
       q += c->shells[i].nq;
     }
   }
@@ -2512,6 +2529,55 @@ int IsShellNR(int n, int k) {
   if (_nrk[n] > 0) return k >= _nrk[n];    
   if (_nrk[0] > 0) return k >= _nrk[0];
   return 0;
+}
+
+void ConfigNonRel(CONFIG_GROUP *g) {
+  int i, m, k, ncs;
+  CONFIG *c, *cs;
+  SYMMETRY *sym;
+  STATE *s;
+  
+  if (g->n_cfgs == 0) return;
+  if (g->nr > 0) return;
+  g->nr = 1;
+  c = (CONFIG *) ArrayGet(&(g->cfg_list), 0);
+  k = c->igroup;
+  for (i = 0; i < MAX_SYMMETRIES; i++) {
+    sym = GetSymmetry(i);
+    for (m = 0; m < sym->n_states; m++) {
+      s = ArrayGet(&(sym->states), m);
+      if (s->kgroup == k) {
+	ArrayTrim(&(sym->states), m, NULL);
+	sym->n_states = m;
+	break;
+      }
+    }
+  }
+  ncs = g->n_cfgs;
+  cs = (CONFIG *) malloc(sizeof(CONFIG)*ncs);
+  for (i = 0; i < ncs; i++) {
+    c = (CONFIG *) ArrayGet(&(g->cfg_list), i);
+    memcpy(&cs[i], c, sizeof(CONFIG));
+    cs[i].shells = malloc(sizeof(SHELL)*cs[i].n_shells);
+    memcpy(cs[i].shells, c->shells, sizeof(SHELL)*cs[i].n_shells);
+    if (c->n_csfs > 0) {
+      cs[i].csfs = malloc(sizeof(SHELL_STATE)*cs[i].n_shells*cs[i].n_csfs);
+      memcpy(cs[i].csfs, c->csfs,
+	     sizeof(SHELL_STATE)*cs[i].n_shells*cs[i].n_csfs);
+    }
+    cs[i].nnrs = 0;
+    cs[i].nrs = NULL;
+    cs[i].symstate = NULL;
+    for (m = 0; m < cs[i].n_shells; m++) {
+      cs[i].shells[m].nr = 1;
+    }
+  }
+  ArrayFree(&(cfg_groups[k].cfg_list), FreeConfigData);
+  cfg_groups[k].n_cfgs = 0;
+  for (i = 0; i < ncs; i++) {
+    AddConfigToList(k, &cs[i]);
+  }
+  free(cs);
 }
 
 void ConfigUTA(CONFIG_GROUP *g, int iu) {
@@ -2579,8 +2645,8 @@ void ConfigUTA(CONFIG_GROUP *g, int iu) {
 int AddConfigToList(int k, CONFIG *cfg) {
   ARRAY *clist;  
   int n0, kl0, j0, nq0, nq1, np, klp, jp;
-  int nqp, m, i, n, kl, p, j, nq, dp;
-  double dq;
+  int nqp, m, i, n, kl, p, j, nq, dp, nsp;
+  int dq, dq1;
   
   if (k < 0 || k >= n_groups) return -1;
   for (i = 0; i < cfg->n_shells; i++) {
@@ -2614,8 +2680,20 @@ int AddConfigToList(int k, CONFIG *cfg) {
   cfg->nrs = malloc(sizeof(int)*cfg->n_shells);
   cfg->sweight = 1.0;
   p = 0;
-  for (i = 0; i < cfg->n_shells; i++) {
+  nsp = 0;
+  for (i = 0; i < cfg->n_shells; i++) {    
     UnpackShell(cfg->shells+i, &n, &kl, &j, &nq);
+    if (kl == 0) {
+      cfg->shells[i].nr = 0;
+    } else {
+      if (cfg->shells[i].nr == 0) {
+	if (cfg_groups[k].nr == 0) {
+	  cfg->shells[i].nr = IsShellNR(n, kl/2);
+	} else {
+	  cfg->shells[i].nr = 1;
+	}
+      }
+    }
     if (IsOdd(kl/2) && IsOdd(nq)) p++;
     if (n == n0 && kl == kl0) {
       np = n0;
@@ -2624,13 +2702,14 @@ int AddConfigToList(int k, CONFIG *cfg) {
       jp = j0;
       j0 = j;
       nq0 += nq;
+      nsp++;
     } else {
       if (nq0 > 0) {
-	if (IsShellNR(n0, kl0/2)) {
+	if (cfg->shells[i-1].nr) {
 	  if (j0 > kl0) {
 	    break;
 	  }
-	  if (klp == kl0) {
+	  if (klp == kl0 && np == n0) {
 	    nq1 = nq0-nqp;
 	    dp = nq1 - nqp;
 	    if (dp > 1 || (dp < 0 && nq1 < j0+1)) {
@@ -2638,11 +2717,20 @@ int AddConfigToList(int k, CONFIG *cfg) {
 	    }
 	  }	
 	  dq = ShellDegeneracy(2*(kl0+1), nq0);
+	  if (nq0 <= j0+1) {
+	    dq1 = dq/2;
+	    if (nsp > 0) dq1 = dq-dq1;
+	    if (dq1 == 0) {
+	      break;
+	    }
+	    dq = dq1;
+	  }
 	  cfg->sweight *= dq;
 	}
 	PackNRShell(cfg->nrs+m, n0, kl0, nq0);
 	m++;
       }
+      nsp = 0;
       np = n0;
       klp = kl0;
       nqp = nq0;
@@ -2652,7 +2740,7 @@ int AddConfigToList(int k, CONFIG *cfg) {
       nq0 = nq;
       j0 = j;
     }
-    if (!IsShellNR(n, kl/2)) {
+    if (!cfg->shells[i].nr) {
       dq = ShellDegeneracy(j+1, nq);
       cfg->sweight *= dq;
     }
@@ -2667,7 +2755,7 @@ int AddConfigToList(int k, CONFIG *cfg) {
   if (nq0 > 0) {
     PackNRShell(cfg->nrs+m, n0, kl0, nq0);
     m++;
-    if (IsShellNR(n0, kl0/2)) {
+    if (cfg->shells[i-1].nr) {
       if (j0 > kl0 || (klp == kl0 && nq0-nqp < j0+1)) {
 	cfg->nnrs = 0;
 	free(cfg->nrs);    
@@ -2691,7 +2779,7 @@ int AddConfigToList(int k, CONFIG *cfg) {
   cfg->icfg = cfg_groups[k].n_cfgs;
   CONFIG *acfg = ArrayAppend(clist, cfg, InitConfigData);
   if (acfg == NULL) return -1;
-  cfg_groups[k].gweight *= cfg->sweight;
+  cfg_groups[k].gweight *= fabs(cfg->sweight);
   if (cfg_groups[k].n_cfgs == 0) {
     cfg_groups[k].n_electrons = cfg->n_electrons;
   } else if (cfg_groups[k].n_electrons != cfg->n_electrons) {
@@ -2717,13 +2805,18 @@ int AddConfigToList(int k, CONFIG *cfg) {
   if (_uta_ncsf > 0 && cfg_groups[k].n_csfs >= _uta_ncsf) {
     ConfigUTA(&cfg_groups[k], 1);
   }
-
-  i = ConfigIndex(acfg);
-  if (_cfghasha[i] == NULL) {
-    _cfghasha[i] = malloc(sizeof(ARRAY));
-    ArrayInit(_cfghasha[i], sizeof(CONFIG *), CONFIGS_BLOCK);
+  if (_nr_ncfg > 0 &&
+      cfg_groups[k].nr == 0 &&
+      cfg_groups[k].n_cfgs >= _nr_ncfg) {
+    ConfigNonRel(&cfg_groups[k]);
+  } else {
+    i = ConfigIndex(acfg);
+    if (_cfghasha[i] == NULL) {
+      _cfghasha[i] = malloc(sizeof(ARRAY));
+      ArrayInit(_cfghasha[i], sizeof(CONFIG *), CONFIGS_BLOCK);
+    }
+    ArrayAppend(_cfghasha[i], &acfg, InitPointerData);
   }
-  ArrayAppend(_cfghasha[i], &acfg, InitPointerData);
   return 0;
 }
 
@@ -2923,6 +3016,9 @@ int ConstructConfigName(char *s, int n, CONFIG *c) {
   for (i = c->n_shells-1; i >= 0; i--) {
     GetJLFromKappa(c->shells[i].kappa, &j, &k);
     SpecSymbol(a, k/2);
+    if (c->shells[i].nr) {
+      a[0] = toupper(a[0]);
+    }
     if (j > k) x = '+';
     else x = '-';
     if (i > 0) {
@@ -3531,9 +3627,9 @@ void SetOptionConfig(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "config:nrk")) {
     int i, n;
-    if (ip >= 1000) {
+    if (ip >= 1000 || ip == 0) {
       for (i = 0; i <= MAXNRN; i++) _nrk[i] = 0;
-    } else if (ip <= 0) {
+    } else if (ip < 0) {
       n = -ip/10;
       if (n > MAXNRN) n = MAXNRN;
       _nrk[n] = (-ip)%10;
@@ -3549,6 +3645,10 @@ void SetOptionConfig(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "config:uta_ncsf")) {
     _uta_ncsf = ip;
+    return;
+  }
+  if (0 == strcmp(s, "config:nr_ncfg")) {
+    _nr_ncfg = ip;
     return;
   }
 }
