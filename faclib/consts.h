@@ -341,6 +341,7 @@ extern double AMU;
 #define MAXNTHETA          30
 #define MAXNPHI            60
 #define TE_MIN_MAX         0.5
+#define MINTE              1E-8
 
 /* excitation */
 #define NGOSK              256
