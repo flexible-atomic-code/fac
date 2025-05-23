@@ -558,6 +558,7 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k, int trylock) {
   orb0 = GetOrbital(k0);
   orb1 = GetOrbital(k1);
   if (uta_tegrid) te = fabs(orb0->energy-orb1->energy);
+  te = Max(te, MINTE);
   GetJLFromKappa(orb0->kappa, &j0, &kl0);
   GetJLFromKappa(orb1->kappa, &j1, &kl1);
   kl0 = kl0/2;
@@ -1155,6 +1156,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
   if (xborn == 0 || xborn < -1E30) {
     if (uta_tegrid) {
       te = fabs(GetOrbital(k0)->energy-GetOrbital(k1)->energy);
+      te = Max(te, MINTE);
     }
     for (ie = 0; ie < n_egrid1; ie++) {
       if (ie == n_egrid) mb = 1;
@@ -1179,6 +1181,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
     c = -GetOrbital(k1)->energy;
     if (uta_tegrid) {
       te = fabs(c-te0);
+      te = Max(te, MINTE);
     }
     te0 = Max(te0, c);
     c = -GetOrbital(k2)->energy;
@@ -2043,6 +2046,7 @@ int CollisionStrengthUTA(double *qkt, double *params,
   te = lev2->energy - lev1->energy;
   if (te <= 0) return -1;
   *e = te;
+
   p1 = lev1->pj;
   p2 = lev2->pj;
 

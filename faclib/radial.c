@@ -4791,7 +4791,7 @@ int SolveDirac(ORBITAL *orb) {
   }
   err = RadialSolver(orb, potential);
   if (err) { 
-    MPrintf(-1, "Error occured in RadialSolver: %d %d %d %10.3E\n",
+    MPrintf(-1, "Error occured in RadialSolver: %d %d %d %18.10E\n",
 	    err, orb->n, orb->kappa, orb->energy);
     average_config.n_shells = 0;
     GetPotential("error.pot", 0);
