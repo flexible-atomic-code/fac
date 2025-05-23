@@ -105,6 +105,7 @@ static MULTI *qk_array;
 static MULTI *qkm_array;
 
 static int _progress_report = 0;
+static double _minte = 3.6765e-8;
 
 static void InitCEPK(void *p, int n) {
   CEPK *d;
@@ -558,7 +559,7 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k, int trylock) {
   orb0 = GetOrbital(k0);
   orb1 = GetOrbital(k1);
   if (uta_tegrid) te = fabs(orb0->energy-orb1->energy);
-  te = Max(te, MINTE);
+  te = Max(te, _minte);
   GetJLFromKappa(orb0->kappa, &j0, &kl0);
   GetJLFromKappa(orb1->kappa, &j1, &kl1);
   kl0 = kl0/2;
@@ -1156,7 +1157,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
   if (xborn == 0 || xborn < -1E30) {
     if (uta_tegrid) {
       te = fabs(GetOrbital(k0)->energy-GetOrbital(k1)->energy);
-      te = Max(te, MINTE);
+      te = Max(te, _minte);
     }
     for (ie = 0; ie < n_egrid1; ie++) {
       if (ie == n_egrid) mb = 1;
@@ -1181,7 +1182,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
     c = -GetOrbital(k1)->energy;
     if (uta_tegrid) {
       te = fabs(c-te0);
-      te = Max(te, MINTE);
+      te = Max(te, _minte);
     }
     te0 = Max(te0, c);
     c = -GetOrbital(k2)->energy;
@@ -3505,6 +3506,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
       e = lev2->energy - lev1->energy;
       if (i < nlow-nc || j < nup-nc) e = fabs(e);
       if (e > 0) m++;
+      e = Max(e, _minte);
       if (e < emin && e > 0) emin = e;
       if (e > emax) emax = e;
     }
@@ -3624,6 +3626,8 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 	  lev2 = GetLevel(up[j]);
 	  e = lev2->energy - lev1->energy;
 	  if (i < nlow-nc || j < nup-nc) e = fabs(e);
+	  if (e <= 0) continue;
+	  e = Max(e, _minte);
 	  if (e < e0 || e >= e1) continue;
 	  if (e < emin) emin = e;
 	  if (e > emax) emax = e;
@@ -3810,7 +3814,8 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 	    iup = k;
 	    e = -e;
 	  }
-	}	    
+	}
+	e = Max(e, _minte);
 	if (e < e0 || e >= e1) continue;
 	int skip = SkipMPI();
 	if (skip) continue;
@@ -4590,6 +4595,10 @@ void SetOptionExcitation(char *s, char *sp, int ip, double dp) {
   }
   if (strcmp("excitation:pborn", s) == 0) {
     _pborn = dp;
+    return;
+  }
+  if (strcmp("excitation:minte", s) == 0) {
+    _minte = dp/HARTREE_EV;
     return;
   }
   if (strcmp("excitation:progress_report", s) == 0) {
