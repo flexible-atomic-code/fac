@@ -238,6 +238,7 @@ static double *_dmp[2][2][MAXMP];
 static int _config_energy = -1;
 static int _config_energy_psr = 0;
 static char _config_energy_pfn[1024];
+static double _config_energy_csi = 1e10;
 static double _sturm_idx = 0;
 static double _sturm_eref = 0;
 static int _sturm_nref = 0;
@@ -1875,8 +1876,9 @@ void AdjustScreeningParams(double *u) {
 }
 
 int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
-  int md, md1, jmax, j, i, m, jm;
+  int md, md1, jmax, j, i, m, jm, np;
   double *u0, *ue, *ut, a, b, n0, n1, n2, ur, r2;
+  double c1[5], c2[5], c3[5];
   
   if (acfg->n_cores <= 0 && potential->mps < 0 && _scpot.nr == 0) {
     for (i = 0; i < potential->maxrp; i++) {
@@ -1981,13 +1983,25 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
 	}
       }
     } else if (j < jm) {
-      for (m = j+1; m <= jm; m++) {
-	if (ut[m] > ut[j]) break;
+      i = j;
+      if (ut[i-1] < ut[i]) i--;
+      if (ut[i-1] < ut[i]) i--;
+      m = j;
+      if (ut[m+1] > ut[m]) m++;
+      if (m < jm && ut[m+1] > ut[m]) m++;
+      m = m-i+1;
+      if (m > 3) {
+	np = 3;
+      } else {
+	np = 2;
       }
-      a = (potential->rad[m]-potential->rad[j])/(ut[m]-ut[j]);
-      r2 = potential->rad[j] + a*(n2-ut[j]);
-      a = Min(n1, ut[jm])-n2;
-      b = ((ut[m]-ut[j])/(potential->rad[m]-potential->rad[j]))/a;
+      UVIP3C(np, m, ut+i, potential->rad+i, c1, c2, c3);
+      a = n2-ut[j];
+      m = j-i;
+      b = a*a;
+      r2 = potential->rad[j] + c1[m]*a + c2[m]*b + c3[m]*a*b;
+      a = Min(n1, ut[jm]) - n2;
+      b = 1/(a*c1[m]);
       for (m = j+1; m <= jmax; m++) {
 	ur = n2 + a*(1-exp(-(potential->rad[m]-r2)*b));
 	if (potential->mps > 2) {
@@ -5461,7 +5475,7 @@ int SkipOptGrp(CONFIG_GROUP *g) {
 int ConfigEnergy(int m, int mr, int ng, int *kg) {
   CONFIG_GROUP *g;
   CONFIG *cfg;
-  int k, kk, i, md, md1;
+  int k, kk, i, md, md1, csi;
   int nog, iog, **og, *gp, ngp;
   double e0;
   char *sid, pfn[2048];
@@ -5479,6 +5493,10 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
   md = optimize_control.mce%10;  
   md1 = 10*(optimize_control.mce/10);
   if (m == 0) {
+    csi = _csi;
+    if (fabs(_config_energy_csi) < 100.0) {
+      _csi = _config_energy_csi;
+    }
     for (iog = 0; iog < nog; iog++) {
       if (og) {
 	gp = malloc(sizeof(int)*og[iog][0]);
@@ -5571,7 +5589,10 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	ReinitRadial(1);
 	ClearOrbitalTable(0);
       }
-      if (og) free(gp);
+      if (og) free(gp);      
+    }
+    if (fabs(_config_energy_csi) < 100) {
+      _csi = csi;
     }
   } else if (md1 < 20) {
     for (iog = 0; iog < nog; iog++) {
@@ -12752,6 +12773,10 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "radial:config_energy_pfn")) {
     strncpy(_config_energy_pfn, sp, 1023);
+    return;
+  }
+  if (0 == strcmp(s, "radial:config_energy_csi")) {
+    _config_energy_csi = dp;
     return;
   }
   if (0 == strcmp(s, "radial:sturm_idx")) {
