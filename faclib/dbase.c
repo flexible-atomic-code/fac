@@ -1983,6 +1983,10 @@ int WriteTRRecord(TFILE *f, TR_RECORD *r, TR_EXTRA *rx) {
   WSF0(r->strength);
 
   if (iuta) {
+    if (isnan(rx->sdev) || isinf(rx->sdev)) {
+      MPrintf(-1, "WriteTRRecord invlid sdev: %d %d %g\n",
+	      r->lower, r->upper, rx->sdev);
+    }
     WSF0(rx->energy);
     WSF0(rx->sdev);
     WSF0(rx->sci);
@@ -3271,6 +3275,11 @@ int ReadTRRecord(TFILE *f, TR_RECORD *r, TR_EXTRA *rx, int swp) {
   RSF0(r->upper);
   RSF0(r->strength);
 
+  if (rx) {
+    rx->energy = 0.0;
+    rx->sdev = 0.0;
+    rx->sci = 1.0;
+  }
   if (iuta) {
     RSF0(rx->energy);
     RSF0(rx->sdev);
@@ -3279,7 +3288,7 @@ int ReadTRRecord(TFILE *f, TR_RECORD *r, TR_EXTRA *rx, int swp) {
 
   if (swp) SwapEndianTRRecord(r, rx);
 
-  if (utaci == 0) {
+  if (utaci == 0 && rx) {
     rx->sci = 1.0;
   }
 
@@ -8952,10 +8961,16 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 		    rt[j]->x.sci = 0.0;
 		    rt[j]->r.lower = rg[k][ilo].r.ilev;
 		    rt[j]->r.upper = rg[k][iup].r.ilev;
+		    rt[j]->sd = 0.0;
 		  }
+		  e = r1x.energy;
+		  if (e <= 0) {
+		    e = rg[k][iup].r.energy - rg[k][ilo].r.energy;
+		  }
+		  rt[j]->sd += r1.strength*e*e;
 		  rt[j]->r.strength += r1.strength;
-		  rt[j]->x.energy += r1x.energy*r1.strength;
-		  rt[j]->x.sdev += r1x.sdev*r1.strength;
+		  rt[j]->x.energy += e*r1.strength;
+		  rt[j]->x.sdev += r1x.sdev*r1x.sdev*r1.strength;
 		  rt[j]->x.sci += r1x.sci*r1.strength;
 		}		
 		nt0++;
@@ -8971,6 +8986,11 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 		rt[i]->x.energy /= rt[i]->r.strength;
 		rt[i]->x.sdev /= rt[i]->r.strength;
 		rt[i]->x.sci /= rt[i]->r.strength;
+		rt[i]->sd /= rt[i]->r.strength;
+		e = rt[i]->sd - rt[i]->x.energy*rt[i]->x.energy;
+		if (e < 0.0) e = 0.0;
+		e = sqrt(e + rt[i]->x.sdev);
+		rt[i]->x.sdev = e;
 		WriteTRRecord(f1[1], &(rt[i]->r), &(rt[i]->x));
 		nt1++;
 		free(rt[i]);

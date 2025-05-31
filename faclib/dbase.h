@@ -178,6 +178,7 @@ typedef struct _TR_EXTRA_ {
 typedef struct _TR_ALL_ {
   TR_RECORD r;
   TR_EXTRA x;
+  double sd;
 } TR_ALL;
 
 typedef struct _TRF_RECORD_ {
