@@ -61,7 +61,7 @@
 #define LNAME       128
 
 #define MAXNCOMPLEX 8
-
+  
 typedef struct _NCOMPLEX_ {
   short n;
   short nq;
@@ -175,6 +175,11 @@ typedef struct _TR_EXTRA_ {
   float sci;
 } TR_EXTRA;
 
+typedef struct _TR_ALL_ {
+  TR_RECORD r;
+  TR_EXTRA x;
+} TR_ALL;
+
 typedef struct _TRF_RECORD_ {
   int lower;
   int upper;
@@ -287,6 +292,11 @@ typedef struct _RR_RECORD_ {
   float *strength;
 } RR_RECORD;
 
+typedef struct _RR_ALL_ {
+  RR_RECORD r;
+  float dn, dk;
+} RR_ALL;
+
 typedef struct _AI_HEADER_ {
   long int position;
   long int length;
@@ -346,6 +356,11 @@ typedef struct _CI_RECORD_ {
   float *strength;
 } CI_RECORD;
 
+typedef struct _CI_ALL_ {
+  CI_RECORD r;
+  float dk;
+} CI_ALL;
+  
 typedef struct _CIM_HEADER_ {
   long int position;
   long int length;
@@ -516,6 +531,12 @@ typedef struct _IDXMAP_ {
   int xm[32];
   long *mask;
 } IDXMAP;
+  
+typedef struct _LEVGRP_ {
+  EN_RECORD r;
+  int nlev;
+  int *ilev;
+} LEVGRP;
   
 /* these read functions interface with the binary data files.
  * they can be used in custom c/c++ codes to read the binary 
@@ -697,6 +718,7 @@ int IsUTA(void);
 int TrueUTA(int n);
 int CurrentUTA(int *iu, int *ici);
 void SetTRF(int m);
+int IsRecordUTA(EN_RECORD *r);
 int AppendTable(char *fn);
 int JoinTable(char *fn1, char *fn2, char *fn);
 int TRBranch(char *fn, int i, int j, double *te, double *pa, double *ta);
@@ -721,6 +743,7 @@ int IsNewV114(TFILE *f);
 int ReadJJLSJ(char *fn, JJLSJ **lsj);
 void RecoupleRO(char *ifn, char *ofn);
 int CompareENRecordEnergy(const void *p0, const void *p1);
+int CompareENRecordEnergySU(const void *p0, const void *p1);
 int CompareENRecord(const void *p0, const void *p1);
 int CompareENComplex(const void *c1, const void *c2);
 int SortUniqNComplex(int n, EN_RECORD *a);
@@ -731,6 +754,11 @@ int FindLevelBlock(int n0, EN_RECORD *r0, EN_RECORD **r1,
 		   int nele, char *ifn);
 int MatchLevelsPJ(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1);
 void CombineDBase(char *pref, int k0, int k1, int kic, int nexc, int ic);
+int GroupLevels(EN_RECORD *rs, int nr, double ei, double des,
+		int minlev, LEVGRP *rg);
+void CollapseDBase(char *ipr, char *opr, int k0, int k1,
+		   double des0, double des1,
+		   int minlevs, int maxlevs, int ic);
 void SetOptionDBase(char *s, char *sp, int ip, double dp);
 double TwoPhotonRate(double z, int t);
 int LevelMatchByName(EN_RECORD *r, char *nc, char*cnr, char *cr);

@@ -111,7 +111,7 @@ int SetCEEGridDetail(int n, double *x);
 int SetCEEGrid(int n, double emin, double emax, double eth);
 int SetUsrCEEGridDetail(int n, double *x);
 int SetUsrCEEGrid(int n, double emin, double emax, double eth);
-
+void PrepCEHeader(CE_HEADER *h, int nele, int msub);
 int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k, int trylock);
 int CERadialQkBorn(int k0, int k1, int k2, int k3, int k, 
 		   double te, double e1, double *qk, int m);

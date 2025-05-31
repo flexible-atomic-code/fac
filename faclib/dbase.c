@@ -21,6 +21,9 @@
 #include "angular.h"
 #include "nucleus.h"
 #include "structure.h"
+#include "excitation.h"
+#include "recombination.h"
+#include "ionization.h"
 #include "cf77.h"
 
 static char *rcsid="$Id$";
@@ -85,6 +88,8 @@ static int _adj_ip = 1;
 static int _ic_iai[100];
 static int _ix_iai[100];
 static int _nc_iai = 0;
+static int _nilast = 1;
+static int _collapse_mask = 0xff;
 
 #define _WSF0(sv, f) do{				\
     n = FWRITE(&(sv), sizeof(sv), 1, f);		\
@@ -236,6 +241,17 @@ int CurrentUTA(int *iu, int *ici) {
   *iu = iuta;
   *ici = utaci;
   return cuta;
+}
+
+int IsUTARecord(EN_RECORD *r) {
+  int i;
+
+  for (i = 0; i < 10; i++) {
+    if (r->name[i] == '\0') return 1;
+    if (r->name[i] == '(') return 0;
+  }
+  
+  return 1;
 }
 
 int CheckEndian(F_HEADER *fh) {
@@ -2328,7 +2344,8 @@ int WriteRCRecord(TFILE *f, RC_RECORD *r) {
   WSF0(r->upper);
   for (i = 0; i < m0; i++) {
     if (isnan(r->rc[i]) || isinf(r->rc[i])) {
-      MPrintf(-1, "WriteRCRecord invalid strength: %d %d %d %g\n",
+      MPrintf(-1, "WriteRCRecord invalid strength: %d %d %d %d %d %d %g\n",
+	      rc_header.type, rc_header.nte, rc_header.nde,
 	      r->lower, r->upper, i, r->rc[i]);
     }
   }
@@ -6078,7 +6095,9 @@ int PrintRRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 	  rr = phi * pow(FINE_STRUCTURE_CONST*eph, 2) / (2.0*ee);
 	  rr /= 1.0+0.5*FINE_STRUCTURE_CONST2*ee;
 	  phi /= (mem_en_table[r.b].j + 1.0);
-	  rr /= (mem_en_table[r.f].j + 1.0);
+	  if (r.f >= 0) {
+	    rr /= (mem_en_table[r.f].j + 1.0);
+	  }
 	  fprintf(f2, "%11.4E %11.4E %11.4E %11.4E\n",
 		  eu*HARTREE_EV, rr, phi, r.strength[t]);
 	} else {
@@ -7324,6 +7343,23 @@ int CompareENRecordEnergy(const void *p0, const void *p1) {
   }
 }
 
+int CompareENRecordEnergySU(const void *p0, const void *p1) {
+  EN_RECORD *r0, *r1;
+
+  r0 = (EN_RECORD *) p0;
+  r1 = (EN_RECORD *) p1;
+
+  if (r0->j != -1 && r1->j == -1) return -1;
+  else if (r0->j == -1 && r1->j != -1) return 1;
+  if (r0->energy < r1->energy) {
+    return -1;
+  } else if (r0->energy > r1->energy) {
+    return 1;
+  } else {
+    return 0;
+  }  
+}
+
 int CompareENRecord(const void *p0, const void *p1) {
   EN_RECORD *r0, *r1;
   
@@ -7809,9 +7845,11 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
   int nexc, ncap, nt, nd, ix, ibx, ifx, ib, cn0, cn1, cn2;
   int ia, *nm, *nklevs, *igk, *ifk, kk, kk1;
   short ***nc;
-  double t0, dt, d0, dd, *egk, eip;
+  double t0, dt, d0, dd, *egk, eip, wt0, wt1, tt0, tt1;
   float ***pai;
+  int nt1, nt2, nt3, nt4, nt5, nt6;
 
+  tt0 = WallTime();
   ncap = 0;
   nt = 0;
   nd = 0;
@@ -7884,7 +7922,10 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
     egk[k-k0] = 0.0;
   }
   for (k = k1; k >= k0; k--) {
+    wt0 = WallTime();
     sprintf(ifn, "%s%02db.en", pref, k);
+    printf("check levels: %d %d %s ...", z, k, ifn);
+    fflush(stdout);
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 == NULL) {
       printf("cannot open file %s\n", ifn);
@@ -7915,7 +7956,6 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	e1 = e0 + eip/HARTREE_EV;
       }
     }
-    printf("check levels: %d %d %s %d\n", z, k, ifn, nlevs);
     if (k < k1) {
       de[k-k0] = de[k+1-k0]+ (e1p - e0);
     }
@@ -7955,6 +7995,8 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
       }
     }
     if (f0) FCLOSE(f0);
+    wt1 = WallTime();
+    printf(" %d %.3e\n", nlevs, wt1-wt0);
   }
   if (kic < k0) kic = k0;
   if (kic > k1) kic = k1;
@@ -7983,10 +8025,12 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
       nexc = nexc0;
     }
     FCLOSE(f0);
-    
+
+    wt0 = WallTime();
     sprintf(ifn, "%s%02db.en", pref, k);
-    printf("rebuild level indices %d %d %s %d %d\n",
+    printf("rebuild level indices %d %d %s %d %d ...",
 	   z, k, ifn, nexc, ncap);
+    fflush(stdout);
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 == NULL) {
       printf("cannot open file %s\n", ifn);
@@ -8044,7 +8088,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	  }
 	  sprintf(ifn, "%s%02db.en", pref, k-1);
 	  nim = FindLevelBlock(ni0, ri0, &ri1, k-1, ifn);
-	  printf("ionized match: %d %d %d %d\n", k, nb, ni0, nim);
+	  //printf("ionized match: %d %d %d %d\n", k, nb, ni0, nim);
 	  for (i = 0; i < nim; i++) {
 	    im[ri0[i].ilev] = -10-ri1[i].ilev;
 	  }
@@ -8074,23 +8118,26 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	if (h0.nele == k-1) {	
 	  for (i = 0; i < h0.nlevels; i++) {
 	    n = ReadENRecord(f0, &r0, swp);
+	    if (nilevs >= _nilast) continue;
 	    vn = abs(r0.p)/100;
 	    if (nb == 0 && i == 0) vn0 = vn;
-	    vni = VNIFromSName(r0.sname)/100;
+	    vni = VNIFromSName(r0.sname)/100;	    
 	    if ((nexc > 0 && vn > nexc) ||
 		(ncap > 0 && vn > ncap && vni > vn0 && r0.energy > e1)) {
 	      continue;
 	    }
 	    im[r0.ilev] = clevs;
+	    nilevs++;
 	    clevs++;
 	  }
 	} else {
-	  nilevs += h0.nlevels;
 	  FSEEK(f0, h0.length, SEEK_CUR);
 	}
       }
     }
     FCLOSE(f0);
+    wt1 = WallTime();
+    printf(" %d %.3e\n", clevs, wt1-wt0);
   }
 
   for (k = k1; k >= k0; k--) {
@@ -8103,7 +8150,9 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
       continue;
     }
     im = ima[k-k0];
-    printf("writing level file: %d %d %s\n", z, k, ifn);
+    wt0 = WallTime();
+    printf("writing level file: %d %d %s ...", z, k, ifn);
+    fflush(stdout);
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = ReadENHeader(f0, &h0, swp);
       if (n == 0) break;
@@ -8162,6 +8211,8 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
       }
     }
     FCLOSE(f0);
+    wt1 = WallTime();
+    printf(" %d %.3e\n", nklevs[k-k0], wt1-wt0);
   }
 
   nc = NULL;
@@ -8195,18 +8246,31 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
     }
   }
   CloseFile(f1[0], &fh1[0]);
+  wt0 = WallTime();
   sprintf(ifn, "%s%02d%02db.en", pref, k0, k1);
+  printf("build EN mem: %d %d %s ...", k0, k1, ifn);
+  fflush(stdout);
   MemENTableWC(ifn, k0, ifk, nc);
   int mesize = mem_en_table_size;
   EN_SRECORD *metable = malloc(sizeof(EN_SRECORD)*mesize);
   memcpy(metable, mem_en_table, sizeof(EN_SRECORD)*mesize);
+  wt1 = WallTime();
+  printf(" %d %.3e\n", mesize, wt1-wt0);
   for (k = k1; k >= k0; k--) {
-    printf("processing %d %d\n", z, k);
+    wt0 = WallTime();
+    printf("processing %d %d ... ", z, k);
+    fflush(stdout);
     im = ima[k-k0];
     sprintf(ifn, "%s%02db.en", pref, k);
     MemENTable(ifn);
     sprintf(ifn, "%s%02db.tr", pref, k);
     f0 = OpenFileRO(ifn, &fh, &swp);
+    nt1 = 0;
+    nt2 = 0;
+    nt3 = 0;
+    nt4 = 0;
+    nt5 = 0;
+    nt6 = 0;
     if (f0 != NULL && fh.type == DB_TR) {
       for (nb = 0; nb < fh.nblocks; nb++) {
 	n = ReadTRHeader(f0, &h1, swp);
@@ -8219,6 +8283,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	    r1.lower = im[r1.lower];
 	    r1.upper = im[r1.upper];
 	    WriteTRRecord(f1[1], &r1, &r1x);
+	    nt1++;
 	  }
 	}
 	DeinitFile(f1[1], &fh1[1]);
@@ -8246,6 +8311,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	r1.upper = iup2ph[i];
 	r1.strength = (float)r2p;
 	WriteTRRecord(f1[1], &r1, &r1x);
+	nt1++;
       }
       DeinitFile(f1[1], &fh1[1]);
       FCLOSE(f0);
@@ -8265,6 +8331,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	    r2.lower = im[r2.lower];
 	    r2.upper = im[r2.upper];	    
 	    WriteCERecord(f1[2], &r2);
+	    nt2++;
 	  }
 	  if (h2.qk_mode == QK_FIT) free(r2.params);
 	  free(r2.strength);
@@ -8296,6 +8363,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	      tde = metable[r3.f].energy - metable[r3.b].energy;
 	      if (tde > 0) {
 		WriteRRRecord(f1[3], &r3);
+		nt3++;
 	      }
 	    } else {
 	      tde = mem_en_table[r3.f].energy - mem_en_table[r3.b].energy;
@@ -8305,6 +8373,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 		fde = tde;
 		r3.kl = *((int *) &fde);
 		WriteRRRecord(f1[3], &r3);
+		nt3++;
 	      }
 	    }
 	  }
@@ -8335,6 +8404,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	    tde = metable[r4.f].energy-metable[r4.b].energy;
 	    if (tde > 0) {
 	      WriteCIRecord(f1[4], &r4);
+	      nt4++;
 	    }
 	  }
 	  free(r4.params);
@@ -8364,6 +8434,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	    tde = metable[r5.b].energy - metable[r5.f].energy;
 	    if (tde > 0 && r5.rate > 0) {
 	      WriteAIRecord(f1[5], &r5);
+	      nt5++;
 	      if (k > k0 && k > 2 && _nc_iai > 0) {
 		ia = ChannelAI(r5.b, nm[k-k0], nc[k-k0][r5.b-ifk[k-k0]],
 			       r5.f, nm[k-k0-1], nc[k-k0-1][r5.f-ifk[k-k0-1]],
@@ -8408,6 +8479,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	    tde = metable[r6.upper].energy - metable[r6.lower].energy;
 	    if (tde > 0) {
 	      WriteRCRecord(f1[6], &r6);
+	      nt6++;
 	    }
 	  }
 	  free(r6.rc);
@@ -8417,6 +8489,8 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
       FCLOSE(f0);
     }
     if (im) free(im);
+    wt1 = WallTime();
+    printf(" %d %d %d %d %d %d %.3e\n", nt1, nt2, nt3, nt4, nt5, nt6, wt1-wt0);
   }
 
   if (_nc_iai > 0) {
@@ -8426,6 +8500,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
       kk = kk1-1;
       nb = Min(nm[kk], nm[kk1]);
       for (ia = 0; ia < _nc_iai*nb; ia++) {
+	wt0 = WallTime();
 	r5.f = -(_ic_iai[ia%_nc_iai]*1000 + (ia/_nc_iai) + 1);
 	h5.nele = k;
 	h5.n_egrid = 1;
@@ -8445,8 +8520,9 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	    }
 	  }
 	}
+	wt1 = WallTime();
 	if (ai_header.ntransitions > 0) {
-	  printf("inner shell ai: %3d %6d %5d %12.5E\n", k, -r5.f, ai_header.ntransitions, h5.egrid[0]);
+	  printf("inner shell ai: %3d %6d %5d %12.5E %.3e\n", k, -r5.f, ai_header.ntransitions, h5.egrid[0], wt1-wt0);
 	}
 	DeinitFile(f1[5], &fh1[5]);      
       }
@@ -8491,14 +8567,1109 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	ic = ic/10;
       }
       if (k) {
+	wt0 = WallTime();	
 	sprintf(ifn, "%s%02d%02db.%s", pref, k0, k1, ext[i]);
 	sprintf(ofn, "%s%02d%02da.%s", pref, k0, k1, ext[i]);
+	printf("print table: %s %s ...", ifn, ofn);
+	fflush(stdout);
 	PrintTable(ifn, ofn, 1);
+	wt1 = WallTime();
+	printf(" %.3e\n", wt1-wt0);
       }
     }
   }
+  tt1 = WallTime();
+  printf("total time: %.3e\n", tt1-tt0);
 }
+
+int GroupLevels(EN_RECORD *rs, int nr, double ei, double des,
+		int minlev, LEVGRP *rg) {
+  int i, ii, iu, ku, n, ng, j, k, j0;
+  double e0, w0, w, wt;
+
+  if (nr <= minlev) {
+    ng = nr;
+    if (rg) {
+      for (i = 0; i < ng; i++) {
+	memcpy(&rg[i].r, &rs[i], sizeof(EN_RECORD));
+	rg[i].nlev = 1;
+	rg[i].ilev = malloc(sizeof(int));
+	rg[i].ilev[0] = i;
+      }
+    }
+    return ng;
+  }
+
+  ku = nr;
+  for (i = 0; i < nr; i++) {
+    if (rs[i].j == -1) {
+      ku = i;
+      break;
+    }
+  }
   
+  ii = ku;
+  for (i = 0; i < ku; i++) {
+    if (rs[i].energy >= ei) {
+      ii = i;
+      break;
+    }
+  }
+
+  iu = nr;
+  for (i = ku; i < nr; i++) {
+    if (rs[i].energy >= ei) {
+      iu = i;
+      break;
+    }
+  }
+
+  if (ku < minlev ) ii = iu;
+  ng = Min(minlev, ii);
+  if (rg) {
+    for (i = 0; i < ng; i++) {
+      memcpy(&rg[i].r, &rs[i], sizeof(EN_RECORD));
+      rg[i].nlev = 1;
+      rg[i].ilev = malloc(sizeof(int));
+      rg[i].ilev[0] = i;
+    }
+  } else {
+    i = ng;
+  }
+  
+  e0 = rs[i++].energy;
+  n = 1;
+  for (; i <= nr; i++) {
+    if (i == ii || i == ku || i == iu || i == nr || rs[i].energy-e0 > des) {
+      if (rg && n > 0) {
+	rg[ng].nlev = n;
+	rg[ng].ilev = malloc(sizeof(int)*n);
+	j0 = 0;
+	w0 = 0.0;
+	wt = 0.0;
+	for (k = 0; k < n; k++) {
+	  j = i-n+k;
+	  rg[ng].ilev[k] = j;
+	  w = 1.0+JFromENRecord(&rs[j]);
+	  if (w > w0) {
+	    j0 = j;
+	    w0 = w;
+	  }
+	  wt += w;
+	}
+	memcpy(&rg[ng].r, &(rs[j0]), sizeof(EN_RECORD));
+	rg[ng].r.j = -1;
+	rg[ng].r.ibase = (int)(wt-0.5);
+	rg[ng].r.energy *= w0;
+	for (k = 0; k < n; k++) {
+	  j = i-n+k;
+	  if (j == j0) continue;
+	  w = 1.0+JFromENRecord(&rs[j]);
+	  rg[ng].r.energy += rs[j].energy*w;
+	}
+	rg[ng].r.energy /= wt;
+      }
+      n = 1;
+      if (i < nr) e0 = rs[i].energy;
+      ng++;
+    } else {
+      n++;
+    }
+  }
+  return ng;
+}
+
+void CollapseDBase(char *ipr, char *opr, int k0, int k1,
+		   double des00, double des01,
+		   int minlevs, int maxlevs, int ic) {
+  char ifn[1024], ofn[1024], buf[1024];
+  F_HEADER fh, fh1[7];
+  EN_HEADER h0;
+  EN_RECORD r0;
+  TR_HEADER h1;
+  TR_RECORD r1;
+  TR_EXTRA r1x;
+  CE_HEADER h2;
+  CE_RECORD r2;
+  RR_HEADER h3;
+  RR_RECORD r3;
+  CI_HEADER h4;
+  CI_RECORD r4;
+  AI_HEADER h5;
+  AI_RECORD r5;
+  RC_HEADER h6;
+  RC_RECORD r6;
+  char a[8];
+  char ext[7][3] = {"en", "tr", "ce", "rr", "ci", "ai", "rc"};
+  int types[7] = {DB_EN, DB_TR, DB_CE, DB_RR, DB_CI, DB_AI, DB_RC};
+  int k, i, j, n, nb, nlevs, vn, swp, z, nth;
+  int ng0, ng1, ng, dm, ng2, ilo, iup, t, s;
+  int klev[N_ELEMENTS1], ngrp[N_ELEMENTS1];
+  int imin[N_ELEMENTS1], imax[N_ELEMENTS1];
+  LEVGRP *rg[N_ELEMENTS1];
+  EN_RECORD *ra[N_ELEMENTS1];  
+  TFILE *f0, *f1[7];
+  double ei, des, te, e, cs, des0, des1;
+  float fte;
+  int *im, tlevs, nt0, nt1, nt2;
+  double wt0, wt1, tt0, tt1;
+
+  sprintf(ifn, "%sb.en", ipr);
+  wt0 = WallTime();
+  tt0 = wt0;
+  printf("read levels: %s ...", ifn);
+  fflush(stdout);
+  f0 = OpenFileRO(ifn, &fh, &swp);
+  if (f0 == NULL) {
+    printf("cannot open file: %s\n", ifn);
+    return;
+  }
+  z = (int)(fh.atom);
+  strncpy(a, fh.symbol, 4);
+  nth = fh.nthreads;
+
+  if (k0 <= 0) k0 = 0;
+  if (k1 <= 0) k1 = N_ELEMENTS;
+  
+  for (k = 0; k <= z; k++) {
+    klev[k] = 0;
+    imin[k] = 0;
+    imax[k] = 0;
+    ra[k] = NULL;
+  }
+  tlevs = 0;
+  nt0 = z;
+  nt1 = 0;
+  for (nb = 0; nb < fh.nblocks; nb++) {
+    n = ReadENHeader(f0, &h0, swp);
+    if (n == 0) break;
+    k = h0.nele;
+    if (k < nt0) nt0 = k;
+    if (k > nt1) nt1 = k;
+    klev[k] += h0.nlevels;
+    tlevs += klev[k];
+    FSEEK(f0, h0.length, SEEK_CUR);
+  }
+  n = 0;
+  for (k = 0; k <= z; k++) {
+    if (klev[k] > 0) {
+      ra[k] = malloc(sizeof(EN_RECORD)*klev[k]);
+      n += klev[k];
+      klev[k] = 0;
+    }
+  }
+  FCLOSE(f0);
+
+  for (k = 0; k <= z; k++) {
+    imin[k] = n;
+    imax[k] = 0;
+  }
+  f0 = OpenFileRO(ifn, &fh, &swp);
+  for (nb = 0; nb < fh.nblocks; nb++) {
+    n = ReadENHeader(f0, &h0, swp);
+    if (n == 0) break;
+    k = h0.nele;
+    for (i = 0; i < h0.nlevels; i++) {
+      j = klev[k];
+      n = ReadENRecord(f0, &(ra[k][j]), swp);
+      if (i == 0) {
+	if (ra[k][j].j == -1 && !IsUTARecord(&ra[k][j])) {
+	  t = 1;
+	} else {
+	  t = 0;
+	}
+      }
+      if (t) {
+	ra[k][j].j = -10;
+      }
+      if (imin[k] > ra[k][j].ilev) imin[k] = ra[k][j].ilev;
+      if (imax[k] < ra[k][j].ilev) imax[k] = ra[k][j].ilev;
+      klev[k]++;
+    }
+  }
+  FCLOSE(f0);
+  wt1 = WallTime();
+  printf(" %d %d %d %.3e\n", tlevs, nt0, nt1, wt1-wt0);
+  
+  for (k = z; k >= 0; k--) {
+    des0 = des00/HARTREE_EV;
+    des1 = des01/HARTREE_EV;
+    ngrp[k] = 0;
+    if (klev[k] == 0) continue;
+    wt0 = WallTime();
+    printf("collapse EN: %d %d %d %.3e %.3e ...", k, minlevs, maxlevs,
+	   des0*HARTREE_EV, des1*HARTREE_EV);
+    fflush(stdout);
+    if (klev[k] > 1) {
+      qsort(ra[k], klev[k], sizeof(EN_RECORD), CompareENRecordEnergySU);
+    }
+    if (k > 0 && klev[k-1] > 0) {
+      ei = ra[k-1][0].energy;
+    } else {
+      ei = ra[k][klev[k]-1].energy+des1;
+    }
+    ng0 = GroupLevels(ra[k], klev[k], ei, des0, minlevs, NULL);
+    des = -1.0;
+    if (ng0 > maxlevs) {
+      ng1 = GroupLevels(ra[k], klev[k], ei, des1, minlevs, NULL);
+    } else {
+      des = des0;
+      ng = ng0;
+      ng1 = 0;
+    }
+    if (ng1 >= maxlevs) {
+      des = des1;
+      ng = ng1;
+    }      
+    if (des < 0) {
+      dm = (int)(0.05*maxlevs);
+      if (dm < 1) dm = 1;
+      while (des1-des0 > EPS6) {
+	des = 0.5*(des0+des1);
+	ng = GroupLevels(ra[k], klev[k], ei, des, minlevs, NULL);
+	if (abs(ng-maxlevs) <= dm) break;
+	if (ng > maxlevs) {
+	  des0 = des;
+	} else if (ng < maxlevs) {
+	  des1 = des;
+	}
+      }
+    }
+    ngrp[k] = ng;
+    rg[k] = malloc(sizeof(LEVGRP)*ng);
+    ng = GroupLevels(ra[k], klev[k], ei, des, minlevs, rg[k]);
+    wt1 = WallTime();
+    printf(" %d %d %.2e %.3e\n", klev[k], ngrp[k], des*HARTREE_EV, wt1-wt0);
+  }
+
+  for (i = 0; i < 7; i++) {
+    f1[i] = NULL;
+    if (i > 0) {
+      if (0 == (_collapse_mask & (1<<i))) {
+	continue;
+      }
+      sprintf(ifn, "%sb.%s", ipr, ext[i]);
+      f0 = OpenFileRO(ifn, &fh, &swp);
+      if (f0 == NULL) {
+	continue;
+      }
+      FCLOSE(f0);
+    }
+    sprintf(ofn, "%sb.%s", opr, ext[i]);
+    fh1[i].atom = z;
+    strcpy(fh1[i].symbol, a);
+    fh1[i].type = types[i];
+    f1[i] = OpenFileWTN(ofn, &fh1[i], nth);
+  }
+
+  iuta = 1;
+  n = 0;
+  for (k = z; k >= 0; k--) {
+    if (ngrp[k] == 0) continue;
+    h0.nele = k;
+    InitFile(f1[0], &fh1[0], &h0);
+    for (j = 0; j < ngrp[k]; j++) {	
+      rg[k][j].r.ilev = n++;
+      WriteENRecord(f1[0], &rg[k][j].r);
+    }
+    DeinitFile(f1[0], &fh1[0]);
+  }
+  CloseFile(f1[0], &fh1[0]);
+
+  if (f1[1] || f1[2] || f1[3] || f1[4] || f1[5] || f1[6]) {
+    sprintf(ifn, "%sb.en", ipr);
+    MemENTable(ifn);
+    im = malloc(sizeof(int)*tlevs);
+    for (k = z; k >= 0; k--) {
+      if (ngrp[k] == 0) continue;
+      for (i = 0; i < ngrp[k]; i++) {
+	for (j = 0; j < rg[k][i].nlev; j++) {
+	  t = rg[k][i].ilev[j];
+	  n = ra[k][t].ilev;
+	  im[n] = i;
+	}
+      }
+    }
+    if (f1[1]) {
+      TR_ALL **rt;
+      int gauges[3] = {1, 2, 10};
+      int ig, ib;
+      for (k = z; k >= 0; k--) {
+	if (ngrp[k] == 0) continue;
+	wt0 = WallTime();
+	sprintf(ifn, "%sb.tr", ipr);
+	for (ig = 0; ig < 3; ig++) {	  
+	  f0 = OpenFileRO(ifn, &fh, &swp);
+	  ib = 0;
+	  for (nb = 0; nb < fh.nblocks; nb++) {
+	    n = ReadTRHeader(f0, &h1, swp);
+	    if (n == 0) break;
+	    if (k != h1.nele) {
+	      FSEEK(f0, h1.length, SEEK_CUR);
+	      continue;
+	    }
+	    if (gauges[ig] != h1.gauge) {
+	      FSEEK(f0, h1.length, SEEK_CUR);
+	      continue;
+	    }
+	    ib = 1;
+	    break;
+	  }
+	  FCLOSE(f0);
+	  if (ib) {
+	    printf("collapse TR: %d %d ...", k, gauges[ig]);
+	    fflush(stdout);
+	    ng2 = ngrp[k]*ngrp[k];
+	    rt = malloc(sizeof(TR_ALL *)*ng2);
+	    for (i = 0; i < ng2; i++) {
+	      rt[i] = NULL;
+	    }
+	    f0 = OpenFileRO(ifn, &fh, &swp);
+	    nt0 = 0;
+	    for (nb = 0; nb < fh.nblocks; nb++) {
+	      n = ReadTRHeader(f0, &h1, swp);
+	      if (n == 0) break;
+	      if (k != h1.nele) {
+		FSEEK(f0, h1.length, SEEK_CUR);
+		continue;
+	      }
+	      if (gauges[ig] != h1.gauge) {
+		FSEEK(f0, h1.length, SEEK_CUR);
+		continue;
+	      }
+	      for (i = 0; i < h1.ntransitions; i++) {
+		n = ReadTRRecord(f0, &r1, &r1x, swp);
+		if (n == 0) break;
+		ilo = im[r1.lower];
+		iup = im[r1.upper];
+		if (rg[k][iup].r.energy > rg[k][ilo].r.energy) {
+		  j = iup*ngrp[k] + ilo;
+		  if (rt[j] == NULL) {
+		    rt[j] = malloc(sizeof(TR_ALL));
+		    rt[j]->r.strength = 0.0;
+		    rt[j]->x.energy = 0.0;
+		    rt[j]->x.sdev = 0.0;
+		    rt[j]->x.sci = 0.0;
+		    rt[j]->r.lower = rg[k][ilo].r.ilev;
+		    rt[j]->r.upper = rg[k][iup].r.ilev;
+		  }
+		  rt[j]->r.strength += r1.strength;
+		  rt[j]->x.energy += r1x.energy*r1.strength;
+		  rt[j]->x.sdev += r1x.sdev*r1.strength;
+		  rt[j]->x.sci += r1x.sci*r1.strength;
+		}		
+		nt0++;
+	      }
+	    }
+	    FCLOSE(f0);
+	    nt1 = 0;
+	    h1.nele = k;
+	    h1.gauge = gauges[ig];
+	    InitFile(f1[1], &fh1[1], &h1);
+	    for (i = 0; i < ng2; i++) {
+	      if (rt[i]) {
+		rt[i]->x.energy /= rt[i]->r.strength;
+		rt[i]->x.sdev /= rt[i]->r.strength;
+		rt[i]->x.sci /= rt[i]->r.strength;
+		WriteTRRecord(f1[1], &(rt[i]->r), &(rt[i]->x));
+		nt1++;
+		free(rt[i]);
+	      }
+	    }
+	    DeinitFile(f1[1], &fh1[1]);
+	    free(rt);
+	    wt1 = WallTime();
+	    printf(" %d %d %.3e\n", nt0, nt1, wt1-wt0);
+	  }
+	}
+      }
+    }
+    if (f1[2]) {
+      CE_RECORD **rt;
+      CE_HEADER ht;
+      double data[2+(1+MAXNUSR)*3], ratio;
+      int neg = 6;
+      SetCEEGridType(1);
+      SetUsrCEEGridType(1);
+      SetCEPWGridType(0);
+      SetCETEGrid(-1, 0.0, 0.0);
+      SetCEEGrid(neg, 0.05, 25.0, 1.0);
+      SetUsrCEEGrid(neg, 0.05, 25.0, 1.0);
+      for (k = z; k >= 0; k--) {
+	if (ngrp[k] == 0) continue;
+	wt0 = WallTime();
+	printf("collapse CE: %d ...", k);
+	fflush(stdout);
+	PrepCEHeader(&ht, k, 0);
+	ht.nparams = 0;
+	ng2 = ngrp[k]*ngrp[k];
+	rt = malloc(sizeof(CE_RECORD *)*ng2);
+	for (i = 0; i < ng2; i++) {
+	  rt[i] = NULL;
+	}
+	nt0 = 0;
+	sprintf(ifn, "%sb.ce", ipr);
+	f0 = OpenFileRO(ifn, &fh, &swp);
+	for (nb = 0; nb < fh.nblocks; nb++) {
+	  n = ReadCEHeader(f0, &h2, swp);
+	  if (n == 0) break;
+	  if (k != h2.nele) {
+	    FSEEK(f0, h2.length, SEEK_CUR);
+	    free(h2.tegrid);
+	    free(h2.egrid);
+	    free(h2.usr_egrid);
+	    continue;
+	  }
+	  PrepCECrossHeader(&h2, data);
+	  for (i = 0; i < h2.ntransitions; i++) {
+	    n = ReadCERecord(f0, &r2, swp, &h2);
+	    if (n == 0) break;
+	    ilo = im[r2.lower];
+	    iup = im[r2.upper];
+	    if (rg[k][iup].r.energy > rg[k][ilo].r.energy) {
+	      j = iup*ngrp[k] + ilo;
+	      if (rt[j] == NULL) {
+		rt[j] = malloc(sizeof(CE_RECORD));
+		rt[j]->strength = malloc(sizeof(float)*neg);
+		for (t = 0; t < neg; t++) {
+		  rt[j]->strength[t] = 0.0;
+		}
+		rt[j]->bethe = 0.0;
+		rt[j]->born[0] = 0.0;
+		rt[j]->born[1] = 0.0;
+		rt[j]->nsub = 1;
+		rt[j]->lower = rg[k][ilo].r.ilev;
+		rt[j]->upper = rg[k][iup].r.ilev;
+	      }
+	      PrepCECrossRecord(0, &r2, &h2, data);
+	      te = mem_en_table[r2.upper].energy - mem_en_table[r2.lower].energy;
+	      for (t = 0; t < neg; t++) {
+		e = te*ht.egrid[t]*HARTREE_EV;
+		cs = InterpolateCECross(e, &r2, &h2, data, &ratio);
+		rt[j]->strength[t] += cs;	      
+	      }
+	      if (r2.bethe >= 0.0) {
+		rt[j]->bethe += r2.bethe;
+		rt[j]->born[0] += r2.born[0];
+		rt[j]->born[1] += r2.born[1]*r2.born[0];
+	      }
+	    }
+	    free(r2.strength);
+	    nt0++;
+	  }
+	  free(h2.tegrid);
+	  free(h2.egrid);
+	  free(h2.usr_egrid);
+	}
+	FCLOSE(f0);
+	nt1 = 0;
+	InitFile(f1[2], &fh1[2], &ht);
+	for (i = 0; i < ng2; i++) {
+	  if (rt[i] == NULL) continue;
+	  t = 0;
+	  for (j = 0; j < neg; j++) {
+	    if (rt[i]->strength[j] > 0) {
+	      t = 1;
+	      break;
+	    }
+	  }
+	  if (t) {
+	    if (rt[i]->born[0] > 0) {
+	      rt[i]->born[1] /= rt[i]->born[0];
+	    } else {
+	      rt[i]->bethe = -1.0;
+	    }
+	    WriteCERecord(f1[2], rt[i]);
+	    nt1++;
+	  }
+	  free(rt[i]->strength);
+	  free(rt[i]);
+	}
+	DeinitFile(f1[2], &fh1[2]);
+	free(rt);
+	wt1 = WallTime();
+	printf(" %d %d %.3e\n", nt0, nt1, wt1-wt0);
+      }
+    }
+
+    if (f1[3]) {
+      RR_ALL **rt;
+      RR_HEADER ht;
+      int neg = 6, nqk, nt10;
+      int iwe = 0;
+      int iwk = neg-2;
+      SetUsrPEGridType(1);
+      SetRRTEGrid(-1, 0.0, 0.0);
+      SetPEGrid(neg, 0.05, 10.0, 1.0);
+      SetUsrPEGrid(neg, 0.05, 10.0, 1.0);
+      SetRecQkMode(QK_DEFAULT, 0.1);
+      for (k = z; k > 0; k--) {
+	if (ngrp[k] == 0 || ngrp[k-1] == 0) continue;		
+	short *nrmin, *nrmax;
+	int nj = 1 + imax[k]-imin[k];	
+	int *ij = malloc(sizeof(int)*nj);
+	for (i = 0; i < nj; i++) ij[i] = -1;
+	nrmin = malloc(sizeof(short)*klev[k]);
+	nrmax = malloc(sizeof(short)*klev[k]);	
+	wt0 = WallTime();
+	printf("collapse RR: %d ...", k);
+	fflush(stdout);
+	nqk = PrepRRHeader(&ht, k, -1);
+	ng2 = ngrp[k]*ngrp[k-1];
+	rt = malloc(sizeof(RR_ALL *)*ng2);
+	for (i = 0; i < ng2; i++) {
+	  rt[i] = NULL;
+	}
+	for (i = 0; i < klev[k]; i++) {
+	  nrmin[i] = 1000;
+	  nrmax[i] = 0;
+	  s = ra[k][i].ilev - imin[k];
+	  ij[s] = i;
+	}
+	nt0 = 0;
+	nt10 = 0;
+	sprintf(ifn, "%sb.rr", ipr);
+	f0 = OpenFileRO(ifn, &fh, &swp);
+	for (nb = 0; nb < fh.nblocks; nb++) {
+	  n = ReadRRHeader(f0, &h3, swp);
+	  if (n == 0) break;
+	  if (k != h3.nele) {
+	    FSEEK(f0, h3.length, SEEK_CUR);
+	    free(h3.tegrid);
+	    free(h3.egrid);
+	    free(h3.usr_egrid);
+	    continue;
+	  }
+	  for (i = 0; i < h3.ntransitions; i++) {
+	    n = ReadRRRecord(f0, &r3, swp, &h3);
+	    if (n == 0) break;
+	    if (r3.f >= 0) {
+	      ilo = im[r3.b];
+	      iup = im[r3.f];
+	      if (rg[k-1][iup].r.energy > rg[k][ilo].r.energy) {
+		j = iup*ngrp[k] + ilo;
+		if (rt[j] == NULL) {
+		  rt[j] = malloc(sizeof(RR_ALL));
+		  rt[j]->dk = 0.0;
+		  rt[j]->dn = 0.0;
+		  rt[j]->r.strength = malloc(sizeof(float)*neg);
+		  if (nqk > 0) rt[j]->r.params = malloc(sizeof(float)*nqk);
+		  for (t = 0; t < neg; t++) {
+		    rt[j]->r.strength[t] = 0.0;
+		  }
+		  for (t = 0; t < nqk; t++) {
+		    rt[j]->r.params[t] = 0.0;
+		  }
+		  rt[j]->r.kl = 0;
+		  rt[j]->r.b = rg[k][ilo].r.ilev;
+		  rt[j]->r.f = rg[k-1][iup].r.ilev;
+		}
+		te = mem_en_table[r3.f].energy - mem_en_table[r3.b].energy;
+		for (t = 0; t < neg; t++) {
+		  e = te*ht.egrid[t];
+		  cs = InterpolateRRCross(e, te, &r3, &h3);
+		  rt[j]->r.strength[t] += cs;
+		  if (t == iwk && cs > 0) {
+		    rt[j]->dk += cs*(r3.kl%1000);		  
+		    rt[j]->dn += cs*(r3.kl/1000);
+		  }
+		}
+		if (nqk > 0) {
+		  rt[j]->r.params[0] += r3.params[0];
+		  rt[j]->r.params[1] += r3.params[1]*r3.params[0];
+		  rt[j]->r.params[2] += r3.params[2]*r3.params[0];
+		  rt[j]->r.params[3] += r3.params[3]*r3.params[0];
+		}
+	      }
+	      nt0++;
+	    } else {
+	      n = (-r3.f)/1000;
+	      t = ij[r3.b - imin[k]];
+	      if (n < nrmin[t]) nrmin[t] = n;
+	      if (n > nrmax[t]) nrmax[t] = n;
+	      nt10++;
+	    }
+	    free(r3.strength);
+	    if (nqk > 0) free(r3.params);
+	  }
+	  free(h3.tegrid);
+	  free(h3.egrid);
+	  free(h3.usr_egrid);
+	}
+	FCLOSE(f0);
+	nt1 = 0;
+	InitFile(f1[3], &fh1[3], &ht);
+	for (i = 0; i < ng2; i++) {
+	  if (rt[i] == NULL) continue;
+	  if (nqk > 0 && rt[i]->r.params[0] > 0) {
+	    rt[i]->r.params[1] /= rt[i]->r.params[0];
+	    rt[i]->r.params[2] /= rt[i]->r.params[0];
+	    rt[i]->r.params[3] /= rt[i]->r.params[0];
+	  }
+	  if (rt[i]->r.strength[iwk] > 0) {
+	    t = (int)(rt[i]->dk/rt[i]->r.strength[iwk]+0.25);
+	    s = (int)(rt[i]->dn/rt[i]->r.strength[iwk]+0.25);
+	    rt[i]->r.kl = s*1000 + t;	  
+	    WriteRRRecord(f1[3], &(rt[i]->r));
+	    nt1++;
+	  }
+	  free(rt[i]->r.strength);
+	  if (nqk > 0) free(rt[i]->r.params);
+	  free(rt[i]);
+	}
+	DeinitFile(f1[3], &fh1[3]);	
+	free(rt);
+	wt1 = WallTime();
+	printf(" %d %d %.3e ...", nt0, nt1, wt1-wt0);
+	fflush(stdout);
+	wt0 = wt1;
+	if (nt10 > 0) {
+	  rt = malloc(sizeof(RR_ALL *)*klev[k]);
+	  for (i = 0; i < klev[k]; i++) {
+	    rt[i] = NULL;
+	  }
+	  nt2 = 0;
+	  f0 = OpenFileRO(ifn, &fh, &swp);
+	  for (nb = 0; nb < fh.nblocks; nb++) {
+	    n = ReadRRHeader(f0, &h3, swp);
+	    if (n == 0) break;
+	    if (k != h3.nele) {
+	      FSEEK(f0, h3.length, SEEK_CUR);
+	      free(h3.tegrid);
+	      free(h3.egrid);
+	      free(h3.usr_egrid);
+	      continue;
+	    }
+	    for (i = 0; i < h3.ntransitions; i++) {
+	      n = ReadRRRecord(f0, &r3, swp, &h3);
+	      if (n == 0) break;
+	      if (r3.f < 0) {
+		ilo = im[r3.b];
+		int kl = -r3.f;
+		fte = *((float *)(&(r3.kl)));
+		s = ij[r3.b - imin[k]];
+		if (rt[s] == NULL) {
+		  n = 1 + nrmax[s] - nrmin[s];
+		  rt[s] = malloc(sizeof(RR_ALL)*n);		  
+		  for (t = 0; t < n; t++) {
+		    rt[s][t].r.strength = malloc(sizeof(float)*neg);
+		    if (nqk > 0) rt[s][t].r.params = malloc(sizeof(float)*nqk);
+		    for (j = 0; j < neg; j++) {
+		      rt[s][t].r.strength[j] = 0.0;
+		    }
+		    for (j = 0; j < nqk; j++) {
+		      rt[s][t].r.params[j] = 0.0;
+		    }
+		    rt[s][t].r.kl = 0;
+		    rt[s][t].r.b = rg[k][ilo].r.ilev;
+		    rt[s][t].r.f = -1;
+		    rt[s][t].dk = 0.0;
+		    rt[s][t].dn = 0.0;
+		  }
+		}
+		j = (kl/1000) - nrmin[s];
+		te = fte;
+		for (t = 0; t < neg; t++) {
+		  e = te*ht.egrid[t];
+		  cs = InterpolateRRCross(e, te, &r3, &h3);
+		  rt[s][j].r.strength[t] += cs;
+		  if (t == iwk && cs > 0) {
+		    rt[s][j].dk += cs*(kl%1000);
+		  }
+		  if (t == iwe && cs > 0) {
+		    rt[s][j].dn += cs*fte;
+		    nt2++;
+		  }
+		}
+		if (nqk > 0) {
+		  rt[s][j].r.params[0] += r3.params[0];
+		  rt[s][j].r.params[1] += r3.params[1]*r3.params[0];
+		  rt[s][j].r.params[2] += r3.params[2]*r3.params[0];
+		  rt[s][j].r.params[3] += r3.params[3]*r3.params[0];
+		}
+	      }
+	      free(r3.strength);
+	      if (nqk > 0) free(r3.params);
+	    }
+	    free(h3.tegrid);
+	    free(h3.egrid);
+	    free(h3.usr_egrid);
+	  }
+	  FCLOSE(f0);
+	  nt2 = 0;
+	  InitFile(f1[3], &fh1[3], &ht);
+	  for (i = 0; i < klev[k]; i++) {
+	    if (rt[i] == NULL) continue;
+	    n = nrmax[i] - nrmin[i] + 1;
+	    for (j = 0; j < n; j++) {
+	      if (nqk > 0 && rt[i][j].r.params[0] > 0) {
+		rt[i][j].r.params[1] /= rt[i][j].r.params[0];
+		rt[i][j].r.params[2] /= rt[i][j].r.params[0];
+		rt[i][j].r.params[3] /= rt[i][j].r.params[0];
+	      }
+	      if (rt[i][j].r.strength[iwk] > 0 && rt[i][j].r.strength[iwe] > 0) {
+		t = (int)(rt[i][j].dk/rt[i][j].r.strength[iwk]+0.25);
+		rt[i][j].r.f = -((nrmin[i]+j)*1000+t);
+		fte = rt[i][j].dn/rt[i][j].r.strength[iwe];
+		rt[i][j].r.kl = *((int *) &fte);
+		WriteRRRecord(f1[3], &(rt[i][j].r));
+		nt2++;
+	      }
+	      free(rt[i][j].r.strength);
+	      if (nqk > 0) free(rt[i][j].r.params);
+	    }
+	    free(rt[i]);
+	  }
+	  DeinitFile(f1[3], &fh1[3]);
+	  free(rt);
+	} else {
+	  nt2 = 0;
+	}
+	free(ij);
+	free(nrmin);
+	free(nrmax);
+	wt1 = WallTime();
+	printf(" %d %d %.3e\n", nt10, nt2, wt1-wt0);
+      }
+    }
+
+    if (f1[4]) {
+      CI_ALL **rt;
+      CI_HEADER ht;
+      int neg = 6;
+      int nqk;
+      int iwk = neg-2;
+      SetUsrCIEGridType(1);
+      SetIEGrid(-1, 0.0, 0.0);
+      SetCIEGrid(neg, 0.05, 10.0, 1.0);
+      SetUsrCIEGrid(neg, 0.05, 10.0, 1.0);
+      SetCIQkMode(QK_DEFAULT, 0.1);
+      for (k = z; k > 0; k--) {
+	if (ngrp[k] == 0 || ngrp[k-1] == 0) continue;
+	wt0 = WallTime();
+	printf("collapse CI: %d ...", k);
+	fflush(stdout);
+	nqk = PrepCIHeader(&ht, k);
+	ng2 = ngrp[k]*ngrp[k-1];
+	rt = malloc(sizeof(CI_ALL *)*ng2);
+	for (i = 0; i < ng2; i++) {
+	  rt[i] = NULL;
+	}
+	nt0 = 0;
+	sprintf(ifn, "%sb.ci", ipr);
+	f0 = OpenFileRO(ifn, &fh, &swp);
+	for (nb = 0; nb < fh.nblocks; nb++) {
+	  n = ReadCIHeader(f0, &h4, swp);
+	  if (n == 0) break;
+	  if (k != h4.nele) {
+	    FSEEK(f0, h4.length, SEEK_CUR);
+	    free(h4.tegrid);
+	    free(h4.egrid);
+	    free(h4.usr_egrid);
+	    continue;
+	  }
+	  for (i = 0; i < h4.ntransitions; i++) {
+	    n = ReadCIRecord(f0, &r4, swp, &h4);
+	    if (n == 0) break;
+	    ilo = im[r4.b];
+	    iup = im[r4.f];
+	    if (rg[k-1][iup].r.energy > rg[k][ilo].r.energy) {
+	      j = iup*ngrp[k] + ilo;
+	      te = mem_en_table[r4.f].energy - mem_en_table[r4.b].energy;	      
+	      if (rt[j] == NULL) {
+		rt[j] = malloc(sizeof(CI_ALL));
+		rt[j]->r.strength = malloc(sizeof(float)*neg);
+		rt[j]->r.params = malloc(sizeof(float)*nqk);
+		for (t = 0; t < neg; t++) {
+		  rt[j]->r.strength[t] = 0.0;
+		}
+		for (t = 0; t < nqk; t++) {
+		  rt[j]->r.params[t] = 0.0;
+		}
+		rt[j]->dk = 0.0;
+		rt[j]->r.b = rg[k][ilo].r.ilev;
+		rt[j]->r.f = rg[k-1][iup].r.ilev;
+	      }
+	      for (t = 0; t < neg; t++) {
+		e = te*ht.egrid[t];
+		cs = InterpolateCICross(e, te, BornMass(), &r4, &h4);
+		rt[j]->r.strength[t] += cs;
+		if (t == iwk) {
+		  rt[j]->dk += cs*r4.kl;
+		}
+	      }
+	      for (t = 0; t < nqk; t++) {
+		rt[j]->r.params[t] += r4.params[t];
+	      }
+	    }
+	    free(r4.strength);
+	    free(r4.params);
+	    nt0++;
+	  }
+	  free(h4.tegrid);
+	  free(h4.egrid);
+	  free(h4.usr_egrid);
+	}
+	FCLOSE(f0);
+	nt1 = 0;
+	InitFile(f1[4], &fh1[4], &ht);
+	for (i = 0; i < ng2; i++) {
+	  if (rt[i] == NULL) continue;
+	  if (rt[i]->r.strength[iwk] > 0) {
+	    rt[i]->dk /= rt[i]->r.strength[iwk];
+	    rt[i]->r.kl = (int)(rt[i]->dk+0.25);
+	    WriteCIRecord(f1[4], &(rt[i]->r));
+	    nt1++;
+	  }
+	  free(rt[i]->r.strength);
+	  free(rt[i]->r.params);
+	  free(rt[i]);
+	}
+	DeinitFile(f1[4], &fh1[4]);
+	free(rt);
+	wt1 = WallTime();
+	printf(" %d %d %.3e\n", nt0, nt1, wt1-wt0);
+      }      
+    }
+
+    if (f1[5]) {
+      AI_RECORD **rt;
+      AI_HEADER ht;
+      SetPEGrid(-1, 0.0, 0.0, 0.0);
+      for (k = z; k > 0; k--) {
+	if (ngrp[k] == 0 || ngrp[k-1] == 0) continue;
+	wt0 = WallTime();
+	printf("collapse AI: %d ...", k);
+	fflush(stdout);
+	PrepAIHeader(&ht, k, 0.0);
+	ng2 = ngrp[k]*ngrp[k-1];
+	rt = malloc(sizeof(AI_RECORD *)*ng2);
+	for (i = 0; i < ng2; i++) {
+	  rt[i] = NULL;
+	}
+
+	sprintf(ifn, "%sb.ai", ipr);
+	f0 = OpenFileRO(ifn, &fh, &swp);
+	for (nb = 0; nb < fh.nblocks; nb++) {
+	  n = ReadAIHeader(f0, &h5, swp);
+	  if (n == 0) break;
+	  if (k != h5.nele) {
+	    FSEEK(f0, h5.length, SEEK_CUR);
+	    continue;
+	  }
+	  for (i = 0; i < h5.ntransitions; i++) {
+	    n = ReadAIRecord(f0, &r5, swp);
+	    if (n == 0) break;
+	    ilo = im[r5.b];
+	    iup = im[r5.f];
+	    if (rg[k-1][iup].r.energy < rg[k][ilo].r.energy) {
+	      j = iup*ngrp[k] + ilo;
+	      if (rt[j] == NULL) {
+		rt[j] = malloc(sizeof(AI_RECORD));
+		rt[j]->rate = 0.0;
+		rt[j]->b = rg[k][ilo].r.ilev;
+		rt[j]->f = rg[k-1][iup].r.ilev;
+	      }	      
+	      cs = r5.rate*(mem_en_table[r5.b].j+1.0);
+	      rt[j]->rate += cs;
+	    }
+	    nt0++;
+	  }
+	}
+	FCLOSE(f0);
+	InitFile(f1[5], &fh1[5], &ht);
+	for (i = 0; i < ng2; i++) {
+	  if (rt[i] == NULL) continue;
+	  if (rt[i]->rate > 0) {
+	    ilo = i%ngrp[k];
+	    rt[i]->rate /= rg[k][ilo].r.ibase+1.0;	    
+	    WriteAIRecord(f1[5], rt[i]);
+	    nt1++;
+	  }
+	  free(rt[i]);
+	}
+	DeinitFile(f1[5], &fh1[5]);
+	free(rt);
+	wt1 = WallTime();
+	printf(" %d %d %.3e\n", nt0, nt1, wt1-wt0);
+      }
+    }
+
+    if (f1[6]) {
+      RC_RECORD **rt;
+      int irc, ib, ntd, nte, nde;
+      double wgt;
+      sprintf(ifn, "%sb.rc", ipr);
+      for (k = z; k > 0; k--) {
+	if (ngrp[k] == 0) continue;
+	for (irc = 1; irc <= RC_TT; irc++) {
+	  f0 = OpenFileRO(ifn, &fh, &swp);
+	  ib = 0;
+	  for (nb = 0; nb < fh.nblocks; nb++) {
+	    n = ReadRCHeader(f0, &h6, swp);
+	    if (n == 0) break;
+	    if (k != h6.nele) {
+	      FSEEK(f0, h6.length, SEEK_CUR);
+	      continue;
+	    }
+	    if (irc != h6.type) {
+	      FSEEK(f0, h6.length, SEEK_CUR);
+	      continue;
+	    }
+	    nte = h6.nte;
+	    nde = h6.nde;
+	    ib = 1;
+	    break;
+	  }
+	  FCLOSE(f0);
+	  if (ib) {
+	    ntd = nte*nde;
+	    wt0 = WallTime();
+	    printf("collapse RC: %d %d %d %d ...", k, irc, nte, nde);
+	    fflush(stdout);
+	    if (irc == RC_CE || irc == RC_RE) {
+	      ng2 = ngrp[k]*ngrp[k];
+	    } else {
+	      ng2 = ngrp[k]*ngrp[k-1];
+	    }
+	    if (ng2 > 0) {
+	      rt = malloc(sizeof(RC_RECORD *)*ng2);
+	      for (i = 0; i < ng2; i++) {
+		rt[i] = NULL;
+	      }
+	      nt0 = 0;
+	      f0 = OpenFileRO(ifn, &fh, &swp);
+	      for (nb = 0; nb < fh.nblocks; nb++) {
+		n = ReadRCHeader(f0, &h6, swp);
+		if (n == 0) break;
+		if (k != h6.nele) {
+		  FSEEK(f0, h6.length, SEEK_CUR);
+		  continue;
+		}
+		if (irc != h6.type) {
+		  FSEEK(f0, h6.length, SEEK_CUR);
+		  continue;
+		}
+		for (i = 0; i < h6.ntransitions; i++) {
+		  n = ReadRCRecord(f0, &r6, swp, &h6);
+		  if (n == 0) break;
+		  ilo = im[r6.lower];
+		  iup = im[r6.upper];
+		  if (irc == RC_CE || irc == RC_RE) {
+		    if (rg[k][iup].r.energy <= rg[k][ilo].r.energy) continue;
+		  } else {
+		    if (rg[k-1][iup].r.energy <= rg[k][ilo].r.energy) continue;
+		  }
+		  j = iup*ngrp[k] + ilo;
+		  if (rt[j] == NULL) {
+		    rt[j] = malloc(sizeof(RC_RECORD));
+		    rt[j]->rc = malloc(sizeof(float)*ntd);
+		    for (t = 0; t < ntd; t++) {
+		      rt[j]->rc[t] = 0.0;
+		    }
+		    rt[j]->lower = rg[k][ilo].r.ilev;
+		    if (irc == RC_CE || irc == RC_RE) {
+		      rt[j]->upper = rg[k][iup].r.ilev;
+		    } else {
+		      rt[j]->upper = rg[k-1][iup].r.ilev;
+		    }		      
+		  }
+		  wgt = mem_en_table[r6.upper].j+1.0;
+		  for (t = 0; t < ntd; t++) {
+		    rt[j]->rc[t] += r6.rc[t]*wgt;
+		  }
+		  nt0++;
+		}
+		free(r6.rc);
+	      }
+	    }
+	    FCLOSE(f0);
+	    nt1 = 0;
+	    h6.type = irc;
+	    h6.nde = nde;
+	    h6.nte = nte;
+	    InitFile(f1[6], &fh1[6], &h6);
+	    for (i = 0; i < ng2; i++) {
+	      if (rt[i]) {
+		ilo = i%ngrp[k];
+		iup = i/ngrp[k];
+		if (irc == RC_CE || irc == RC_RE) {
+		  wgt = rg[k][iup].r.ibase + 1.0;
+		} else {
+		  wgt = rg[k-1][iup].r.ibase + 1.0;
+		}
+		for (t = 0; t < ntd; t++) {
+		  rt[i]->rc[t] /= wgt;
+		}
+		WriteRCRecord(f1[6], rt[i]);
+		free(rt[i]->rc);
+		free(rt[i]);
+		nt1++;
+	      }
+	    }
+	    DeinitFile(f1[6], &fh1[6]);
+	    free(rt);
+	    wt1 = WallTime();
+	    printf(" %d %d %.3e\n", nt0, nt1, wt1-wt0);
+	  }
+	}
+      }
+    }
+    
+    free(im);
+  }
+
+  sprintf(ifn, "%sb.rp", ipr);
+  FILE *f = fopen(ifn, "r");
+  if (f != NULL) {
+    printf("copy %sb.rp\n", ipr);
+    sprintf(buf, "cp %sb.rp %sb.rp", ipr, opr);
+    i = system(buf);
+    fclose(f);
+  }
+  
+  for (k = 0; k <= z; k++) {
+    if (klev[k] > 0) free(ra[k]);
+    if (ngrp[k] > 0) {
+      for (i = 0; i < ngrp[k]; i++) {
+	if (rg[k][i].nlev > 0) free(rg[k][i].ilev);
+      }
+      free(rg[k]);
+    }
+  }
+  
+  for (i = 1; i < 7; i++) {
+    if (f1[i]) CloseFile(f1[i], &fh1[i]);
+  }
+
+  if (ic > 0) {
+    wt0 = WallTime();
+    FreeMemENTable();
+    n = ic;
+    k = 0;    
+    for (i = 0; i < 7; i++) {
+      if (n < 10) {	
+	k = i < n;
+      } else {
+	k = ic%10;
+	ic = ic/10;
+      }
+      if (k) {
+	wt0 = WallTime();
+	sprintf(ifn, "%sb.%s", opr, ext[i]);
+	sprintf(ofn, "%sa.%s", opr, ext[i]);
+	printf("print table %s %s ...", ifn, ofn);
+	fflush(stdout);
+	PrintTable(ifn, ofn, 1);
+	wt1 = WallTime();
+	printf(" %.3e\n", wt1-wt0);
+      }
+    }
+  }
+  tt1 = WallTime();
+  printf("total time: %.3e\n", tt1-tt0);
+}
+
 /*
 ** two-photon rates are taken from G. W. F. Drake, PRA, 34, 2871, 1986.
 */
@@ -8963,6 +10134,14 @@ void SetOptionDBase(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "dbase:tuta")) {
     tuta = ip;
+    return;
+  }
+  if (0 == strcmp(s, "dbase:nilast")) {
+    _nilast = ip;
+    return;
+  }
+  if (0 == strcmp(s, "dbase:collapse_mask")) {
+    _collapse_mask = ip;
     return;
   }
 }

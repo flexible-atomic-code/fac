@@ -85,6 +85,8 @@ int CEFMaxwell(char *ifn, char *ofn, int i0, int i1,
 	       int nt, double *temp);
 double InterpolateCICross(double e, double eth, double bms,
 			  CI_RECORD *r, CI_HEADER *h);
+double InterpolateRRCross(double e, double eth,
+			  RR_RECORD *r, RR_HEADER *h);
 double InterpolateCIMCross(double e, double eth, double bms,
 			   CIM_RECORD *r, CIM_HEADER *h, int q);
 int TotalCICross(char *ifn, char *ofn, int ilev, 

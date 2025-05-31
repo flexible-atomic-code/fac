@@ -93,6 +93,8 @@ int BoundFreeOS(double *rqu, double *p,
 int BoundFreeOSUTA(double *rqu, double *rqc, double *eb, 
 		   int rec, int f, int m);
 int PrepRREGrids(double eth, double emax0);
+int PrepRRHeader(RR_HEADER *h, int nele, int m0);
+void PrepAIHeader(AI_HEADER *h, int nele, double emin);
 int SaveRRMultipole(int nlow, int *low, int nup, int *up, char *fn, int m);
 int SaveRecRR(int nlow, int *low, int nup, int *up, char *fn, int m);
 int SaveAI(int nlow, int *low, int nup, int *up, char *fn, 

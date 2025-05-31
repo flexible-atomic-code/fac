@@ -4580,6 +4580,28 @@ static int PCombineDBase(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PCollapseDBase(int argc, char *argv[], int argt[], 
+			 ARRAY *variables) {
+  if (argc != 9) return -1;
+  if (argt[0] != STRING) return -1;
+  if (argt[1] != STRING) return -1;
+  
+  int k0, k1, minlevs, maxlevs, ic;
+  double des0, des1;
+
+  k0 = atoi(argv[2]);
+  k1 = atoi(argv[3]);
+  des0 = atof(argv[4]);
+  des1 = atof(argv[5]);
+  minlevs = atoi(argv[6]);
+  maxlevs = atoi(argv[7]);
+  ic = atoi(argv[8]);
+  
+  CollapseDBase(argv[0], argv[1], k0, k1, des0, des1, minlevs, maxlevs, ic);
+  
+  return 0;
+}
+
 static int PJoinTable(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) {
   if (argc != 3) return -1;
@@ -5459,6 +5481,7 @@ static METHOD methods[] = {
   {"JoinTable", PJoinTable, METH_VARARGS}, 
   {"PreloadTable", PPreloadTable, METH_VARARGS}, 
   {"CombineDBase", PCombineDBase, METH_VARARGS}, 
+  {"CollapseDBase", PCollapseDBase, METH_VARARGS}, 
   {"ModifyTable", PModifyTable, METH_VARARGS},
   {"LimitArray", PLimitArray, METH_VARARGS},
   {"RMatrixExpansion", PRMatrixExpansion, METH_VARARGS}, 

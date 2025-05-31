@@ -29,7 +29,7 @@ USE (rcsid);
 static int qk_mode;
 static double qk_fit_tolerance;
 
-static int egrid_type = -1;
+static int egrid_type = 1;
 static int usr_egrid_type = -1;
 
 static int n_egrid = 0;
@@ -2762,6 +2762,37 @@ int SaveCX(int nlow, int *low, int nup, int *up, char *fn) {
   return 0;
 }
 
+void PrepAIHeader(AI_HEADER *h, int nele, double emin) {
+  h->nele = nele;
+  h->emin = emin;
+  h->n_egrid = n_egrid;
+  h->egrid = egrid;
+}
+
+int PrepRRHeader(RR_HEADER *h, int nele, int m0) {
+  int nqk;
+
+  h->nele = nele;
+  h->multipole = m0;
+  if (qk_mode == QK_FIT) {
+    nqk = NPARAMS+1;
+  } else {
+    nqk = 0;
+  }
+  h->qk_mode = qk_mode;
+  h->nparams = nqk;
+  h->n_tegrid = n_tegrid;
+  h->tegrid = tegrid;
+  h->n_egrid = n_egrid;
+  h->egrid = egrid;
+  h->n_usr = n_usr;
+  h->usr_egrid = usr_egrid;
+  h->egrid_type = egrid_type;
+  h->usr_egrid_type = usr_egrid_type;
+
+  return nqk;
+}
+
 int SaveRecRR(int nlow, int *low, int nup, int *up, 
 	      char *fn, int m0) {
   int i, j, k, ie, ip;
@@ -2777,7 +2808,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   int nq, nqk, qkmo;
   ARRAY subte;
   int isub, n_tegrid0, n_egrid0, n_usr0;
-  int te_set, e_set, usr_set, iuta, auta;
+  int te_set, e_set, usr_set, iuta, auta, nele;
   double c, e0, e1;
   RANDIDX *rid0, *rid1;
 
@@ -2844,8 +2875,7 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
   fhdr.type = DB_RR;
   strcpy(fhdr.symbol, GetAtomicSymbol());
   fhdr.atom = GetAtomicNumber();
-  rr_hdr.nele = GetNumElectrons(low[0]);
-  rr_hdr.multipole = m0;
+  nele = GetNumElectrons(low[0]);
   f = OpenFile(fn, &fhdr);
 
   if (NProcMPI() > 1) {
@@ -2922,26 +2952,11 @@ int SaveRecRR(int nlow, int *low, int nup, int *up,
     if (!e_set) egrid[0] = -1.0;
     e = 0.5*(emin + emax);
     PrepRREGrids(e, emax0);
-    
     qkmo = qk_mode;
     if (qk_mode == QK_FIT && n_egrid <= NPARAMS) {
       qk_mode = QK_EXACT;
     }
-    if (qk_mode == QK_FIT) {
-      nqk = NPARAMS+1;
-    } else {
-      nqk = 0;
-    }
-    rr_hdr.qk_mode = qk_mode;
-    rr_hdr.nparams = nqk;
-    rr_hdr.n_tegrid = n_tegrid;
-    rr_hdr.tegrid = tegrid;
-    rr_hdr.n_egrid = n_egrid;
-    rr_hdr.egrid = egrid;
-    rr_hdr.n_usr = n_usr;
-    rr_hdr.usr_egrid = usr_egrid;
-    rr_hdr.egrid_type = egrid_type;
-    rr_hdr.usr_egrid_type = usr_egrid_type;
+    nqk = PrepRRHeader(&rr_hdr, nele, m0);
         
     InitFile(f, &fhdr, &rr_hdr);
     ResetWidMPI();

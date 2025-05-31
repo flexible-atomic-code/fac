@@ -70,7 +70,7 @@ static double cbo_params[(NCBOMAX+1)*NCBOMAX/2][NPARAMS+1] = {
   {0.047,	6.21,	3.90,	2.34},
 };
 
-static int egrid_type = -1;
+static int egrid_type = 1;
 static int usr_egrid_type = -1;
 static int pw_type = -1;
 static int qk_mode;
@@ -1348,6 +1348,22 @@ int IonizeStrength(double *qku, double *qkc, double *te,
   }
 }
 
+int PrepCIHeader(CI_HEADER *h, int nele) {
+  h->nele = nele;
+  h->qk_mode = qk_mode;
+  h->nparams = NPARAMS;
+  h->pw_type = pw_type;
+  h->egrid_type = egrid_type;
+  h->usr_egrid_type = usr_egrid_type;
+  h->n_tegrid = n_tegrid;
+  h->n_egrid = n_egrid;
+  h->n_usr = n_usr;
+  h->tegrid = tegrid;
+  h->egrid = egrid;
+  h->usr_egrid = usr_egrid;
+  return NPARAMS;
+}
+
 int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   int i, j, k;
   int ie, ip;
@@ -1358,7 +1374,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   F_HEADER fhdr;
   double delta, emin, emax, e, emax0;
   double qk[MAXNE], qku[MAXNUSR];
-  int nq, nqk;  
+  int nq, nqk, nele;  
   ARRAY subte;
   int isub, n_tegrid0, n_egrid0, n_usr0;
   int te_set, e_set, usr_set, iuta, auta;
@@ -1443,12 +1459,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
   fhdr.type = DB_CI;
   strcpy(fhdr.symbol, GetAtomicSymbol());
   fhdr.atom = GetAtomicNumber();
-  ci_hdr.nele = GetNumElectrons(b[0]);
-  ci_hdr.qk_mode = qk_mode;
-  ci_hdr.nparams = nqk;
-  ci_hdr.pw_type = pw_type;
-  ci_hdr.egrid_type = egrid_type;
-  ci_hdr.usr_egrid_type = usr_egrid_type;
+  nele = GetNumElectrons(b[0]);
   file = OpenFile(fn, &fhdr);
 
   if (NProcMPI() > 1) {
@@ -1581,12 +1592,7 @@ int SaveIonization(int nb, int *b, int nf, int *f, char *fn) {
       SetCIPWGrid(0, NULL, NULL);
     }
 
-    ci_hdr.n_tegrid = n_tegrid;
-    ci_hdr.n_egrid = n_egrid;
-    ci_hdr.n_usr = n_usr;
-    ci_hdr.tegrid = tegrid;
-    ci_hdr.egrid = egrid;
-    ci_hdr.usr_egrid = usr_egrid;
+    PrepCIHeader(&ci_hdr, nele);
     InitFile(file, &fhdr, &ci_hdr);
     ResetWidMPI();
 #pragma op parallel default(shared) private(i, j, lev1, lev2, e, nq, qku, qk, r, ip, ie)

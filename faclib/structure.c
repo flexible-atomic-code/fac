@@ -4247,11 +4247,12 @@ int SaveLevels(char *fn, int m, int n) {
     r.p = p;
     r.j = j0;
     r.energy = lev->energy;
+    /*
     if (IsUTA()) {
       r.ibase = j0;
-      r.j = -1;
+      r.j = -10;
     }
-
+    */
     nele = ConstructLevelName(name, sname, nc, &vnl, s);
     strncpy(r.name, name, LNAME);
     strncpy(r.sname, sname, LSNAME);

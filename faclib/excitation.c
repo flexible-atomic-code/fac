@@ -3438,6 +3438,25 @@ void ProcessCECache(int msub, int iuta, TFILE *f) {
   }
 }
 
+void PrepCEHeader(CE_HEADER *h, int nele, int msub) {  
+  h->nele = nele;
+  h->qk_mode = qk_mode;
+  if (qk_mode == QK_FIT) 
+    h->nparams = NPARAMS;
+  else
+    h->nparams = 0;
+  h->pw_type = pw_type;
+  h->n_tegrid = n_tegrid;
+  h->n_egrid = n_egrid;
+  h->egrid_type = egrid_type;
+  h->n_usr = n_usr;
+  h->usr_egrid_type = usr_egrid_type;
+  h->msub = msub;
+  h->tegrid = tegrid;
+  h->egrid = egrid;
+  h->usr_egrid = usr_egrid;
+}
+
 int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 #ifdef PERFORM_STATISTICS
   STRUCT_TIMING structt;
@@ -3754,22 +3773,8 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 	tegrid[0] = -1;
       }
     }
-    ce_hdr.nele = GetNumElectrons(low[0]);
-    ce_hdr.qk_mode = qk_mode;
-    if (qk_mode == QK_FIT) 
-      ce_hdr.nparams = NPARAMS;
-    else
-      ce_hdr.nparams = 0;
-    ce_hdr.pw_type = pw_type;
-    ce_hdr.n_tegrid = n_tegrid;
-    ce_hdr.n_egrid = n_egrid;
-    ce_hdr.egrid_type = egrid_type;
-    ce_hdr.n_usr = n_usr;
-    ce_hdr.usr_egrid_type = usr_egrid_type;
-    ce_hdr.msub = msub;
-    ce_hdr.tegrid = tegrid;
-    ce_hdr.egrid = egrid;
-    ce_hdr.usr_egrid = usr_egrid;
+    
+    PrepCEHeader(&ce_hdr, GetNumElectrons(low[0]), msub);
     InitFile(f, &fhdr, &ce_hdr);
 
     ResetWidMPI();
