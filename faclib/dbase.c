@@ -8601,6 +8601,10 @@ int GroupLevels(EN_RECORD *rs, int nr, double ei, double des,
     if (rg) {
       for (i = 0; i < ng; i++) {
 	memcpy(&rg[i].r, &rs[i], sizeof(EN_RECORD));
+	if (rg[i].r.j >= 0) {
+	  rg[i].r.ibase = rg[i].r.j;
+	  rg[i].r.j = -1;
+	}
 	rg[i].nlev = 1;
 	rg[i].ilev = malloc(sizeof(int));
 	rg[i].ilev[0] = i;
@@ -8638,6 +8642,10 @@ int GroupLevels(EN_RECORD *rs, int nr, double ei, double des,
   if (rg) {
     for (i = 0; i < ng; i++) {
       memcpy(&rg[i].r, &rs[i], sizeof(EN_RECORD));
+      if (rg[i].r.j >= 0) {
+	rg[i].r.ibase = rg[i].r.j;
+	rg[i].r.j = -1;
+      }
       rg[i].nlev = 1;
       rg[i].ilev = malloc(sizeof(int));
       rg[i].ilev[0] = i;
@@ -9502,7 +9510,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	  if (rt[i] == NULL) continue;
 	  if (rt[i]->rate > 0) {
 	    ilo = i%ngrp[k];
-	    rt[i]->rate /= rg[k][ilo].r.ibase+1.0;	    
+	    rt[i]->rate /= rg[k][ilo].r.ibase+1.0;
 	    WriteAIRecord(f1[5], rt[i]);
 	    nt1++;
 	  }
