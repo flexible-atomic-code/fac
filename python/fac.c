@@ -5861,6 +5861,27 @@ static PyObject *PCombineDBase(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PCollapseDBase(PyObject *self, PyObject *args) {
+  int k0, k1, minlevs, maxlevs, ic;
+  double des0, des1;
+  char *s0, *s1;
+  
+  if (sfac_file) {
+    SFACStatement("CollapseDBase", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  if (!PyArg_ParseTuple(args, "ssiiddiii",
+			&s0, &s1, &k0, &k1,
+			&des0, &des1, &minlevs, &maxlevs, &ic))
+    return NULL;
+  
+  CollapseDBase(s0, s1, k0, k1, des0, des1, minlevs, maxlevs, ic);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PJoinTable(PyObject *self, PyObject *args) {
   char *fn, *fn1, *fn2;  
   
@@ -6682,6 +6703,7 @@ static struct PyMethodDef fac_methods[] = {
   {"JoinTable", PJoinTable, METH_VARARGS}, 
   {"PreloadTable", PPreloadTable, METH_VARARGS}, 
   {"CombineDBase", PCombineDBase, METH_VARARGS}, 
+  {"CollapseDBase", PCollapseDBase, METH_VARARGS}, 
   {"ModifyTable", PModifyTable, METH_VARARGS},
   {"LimitArray", PLimitArray, METH_VARARGS},
   {"RMatrixExpansion", PRMatrixExpansion, METH_VARARGS}, 

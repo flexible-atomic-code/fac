@@ -46,6 +46,7 @@ int SetUsrCIEGrid(int n, double emin, double emax, double eth);
 int SetUsrCIEGridDetail(int n, double *x);
 int SetCIQkMode(int m, double tol);
 int SetCIMaxK(int k);
+int PrepCIHeader(CI_HEADER *h, int nele);
 int CIRadialQk(double *qk, double e1, double e2, int kb, int kbp, int k);
 int CIRadialQkIntegrated(double *qku, double te, int kb, int kbp);
 void CIRadialQkBasis(int npar, double *yb, double x, double logx);

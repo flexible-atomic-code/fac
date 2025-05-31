@@ -1063,6 +1063,7 @@ int CEMFCross(char *ifn, char *ofn, int i0, int i1,
     n = ReadCEMFHeader(f1, &mh, swp);
     if (n == 0) break;
     CEMF2CEFHeader(&mh, &h);
+    PrepCEFCrossHeader(&h, data);
     for (i = 0; i < mh.ntransitions; i++) {
       n = ReadCEMFRecord(f1, &mr, swp, &mh);
       if ((mr.lower == i0 || i0 < 0) && (mr.upper == i1 || i1 < 0)) {
@@ -1073,7 +1074,6 @@ int CEMFCross(char *ifn, char *ofn, int i0, int i1,
 		mr.upper, mem_en_table[mr.upper].p, mem_en_table[mr.upper].j,
 		e, negy);
 	be = (e + bte*HARTREE_EV)/bms;
-	PrepCEFCrossHeader(&h, data);
 	for (ith = 0; ith < mh.n_thetagrid; ith++) {
 	  for (iph = 0; iph < mh.n_phigrid; iph++) {
 	    fprintf(f2, "# %2d %2d %11.4E %11.4E\n",
@@ -1210,10 +1210,10 @@ int CEFCross(char *ifn, char *ofn, int i0, int i1,
   while (1) {
     n = ReadCEFHeader(f1, &h, swp);
     if (n == 0) break;
+    PrepCEFCrossHeader(&h, data);
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadCEFRecord(f1, &r, swp, &h);
       if ((r.lower == i0 || i0 < 0) && (r.upper == i1 || i1 < 0)) {
-	PrepCEFCrossHeader(&h, data);
 	eth = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
 	e = eth*HARTREE_EV;
 	fprintf(f2, "# %5d\t%5d\t%3d\t%5d\t%5d\t%3d\t%11.4E\t%5d\n",
@@ -1342,6 +1342,7 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
   while (1) {
     n = ReadCEHeader(f1, &h, swp);
     if (n == 0) break;
+    PrepCECrossHeader(&h, data);
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadCERecord(f1, &r, swp, &h);
       if ((r.lower == i0 || i0 < 0) && (r.upper == i1 || i1 < 0)) {
@@ -1352,7 +1353,6 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
 		r.upper, mem_en_table[r.upper].j,
 		e, negy, r.nsub);
 	be = (e + bte*HARTREE_EV)/bms;
-	PrepCECrossHeader(&h, data);
 	for (k = 0; k < r.nsub; k++) {
 	  PrepCECrossRecord(k, &r, &h, data);
 	  for (t = 0; t < negy; t++) {
@@ -1477,10 +1477,10 @@ int CEMFMaxwell(char *ifn, char *ofn, int i0, int i1,
     n = ReadCEMFHeader(f1, &mh, swp);
     if (n == 0) break;
     CEMF2CEFHeader(&mh, &h);
+    PrepCEFCrossHeader(&h, data);
     for (i = 0; i < mh.ntransitions; i++) {
       n = ReadCEMFRecord(f1, &mr, swp, &mh);
       if ((mr.lower == i0 || i0 < 0) && (mr.upper == i1 || i1 < 0)) {
-	PrepCEFCrossHeader(&h, data);
 	e = mem_en_table[mr.upper].energy - mem_en_table[mr.lower].energy;
 	e *= HARTREE_EV;
 	fprintf(f2, "# %5d\t%5d\t%3d\t%5d\t%5d\t%3d\t%11.4E\t%5d\n",
@@ -1603,10 +1603,10 @@ int CEFMaxwell(char *ifn, char *ofn, int i0, int i1,
   while (1) {
     n = ReadCEFHeader(f1, &h, swp);
     if (n == 0) break;
+    PrepCEFCrossHeader(&h, data);
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadCEFRecord(f1, &r, swp, &h);
       if ((r.lower == i0 || i0 < 0) && (r.upper == i1 || i1 < 0)) {
-	PrepCEFCrossHeader(&h, data);
 	e = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
 	e *= HARTREE_EV;
 	fprintf(f2, "# %5d\t%5d\t%3d\t%5d\t%5d\t%3d\t%11.4E\t%5d\n",
@@ -1713,6 +1713,7 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
   while (1) {
     n = ReadCEHeader(f1, &h, swp);
     if (n == 0) break;
+    PrepCECrossHeader(&h, data);
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadCERecord(f1, &r, swp, &h);
       if ((r.lower == i0 || i0 < 0) && (r.upper == i1 || i1 < 0)) {
@@ -1722,7 +1723,6 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
 		r.lower, mem_en_table[r.lower].j,
 		r.upper, mem_en_table[r.upper].j,
 		e, nt, r.nsub);
-	PrepCECrossHeader(&h, data);
 	for (k = 0; k < r.nsub; k++) {
 	  PrepCECrossRecord(k, &r, &h, data);
 	  for (t = 0; t < nt; t++) {
@@ -2576,6 +2576,48 @@ int ICXCross(char *ifn, char *ofn, int i0, int i1,
   return nb;
 }
 
+double InterpolateRRCross(double e1, double eth,
+			  RR_RECORD *r, RR_HEADER *h) {
+  double ds[MAXNUSR], xg[MAXNUSR];
+  double b, x, ep, y, cs;
+  int i, np, one, kl;
+
+  np = 3;
+  one = 1;
+  
+  if (e1 <= 0) return 0.0;
+  for (i = 0; i < h->n_usr; i++) {
+    if (h->tegrid[0] < 0) {
+      b = h->usr_egrid[i];
+    } else {
+      b = h->usr_egrid[i]/eth;
+    }
+    xg[i] = log(1+b);
+    ds[i] = log(r->strength[i]);
+  }
+  ep = e1 + eth;
+  x = log(ep/eth);
+  if (h->qk_mode != QK_FIT || x <= xg[h->n_usr-1]) {
+    UVIP3P(np, h->n_usr, xg, ds, one, &x, &cs);
+    cs = exp(cs);
+  } else {
+    x = (e1 + r->params[3])/r->params[3];
+    y = (1 + r->params[2])/(sqrt(x) + r->params[2]);
+    if (r->f < 0) {
+      kl = -r->f;
+    } else {
+      kl = r->kl;
+    }
+    cs = (-3.5-(kl%1000)+0.5*r->params[1])*log(x) + r->params[1]*log(y);
+    if (r->params[0] > 0) {
+      cs = cs + log(r->params[0]*(ep/(e1+r->params[3])));
+      cs = exp(cs);
+    } else
+      cs = 0.0;
+  }
+  return cs;
+}
+
 int RRCross(char *ifn, char *ofn, int i0, int i1,
 	    int negy, double *egy, int mp) {
   F_HEADER fh;
@@ -2584,11 +2626,8 @@ int RRCross(char *ifn, char *ofn, int i0, int i1,
   int n, swp;
   RR_HEADER h;
   RR_RECORD r;
-  int i, t, nb, m;
-  float e, eph, ee, phi, rr;
-  double *xusr, *dstrength, tc, emax;
-  double x, y;
-  int np=3, one=1, nele;
+  int i, t, nb, m, nele;
+  float e, eph, ee, phi, rr, tc;
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
 
@@ -2630,9 +2669,6 @@ int RRCross(char *ifn, char *ofn, int i0, int i1,
     n = ReadRRHeader(f1, &h, swp);
     if (n == 0) break;
     nele = h.nele;
-    xusr = (double *) malloc(sizeof(double)*h.n_usr);
-    dstrength = (double *) malloc(sizeof(double)*h.n_usr);
-    emax = h.usr_egrid[h.n_usr-1];
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadRRRecord(f1, &r, swp, &h);
       if (n == 0) break;
@@ -2642,14 +2678,6 @@ int RRCross(char *ifn, char *ofn, int i0, int i1,
 		r.b, mem_en_table[r.b].j,
 		r.f, mem_en_table[r.f].j,
 		e*HARTREE_EV, negy);
-	for (t = 0; t < h.n_usr; t++) {
-	  dstrength[t] = log(r.strength[t]);
-	  if (h.tegrid[0] < 0) {
-	    xusr[t] = log(1 + h.usr_egrid[t]);
-	  } else {
-	    xusr[t] = log(1.0 + h.usr_egrid[t]/e);
-	  }
-	}
 	for (t = 0; t < negy; t++) {
 	  if (mp == 0) {
 	    eph = egy[t];
@@ -2663,21 +2691,7 @@ int RRCross(char *ifn, char *ofn, int i0, int i1,
 	    phi = 0.0;
 	    rr = 0.0;
 	  } else {
-	    if (h.qk_mode != QK_FIT || ee <= emax) {
-	      x = log(eph/e);
-	      UVIP3P(np, h.n_usr, xusr, dstrength, one, &x, &tc);
-	      tc = exp(tc);
-	    } else {
-	      x = (ee + r.params[3])/r.params[3];
-	      y = (1 + r.params[2])/(sqrt(x) + r.params[2]);
-	      tc = (-3.5-(r.kl%1000)+0.5*r.params[1])*log(x)+r.params[1]*log(y);
-	      if (r.params[0] > 0.0) {
-		tc = tc + log(r.params[0]*(eph/(ee+r.params[3])));
-		tc = exp(tc);
-	      } else {
-		tc = 0.0;
-	      }
-	    }
+	    tc = InterpolateRRCross(ee, e, &r, &h);
 	    phi = 2.0*PI*FINE_STRUCTURE_CONST*tc*AREA_AU20;
 	    rr = phi * pow(FINE_STRUCTURE_CONST*eph, 2) / (2.0*ee);
 	    rr /= 1 + 0.5*FINE_STRUCTURE_CONST2*ee;
@@ -2692,11 +2706,9 @@ int RRCross(char *ifn, char *ofn, int i0, int i1,
 	if (i0 >= 0 && i1 >= 0) {
 	  if (h.qk_mode == QK_FIT) free(r.params);
 	  free(r.strength);
-	  free(dstrength);
 	  free(h.tegrid);
 	  free(h.egrid);
 	  free(h.usr_egrid);
-	  free(xusr);
 	  goto DONE;
 	}
       }
@@ -2704,11 +2716,9 @@ int RRCross(char *ifn, char *ofn, int i0, int i1,
       free(r.strength);
     }
 
-    free(dstrength);
     free(h.tegrid);
     free(h.egrid);
     free(h.usr_egrid);
-    free(xusr);
 
     nb++;
   }
@@ -2733,11 +2743,9 @@ int RRMaxwell(char *ifn, char *ofn, int i0, int i1,
   int n, swp;
   RR_HEADER h;
   RR_RECORD r;
-  int i, t, nb, m, p;
+  int i, t, nb, m, p, nele;
   float e, eph, ee;
-  double *xusr, *dstrength, a, b, tc, cs, rr, emax;
-  double x, y, theta;
-  int np=3, one=1, nele;
+  double theta, a, b, tc, cs, rr;
   double *xg = gauss_xw[0];
   double *wg = gauss_xw[1];
   EN_SRECORD *mem_en_table;
@@ -2780,9 +2788,6 @@ int RRMaxwell(char *ifn, char *ofn, int i0, int i1,
     n = ReadRRHeader(f1, &h, swp);
     if (n == 0) break;
     nele = h.nele;
-    xusr = (double *) malloc(sizeof(double)*h.n_usr);
-    dstrength = (double *) malloc(sizeof(double)*h.n_usr);
-    emax = h.usr_egrid[h.n_usr-1];
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadRRRecord(f1, &r, swp, &h);
       if (n == 0) break;
@@ -2792,31 +2797,13 @@ int RRMaxwell(char *ifn, char *ofn, int i0, int i1,
 		r.b, mem_en_table[r.b].j,
 		r.f, mem_en_table[r.f].j,
 		e*HARTREE_EV, negy);
-	for (t = 0; t < h.n_usr; t++) {
-	  dstrength[t] = log(r.strength[t]);
-	  xusr[t] = log(1.0 + h.usr_egrid[t]/e);
-	}
 	for (t = 0; t < negy; t++) {
 	  cs = 0.0;
 	  theta = FINE_STRUCTURE_CONST2*egy[t]/HARTREE_EV;
 	  for (p = 0; p < 15; p++) {
 	    ee = egy[t]*xg[p];
 	    eph = ee + e;
-	    if (h.qk_mode != QK_FIT || ee <= emax) {
-	      x = log(eph/e);
-	      UVIP3P(np, h.n_usr, xusr, dstrength, one, &x, &tc);
-	      tc = exp(tc);
-	    } else {
-	      x = (ee + r.params[3])/r.params[3];
-	      y = (1 + r.params[2])/(sqrt(x) + r.params[2]);
-	      tc = (-3.5-(r.kl%1000)+0.5*r.params[1])*log(x)+r.params[1]*log(y);
-	      if (r.params[0] > 0.0) {
-		tc = tc + log(r.params[0]*(eph/(ee+r.params[3])));
-		tc = exp(tc);
-	      } else {
-		tc = 0.0;
-	      }
-	    }
+	    tc = InterpolateRRCross(ee, e, &r, &h);
 	    tc *= 2.0*FINE_STRUCTURE_CONST;
 	    tc *= pow(FINE_STRUCTURE_CONST*eph, 2);
 	    b = FINE_STRUCTURE_CONST2*ee;
@@ -2836,11 +2823,9 @@ int RRMaxwell(char *ifn, char *ofn, int i0, int i1,
 	if (i0 >= 0 && i1 >= 0) {
 	  if (h.qk_mode == QK_FIT) free(r.params);
 	  free(r.strength);
-	  free(dstrength);
 	  free(h.tegrid);
 	  free(h.egrid);
 	  free(h.usr_egrid);
-	  free(xusr);
 	  goto DONE;
 	}
       }
@@ -2848,11 +2833,9 @@ int RRMaxwell(char *ifn, char *ofn, int i0, int i1,
       free(r.strength);
     }
 
-    free(dstrength);
     free(h.tegrid);
     free(h.egrid);
     free(h.usr_egrid);
-    free(xusr);
 
     nb++;
   }
