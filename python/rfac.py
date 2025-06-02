@@ -202,25 +202,33 @@ def voigt(alpha, x):
         
     return H;
 
-def convd(xd, yd, s, lw=None, x0=None, x1=None):
-    dx = s/3.0
+def convd(xd, yd, s0, gw=None, lw=None, x0=None, x1=None):
+    dx = s0/3.0
     xd = np.array(xd)
     yd = np.array(yd)
     if x0 is None:
-        x0 = xd.min()-20.0*s
+        x0 = xd.min()-20.0*s0
     if x1 is None:
-        x1 = xd.max()+20.0*s
+        x1 = xd.max()+20.0*s0
     x = np.arange(x0, x1, dx)
     y = np.zeros(len(x))
-    p = 1.0/np.sqrt(2*np.pi)/s
+    p0 = 1.0/np.sqrt(2*np.pi)
     if lw is None:
         for i in range(len(xd)):
+            s = s0
+            if not gw is None:
+                s = s0 + gw[i]
+            p = p0/s
             t = (x-xd[i])/s
             w = np.nonzero((t > -20.0) & (t < 20.0))[0]
             if (len(w) > 0):
                 y += p*yd[i]*np.exp(-0.5*t*t)
     else:
         for i in range(len(xd)):
+            s = s0
+            if not gw is None:
+                s = s0 + gw[i]
+            p = p0/s
             t = (x-xd[i])/s
             a = lw[i]/(1.414*s)
             y += p*yd[i]*voigt(a, t)
@@ -465,7 +473,7 @@ def read_tr(filename):
         block['rate'] = np.zeros(ntrans, dtype=float)
         block['multipole'] = np.zeros(ntrans, dtype=float)
         if header['uta'] > 0:
-            block['Shift'] = np.zeros(ntrans, dtype=float)
+            block['sdev'] = np.zeros(ntrans, dtype=float)
             block['rci'] = np.zeros(ntrans, dtype=float)
 
         for i, line in enumerate(lines):
@@ -488,7 +496,7 @@ def read_tr(filename):
                 block['lower_index'][i] = int(a[2])
                 block['lower_2J'][i] = int(a[3])
                 block['Delta E'][i] = float(a[4])
-                block['Shift'][i] = float(a[5])
+                block['sdev'][i] = float(a[5])
                 block['gf'][i] = float(a[6])
                 block['rate'][i] = float(a[7])
                 block['multipole'][i] = float(a[8])

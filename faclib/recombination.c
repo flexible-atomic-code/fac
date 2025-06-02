@@ -1326,6 +1326,7 @@ int BoundFreeOSUTA(double *rqu, double *rqc, double *eb,
   double xegrid[MAXRRNE], log_xegrid[MAXRRNE];
   int nkl, nq, k, r;
   int klb, jb, kb, qb;
+  int kg0, kg1, kc0, kc1;
   
   lev1 = GetLevel(rec);
   lev2 = GetLevel(f);
@@ -1347,11 +1348,22 @@ int BoundFreeOSUTA(double *rqu, double *rqc, double *eb,
     sym = GetSymmetry(lev1->pj);
     DecodePJ(lev1->pj, &p, &j);
     wm = 0;
+    kg0 = -1;
+    kg1 = -1;
+    kc0 = -1;
+    kc1 = -1;
     for (ie = 0; ie < n_egrid; ie++) tq[ie] = 0.0;
     for (t = 0; t < lev1->n_basis; t++) {
       s = (STATE *) ArrayGet(&(sym->states), lev1->basis[t]);
-      r = BoundFreeOSUTA0(m0, lev2->iham, s->kgroup, lev2->pb, s->kcfg,
-			  *eb, rq, &k1, &q1);
+      if (kg0 != lev2->iham || kg1 != s->kgroup ||
+	  kc0 != lev2->pb || kc1 != s->kgroup) {
+	r = BoundFreeOSUTA0(m0, lev2->iham, s->kgroup, lev2->pb, s->kcfg,
+			    *eb, rq, &k1, &q1);
+	kg0 = lev2->iham;
+	kg1 = s->kgroup;
+	kc0 = lev2->pb;
+	kc1 = s->kcfg;
+      }
       if (r < 0) continue;
       wb = (j+1.0)*q1*lev1->mixing[t]*lev1->mixing[t];
       if (wb > wm) {
@@ -1367,12 +1379,23 @@ int BoundFreeOSUTA(double *rqu, double *rqc, double *eb,
     sym = GetSymmetry(lev2->pj);
     DecodePJ(lev2->pj, &p, &j);
     wm = 0;
+    kg0 = -1;
+    kg1 = -1;
+    kc0 = -1;
+    kc1 = -1;
     for (ie = 0; ie < n_egrid; ie++) tq[ie] = 0.0;
     for (t = 0; t < lev2->n_basis; t++) {
       s = (STATE *) ArrayGet(&(sym->states), lev2->basis[t]);
       cfg = GetConfig(s);
-      r = BoundFreeOSUTA0(m0, s->kgroup, lev1->iham, s->kcfg, lev1->pb,
-			  *eb, rq, &k1, &q1);
+      if (kg0 != s->kgroup || kg1 != lev1->iham ||
+	  kc0 != s->kcfg || kc1 != lev1->pb) {
+	r = BoundFreeOSUTA0(m0, s->kgroup, lev1->iham, s->kcfg, lev1->pb,
+			    *eb, rq, &k1, &q1);
+	kg0 = s->kgroup;
+	kg1 = lev1->iham;
+	kc0 = s->kcfg;
+	kc1 = lev1->pb;
+      }
       if (r < 0) continue;
       orb = GetOrbital(k1);
       wb = (lev1->ilev+1.0)*q1*lev2->mixing[t]*lev2->mixing[t];
@@ -1825,6 +1848,7 @@ int AutoionizeRateUTA(double *rate, double *e, int rec, int f) {
   CONFIG *c;
   int t, j, p, r;
   double wb, rq;
+  int kg0, kg1, kc0, kc1;
 
   *rate = 0.0;
   lev1 = GetLevel(rec);
@@ -1841,11 +1865,22 @@ int AutoionizeRateUTA(double *rate, double *e, int rec, int f) {
   } else if (lev1->n_basis > 0) {
     sym = GetSymmetry(lev1->pj);
     DecodePJ(lev1->pj, &p, &j);
+    kg0 = -1;
+    kg1 = -1;
+    kc0 = -1;
+    kc1 = -1;
     for (t = 0; t < lev1->n_basis; t++) {
       s = (STATE *) ArrayGet(&(sym->states), lev1->basis[t]);
       rq = 0.0;
-      r = AutoionizeRateUTA0(&rq, e, lev2->iham, s->kgroup,
-			     lev2->pb, s->kcfg);
+      if (kg0 != lev2->iham || kg1 != s->kgroup ||
+	  kc0 != lev2->pb || kc1 != s->kcfg) {
+	r = AutoionizeRateUTA0(&rq, e, lev2->iham, s->kgroup,
+			       lev2->pb, s->kcfg);
+	kg0 = lev2->iham;
+	kg1 = s->kgroup;
+	kc0 = lev2->pb;
+	kc1 = s->kcfg;
+      }
       if (r < 0) continue;
       c = GetConfig(s);
       wb = lev1->mixing[t]*lev1->mixing[t];
@@ -1855,11 +1890,22 @@ int AutoionizeRateUTA(double *rate, double *e, int rec, int f) {
   } else if (lev2->n_basis > 0) {
     sym = GetSymmetry(lev2->pj);
     DecodePJ(lev2->pj, &p, &j);
+    kg0 = -1;
+    kg1 = -1;
+    kc0 = -1;
+    kc1 = -1;
     for (t = 0; t < lev2->n_basis; t++) {
       s = (STATE *) ArrayGet(&(sym->states), lev2->basis[t]);
       rq = 0.0;
-      r = AutoionizeRateUTA0(&rq, e, s->kgroup, lev1->iham,
-			     s->kcfg, lev1->pb);
+      if (kg0 != s->kgroup || kg1 != lev1->iham ||
+	  kc0 != s->kcfg || kc1 != lev1->pb) {
+	r = AutoionizeRateUTA0(&rq, e, s->kgroup, lev1->iham,
+			       s->kcfg, lev1->pb);
+	kg0 = s->kgroup;
+	kg1 = lev1->iham;
+	kc0 = s->kcfg;
+	kc1 = lev1->pb;
+      }
       if (r < 0) continue;
       c = GetConfig(s);
       wb = lev2->mixing[t]*lev2->mixing[t];

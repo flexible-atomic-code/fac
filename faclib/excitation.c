@@ -2039,6 +2039,7 @@ int CollisionStrengthUTA(double *qkt, double *params,
   double born_egrid, born_cross, c, d, r;
   double bte, bms;
   FORM_FACTOR *bform;
+  int kg0, kg1, kc0, kc1;
   
   lev1 = GetLevel(lower);
   if (lev1 == NULL) return -1;
@@ -2070,12 +2071,23 @@ int CollisionStrengthUTA(double *qkt, double *params,
     type = -1;
     wm = 0.0;
     be0 = 0.0;
+    kg0 = -1;
+    kg1 = -1;
+    kc0 = -1;
+    kc1 = -1;
     for (ie = 0; ie < n_egrid1; ie++) qkc[ie] = 0.0;
     for (t = 0; t < lev1->n_basis; t++) {
       s = (STATE *) ArrayGet(&(sym->states), lev1->basis[t]);
-      ty = CollisionStrengthUTA0(qki, e, &ibe0,
-				 s->kgroup, lev2->iham,
-				 s->kcfg, lev2->pb, p1, p2);
+      if (kg0 != s->kgroup || kg1 != lev2->iham ||
+	  kc0 != s->kcfg || kc1 != lev2->pb) {
+	ty = CollisionStrengthUTA0(qki, e, &ibe0,
+				   s->kgroup, lev2->iham,
+				   s->kcfg, lev2->pb, p1, p2);
+	kg0 = s->kgroup;
+	kg1 = lev2->iham;
+	kc0 = s->kcfg;
+	kc1 = lev2->pb;
+      }
       wb = lev1->mixing[t]*lev1->mixing[t]*(j+1.0);
       if (wb > wm) {
 	type = ty;
@@ -2092,13 +2104,24 @@ int CollisionStrengthUTA(double *qkt, double *params,
     type = -1;
     wm = 0.0;
     be0 = 0.0;
+    kg0 = -1;
+    kg1 = -1;
+    kc0 = -1;
+    kc1 = -1;
     for (ie = 0; ie < n_egrid1; ie++) qkc[ie] = 0.0;
     for (t = 0; t < lev2->n_basis; t++) {
       s = (STATE *) ArrayGet(&(sym->states), lev2->basis[t]);
       cfg = GetConfig(s);
-      ty = CollisionStrengthUTA0(qki, e, &ibe0,
-				 lev1->iham, s->kgroup,
-				 lev1->pb, s->kcfg, p1, p2);
+      if (kg0 != lev1->iham || kg1 != s->kgroup ||
+	  kc0 != lev1->pb || kc1 != s->kcfg) {
+	ty = CollisionStrengthUTA0(qki, e, &ibe0,
+				   lev1->iham, s->kgroup,
+				   lev1->pb, s->kcfg, p1, p2);
+	kg0 = lev1->iham;
+	kg1 = s->kgroup;
+	kc0 = lev1->pb;
+	kc1 = s->kcfg;
+      }
       wb = lev2->mixing[t]*lev2->mixing[t]*(lev1->ilev+1.0);
       wb *= (j+1.0)/fabs(cfg->sweight);
       if (wb > wm) {

@@ -911,6 +911,7 @@ int IonizeStrengthUTA(double *qku, double *qkc, double *te,
   CONFIG *c;
   int t, j, p, ie, klb, qb, r;
   double wb, wm, rku[MAXNUSR], rkc[MAXNE];
+  int kg0, kg1, kc0, kc1;
   
   lev1 = GetLevel(b);
   lev2 = GetLevel(f);
@@ -940,11 +941,22 @@ int IonizeStrengthUTA(double *qku, double *qkc, double *te,
     for (ie = 0; ie < n_usr; ie++) qku[ie] = 0.0;
     for (ie = 0; ie < NPARAMS; ie++) qkc[ie] = 0.0;
     wm = 0.0;
+    kg0 = -1;
+    kg1 = -1;
+    kc0 = -1;
+    kc1 = -1;
     for (t = 0; t < lev1->n_basis; t++) {
       s = (STATE *) ArrayGet(&(sym->states), lev1->basis[t]);
-      r = IonizeStrengthUTA0(rku, rkc, te,
-			     lev2->iham, s->kgroup,
-			     lev2->pb, s->kcfg, &qb);
+      if (kg0 != lev2->iham || kg1 != s->kgroup ||
+	  kc0 != lev2->pb || kc1 != s->kcfg) {
+	r = IonizeStrengthUTA0(rku, rkc, te,
+			       lev2->iham, s->kgroup,
+			       lev2->pb, s->kcfg, &qb);
+	kg0 = lev2->iham;
+	kg1 = s->kgroup;
+	kc0 = lev2->pb;
+	kc1 = s->kcfg;
+      }
       if (r < 0) continue;
       wb = lev1->mixing[t]*lev1->mixing[t];
       wb *= (j+1.0)*qb;
@@ -964,11 +976,23 @@ int IonizeStrengthUTA(double *qku, double *qkc, double *te,
     DecodePJ(lev2->pj, &p, &j);
     for (ie = 0; ie < n_usr; ie++) qku[ie] = 0.0;
     for (ie = 0; ie < NPARAMS; ie++) qkc[ie] = 0.0;
+    wm = 0;
+    kg0 = -1;
+    kg1 = -1;
+    kc0 = -1;
+    kc1 = -1;
     for (t = 0; t < lev2->n_basis; t++) {
       s = (STATE *) ArrayGet(&(sym->states), lev2->basis[t]);
-      r = IonizeStrengthUTA0(rku, rkc, te,
-			     s->kgroup, lev1->iham,
-			     s->kcfg, lev1->pb, &qb);
+      if (kg0 != s->kgroup || kg1 != lev1->iham ||
+	  kc0 != s->kcfg || kc1 != lev1->pb) {
+	r = IonizeStrengthUTA0(rku, rkc, te,
+			       s->kgroup, lev1->iham,
+			       s->kcfg, lev1->pb, &qb);
+	kg0 = s->kgroup;
+	kg1 = lev1->iham;
+	kc0 = s->kcfg;
+	kc1 = lev1->pb;
+      }
       if (r < 0) continue;
       c = GetConfig(s);
       wb = lev2->mixing[t]*lev2->mixing[t];

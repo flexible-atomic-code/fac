@@ -194,6 +194,8 @@ void InitConfigData(void *p, int n) {
     d[i].csfs = NULL;
     d[i].igroup = -1;
     d[i].icfg = -1;
+    d[i].iulev = -1;
+    d[i].parity = 0;
     d[i].energy = 0.0;
     d[i].delta = 0.0;
     d[i].shift = 0.0;
@@ -2649,13 +2651,17 @@ int AddConfigToList(int k, CONFIG *cfg) {
   int dq, dq1;
   
   if (k < 0 || k >= n_groups) return -1;
+  cfg->parity = 0;
   for (i = 0; i < cfg->n_shells; i++) {
     m = abs(GetOrbNMax(cfg->shells[i].kappa, 0));
     if (m && cfg->shells[i].n > m) {
       FreeConfigData(cfg);
       return 0;
     }
+    cfg->parity += (cfg->shells[i].nq)*GetL(&(cfg->shells[i]));
   }
+  cfg->parity = IsOdd(cfg->parity/2);
+  
   if (cfg_groups[k].n_cfgs > 0 && cfg_groups[k].n_csfs == 0) {
     if (cfg->n_csfs > 0) {
       if (cfg->symstate) free(cfg->symstate);
@@ -2857,16 +2863,7 @@ int AddStateToSymmetry(int kg, int kc, int kstate, int parity, int j) {
 }
 
 int ConfigParity(CONFIG *cfg) {
-  int parity, i;
-
-  parity = 0;
-  for (i = 0; i < cfg->n_shells; i++) {
-    parity += (cfg->shells[i].nq)*GetL(&(cfg->shells[i]));
-  }
-  parity /= 2;
-  parity = IsOdd(parity);
-
-  return parity;
+  return cfg->parity;
 }
 
 int PackSymState(int s, int k) {
