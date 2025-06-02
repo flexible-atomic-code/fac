@@ -52,6 +52,8 @@ static ARRAY *levels;
 static int n_levels = 0;
 static ARRAY *eblevels;
 static int n_eblevels = 0;
+static ARRAY *ulevels;
+static int n_ulevels;
 static int _sort_levs = 1;
 static int _levels_block = LEVELS_BLOCK;
 
@@ -2849,6 +2851,42 @@ int DiagnolizeHamilton(HAMILTON *h) {
   return -1;
 }
 
+int AddToULevels(int ng, int *kg) {
+  int m, i, j;
+  LEVEL lev;
+  CONFIG_GROUP *g;
+  CONFIG *c;
+  
+  m = n_ulevels;
+  lev.n_basis = 0;
+  lev.ibase = -1;
+  for (i = 0; i < ng; i++) {
+    lev.iham = kg[i];
+    g = GetGroup(kg[i]);
+    lev.nele = g->n_electrons;
+    for (j = 0; j < g->n_cfgs; j++) {
+      lev.pb = j;
+      c = GetConfigFromGroup(kg[i], j);
+      lev.ilev = ((int)(fabs(c ->sweight)+0.25))-1;
+      lev.pj = c->sweight < 0;
+      if (c->energy == 0) {
+	c->energy = AverageEnergyConfig(c);
+	c->energy += c->delta+c->shift;
+      }
+      lev.energy = c->energy+_eoffset;
+      if (ArrayAppend(ulevels, &lev, InitLevelData) == NULL) {
+	printf("Not enough memory for levels array\n");
+	exit(1);
+      }
+      c->iulev = m;
+      m++;
+    }
+  }
+  
+  n_ulevels = m;
+  return 0;
+}
+
 int AddToLevels(HAMILTON *h, int ng, int *kg) {
   int i, d, j, k, t, m;
   LEVEL lev;
@@ -3185,11 +3223,95 @@ int AddECorrection(int iref, int ilev, double e, int nmin) {
   return 0;
 }
 
+int GetULevelIndices(int nlev, int *ilev, int **ufup,
+		     int *nufp, int *nuup,
+		     int *ufminp, int *ufmaxp,
+		     int *uuminp, int *uumaxp) {
+  int i, k;
+  CONFIG *c;
+  STATE *s;
+  LEVEL *lev;
+  SYMMETRY *sym;
+
+  int nuu = 0;
+  int nulevs = GetNumULevels();
+
+  int *iu = NULL;
+  if (nulevs > 0) iu = malloc(sizeof(int)*nulevs);
+  for (i = 0; i < nulevs; i++) {
+    iu[i] = 0;
+  }
+  
+  for (i = 0; i < nlev; i++) {
+    lev = GetLevel(ilev[i]);
+    if (lev->n_basis > 0) {
+      sym = GetSymmetry(lev->pj);
+      for (k = 0; k < lev->n_basis; k++) {
+	s = (STATE *) ArrayGet(&(sym->states), lev->basis[k]);
+	c = GetConfig(s);
+	if (c->iulev >= 0) {
+	  iu[c->iulev] = 1;	  
+	}
+      }
+    } else {
+      nuu++;
+    }
+  }
+  int nuf = 0;
+  for (i = 0; i < nulevs; i++) {
+    if (iu[i]) nuf++;
+  }
+  if (nuf+nuu == 0) {
+    if (iu) free(iu);
+    return 0;
+  }
+  int *ufu = malloc(sizeof(int)*(nuf+nuu));
+  int ufmin = nulevs;
+  int ufmax = 0;
+  k = 0;
+  for (i = 0; i < nulevs; i++) {
+    if (iu[i]) {
+      ufu[k] = -(i+1);
+      if (i < ufmin) ufmin = i;
+      if (i > ufmax) ufmax = i;
+      k++;
+    }
+  }
+  if (iu) free(iu);
+  
+  int uumin = GetNumLevels();
+  int uumax = 0;
+  for (i = 0; i < nlev; i++) {
+    lev = GetLevel(ilev[i]);
+    if (lev->n_basis == 0) {
+      ufu[k] = ilev[i];
+      if (ufu[k] < uumin) uumin = ufu[k];
+      if (ufu[k] > uumax) uumax = ufu[k];
+      k++;
+    }
+  }
+
+  *nufp = nuf;
+  *nuup = nuu;
+  *uuminp = uumin;
+  *uumaxp = uumax;
+  *ufminp = ufmin;
+  *ufmaxp = ufmax;
+  *ufup = ufu;
+  
+  return nuf+nuu;
+}
+
+LEVEL *GetULevel(int k) {
+  return (LEVEL *) ArrayGet(ulevels, k);
+}
+
 LEVEL *GetEBLevel(int k) {
   return (LEVEL *) ArrayGet(eblevels, k);
 }
 
 LEVEL *GetLevel(int k) {
+  if (k < 0) return GetULevel(-(k+1));
   return (LEVEL *) ArrayGet(levels, k);
 }
 
@@ -3202,6 +3324,10 @@ int LevelTotalJ(int k) {
 
 int GetNumEBLevels(void) {
   return n_eblevels;
+}
+
+int GetNumULevels(void) {
+  return n_ulevels;
 }
 
 int GetNumLevels(void) {
@@ -3612,7 +3738,7 @@ int SolveStructure(char *fn, char *hfn,
       k = SolveStructure(fn, hfn, -ngs, kg, ngp, kgp, ip);
       if (k < 0) {
 	return k;
-      }
+      }      
     }
     if (ngu > 0) {
       k = SolveStructure(fn, hfn, -ngu, kgu, 0, NULL, 0);
@@ -3666,6 +3792,9 @@ int SolveStructure(char *fn, char *hfn,
   if (cfg->n_csfs == 0) {
     AddToLevels(NULL, ng0, kg);
   } else {
+    if (IsUTA()) {
+      AddToULevels(ng0, kg);
+    }
     double wtb = WallTime();
     if (rh == 0) {
       for (i = 0; i < ns; i++) {
@@ -3914,7 +4043,7 @@ int SolveStructure(char *fn, char *hfn,
 
 int GetNumElectrons(int k) {
   LEVEL *lev;
-  
+
   lev = GetLevel(k);
   return lev->nele;
 }
@@ -6800,6 +6929,8 @@ int ClearLevelTable(void) {
   ArrayFree(levels, FreeLevelData);
   n_eblevels = 0;
   ArrayFree(eblevels, FreeLevelData);
+  n_ulevels = 0;
+  ArrayFree(ulevels, FreeLevelData);
 
   ng = GetNumGroups();
   for (k = 0; k < ng; k++) {
@@ -7004,6 +7135,11 @@ int InitStructure(void) {
   eblevels = malloc(sizeof(ARRAY));
   if (!eblevels) return -1;
   ArrayInit(eblevels, sizeof(LEVEL), _levels_block);
+
+  n_ulevels = 0;
+  ulevels = malloc(sizeof(ARRAY));
+  if (!ulevels) return -1;
+  ArrayInit(ulevels, sizeof(LEVEL), _levels_block);
 
   ang_frozen.nts = 0;
   ang_frozen.ncs = 0;

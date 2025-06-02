@@ -4967,8 +4967,13 @@ int MemENTableWC(char *fn, int k0, int *ifk, short ***nc) {
       if (r.energy < _eground[h.nele]) _eground[h.nele] = r.energy;
       mem_en_table[r.ilev].energy = r.energy;
       mem_en_table[r.ilev].p = r.p;
-      mem_en_table[r.ilev].j = JFromENRecord(&r);
-      mem_en_table[r.ilev].ibase = r.ibase;
+      if (r.j < 0) {
+	mem_en_table[r.ilev].j = r.ibase;
+	mem_en_table[r.ilev].ibase = -nlevels;
+      } else {
+	mem_en_table[r.ilev].j = r.j;
+	mem_en_table[r.ilev].ibase = r.ibase;
+      }
       if (nc && h.nele >= k0) {
 	kk = h.nele-k0;
 	GetNComplex(ncomplex, r.ncomplex);
@@ -8975,6 +8980,12 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 		  if (e <= 0) {
 		    e = rg[k][iup].r.energy - rg[k][ilo].r.energy;
 		  }
+		  /*
+		  if (mem_en_table[r1.lower].ibase == -mem_en_table_size ||
+		      mem_en_table[r1.upper].ibase == -mem_en_table_size) {
+		    e += 10.0/HARTREE_EV;
+		  }
+		  */
 		  rt[j]->sd += r1.strength*e*e;
 		  rt[j]->r.strength += r1.strength;
 		  rt[j]->x.energy += e*r1.strength;

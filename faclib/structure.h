@@ -194,12 +194,19 @@ SHAMILTON *GetSHamilton(int *n);
 int NHams(void);
 int DiagnolizeHamilton(HAMILTON *h);
 int AddToLevels(HAMILTON *h, int ng, int *kg);
+int AddToULevels(int ng, int *kg);
 int AddECorrection(int kref, int k, double e, int nmin);
 LEVEL *GetLevel(int k);
 LEVEL *GetEBLevel(int k);
+LEVEL *GetULevel(int k);
+int GetULevelIndices(int nlev, int *ilev, int **ufup,
+		     int *nufp, int *nuup,
+		     int *ufminp, int *ufmaxp,
+		     int *uuminp, int *uumaxp);
 int LevelTotalJ(int k);
 int GetNumEBLevels(void);
 int GetNumLevels(void);
+int GetNumULevels(void);
 int GetNumElectrons(int k);
 int SortMixing(int start, int n, LEVEL *lev, SYMMETRY *sym);
 int GetPrincipleBasis(double *mix, int d, int *kpb);

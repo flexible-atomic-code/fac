@@ -51,6 +51,21 @@ typedef struct {
   int ks[2];
 } TR_DATUM;
 
+typedef struct {
+  float strength;
+  float energy;
+  float sdev;
+  float sci;
+} TR_UTA;
+
+static int _ufmin = 0;
+static int _ufmax = -1;
+static int _nuf_tr = 0;
+static int _uumin = 0;
+static int _uumax = -1;
+static int _nuu_tr = 0;
+static TR_UTA *_ufuu_tr = NULL;
+
 static int _tr_all = 0;
 static double _tr_aw = -1;
 static double _lower_emin = 0.0;
@@ -59,6 +74,7 @@ static double _upper_emin = 0.0;
 static double _upper_emax = 0.0;
 static double _tr_emin = 0.0;
 static double _tr_emax = 0.0;
+static int _uta_e1 = 0;
 static int _progress_report = 0;
 
 int OutOfERange(double e0, double e1, double de) {
@@ -127,11 +143,20 @@ int TRMultipoleUTA0(double *strength, TR_EXTRA *rx,
   int m2, ns, k0, k1, q1, w1, q2, m0;
   int j1, j2, ia, ib;
   double r, aw, eg;
-  CONFIG *c;
+  CONFIG *c, *c1;
   INTERACT_DATUM *idatum;
 
   m0 = m;
   *strength = 0.0;
+  rx->energy = 0.0;
+  rx->sdev = 0.0;
+  rx->sci = 1.0;
+  c = NULL;
+  if (_uta_e1) {
+    c = GetConfigFromGroup(kg0, kc0);
+    c1 = GetConfigFromGroup(kg1, kc1);
+    if (c->parity == c1->parity) return 0;
+  }
   
   idatum = NULL;
   ns = GetInteract(&idatum, NULL, NULL, kg0, kg1, kc0, kc1, 0, 0, 0);
@@ -142,7 +167,8 @@ int TRMultipoleUTA0(double *strength, TR_EXTRA *rx,
     return 0;
   }
 
-  c = GetConfigFromGroup(kg0, kc0);
+  if (c == NULL) c = GetConfigFromGroup(kg0, kc0);
+  
   if (idatum->s[0].nq_bra > idatum->s[0].nq_ket) {
     ia = ns-1-idatum->s[0].index;
     ib = ns-1-idatum->s[1].index;
@@ -185,7 +211,7 @@ int TRMultipoleUTA0(double *strength, TR_EXTRA *rx,
     if (IsEven(p1+p2+m)) m = -m;
   }
   m2 = 2*abs(m);
-  if (!Triangle(j1, j2, m2)) {
+  if ((_uta_e1 && m != -1) || !Triangle(j1, j2, m2)) {
     free(idatum->bra);    
     free(idatum);
     return 0;
@@ -194,8 +220,13 @@ int TRMultipoleUTA0(double *strength, TR_EXTRA *rx,
   rx->energy = te;
   if (ks) {
     rx->energy += ConfigEnergyShift(ns, idatum->bra, ia, ib, m2);
-    rx->sdev = sqrt(ConfigEnergyVariance(ns, idatum->bra, ia, ib, m2));
+    r = ConfigEnergyVariance(ns, idatum->bra, ia, ib, m2);
+    rx->sdev = sqrt(r);
+  } else {
+    rx->sdev = 0.0;
   }
+  rx->sci = 1.0;
+  
   aw = FINE_STRUCTURE_CONST * rx->energy;
   if (aw < 0.0) {
     free(idatum->bra);
@@ -223,8 +254,9 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
   SYMMETRY *sym;
   STATE *s, *v;
   CONFIG *cfg;
+  int kg0, kc0, kg1, kc1, iuu, iuf, u;
   int r, t, j, p, k, mk, m0, p1, p2;
-  double wb, si, te, wm, eg, w1, w2;
+  double wb, si, te, wm, eg, w1, w2, xe, xe2, xs, xc;
 
   m0 = m;
   *strength = 0.0;
@@ -242,7 +274,12 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
   if (m < 0 && IsOdd(p1+p2+m)) return 0;
 
   te = lev2->energy - lev1->energy;
+  if (te <= 0) return 0;
 
+  kg0 = -1;
+  kg1 = -1;
+  kc0 = -1;
+  kc1 = -1;
   mk = 0;
   if (lev1->n_basis > 0 && lev2->n_basis > 0) {
     if (TransUTA() == 0) {
@@ -259,8 +296,15 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
 	for (r = 0; r < lev2->n_basis; r++) {
 	  v = (STATE *) ArrayGet(&(sym->states), lev2->basis[r]);
 	  w2 = lev2->mixing[r]*lev2->mixing[r];
-	  k = TRMultipoleUTA0(&si, rx, m, s->kgroup, v->kgroup,
-			      s->kcfg, v->kcfg, te, p1, p2, NULL);
+	  if (s->kgroup != kg0 || v->kgroup != kg1 ||
+	      s->kcfg != kc0 || v->kcfg != kc1) {
+	    k = TRMultipoleUTA0(&si, rx, m, s->kgroup, v->kgroup,
+				s->kcfg, v->kcfg, te, p1, p2, NULL);
+	    kg0 = s->kgroup;
+	    kg1 = v->kgroup;
+	    kc0 = s->kcfg;
+	    kc1 = v->kcfg;
+	  }
 	  if (k == 0) continue;
 	  wb = (j+1.0)*w1*w2;
 	  if (wb > wm) {
@@ -274,48 +318,104 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
       if (m0 != 0) *strength = sqrt(*strength);
     }
     rx->energy = te;
-    rx->sdev = 0.0;    
+    rx->sdev = 0.0;
+    rx->sci = 1.0;
     return mk;
   }
   if (lev1->n_basis == 0 && lev2->n_basis == 0) {
     k = TRMultipoleUTA0(strength, rx, m, lev1->iham, lev2->iham,
 			lev1->pb, lev2->pb, te, p1, p2, ks);
     wb = lev1->ilev + 1.0;
-    if (m0 != 0) wb = sqrt(wb);
-    *strength *= wb;
+    if ((lower >= 0 && upper >= 0)||(lower <= 0 && upper <= 0)) {
+      if (m0 != 0) wb = sqrt(wb);
+      *strength *= wb;
+    }
+    rx->sci = 1.0;
     return k;
   } else if (lev1->n_basis > 0) {
     sym = GetSymmetry(lev1->pj);
     DecodePJ(lev1->pj, &p, &j);
     *strength = 0.0;
     wm = 0.0;
+    xe = 0.0;
+    xe2 = 0.0;
+    xs = 0.0;
+    xc = 0.0;
     for (t = 0; t < lev1->n_basis; t++) {
       s = (STATE *) ArrayGet(&(sym->states), lev1->basis[t]);
-      k = TRMultipoleUTA0(&si, rx, m, s->kgroup, lev2->iham,
-			  s->kcfg, lev2->pb, te, p1, p2, NULL);
+      /*
+      if (s->kgroup != kg0 || lev2->iham != kg1 ||
+	  s->kcfg != kc0 || lev2->pb != kc1) {
+	k = TRMultipoleUTA0(&si, rx, m, s->kgroup, lev2->iham,
+			    s->kcfg, lev2->pb, te, p1, p2, NULL);
+	kg0 = s->kgroup;
+	kg1 = lev2->iham;
+	kc0 = s->kcfg;
+	kc1 = lev2->pb;
+      }
       if (k == 0) continue;
+      */
+      k = -1;
+      cfg = GetConfig(s);
+      iuf = cfg->iulev - _ufmin;      
+      iuu = upper - _uumin;
+      u = iuu*_nuf_tr + iuf;
+      si = _ufuu_tr[u].strength;
       wb = (j+1.0)*lev1->mixing[t]*lev1->mixing[t];
       if (wb > wm) {
 	wm = wb;
 	mk = k;
       }
       if (m0 != 0) si *= si;
-      *strength += wb*si;
+      wb *= si;
+      *strength += wb;      
+      xe += wb*_ufuu_tr[u].energy;
+      xe2 += wb*_ufuu_tr[u].energy*_ufuu_tr[u].energy;
+      xs += wb*_ufuu_tr[u].sdev*_ufuu_tr[u].sdev;
+      xc += wb*_ufuu_tr[u].sci;
     }
-    if (m0 != 0) *strength = sqrt(*strength);
-    rx->energy = te;
-    rx->sdev = 0.0;
+    wb = *strength;
+    if (wb > 0) {
+      if (m0 != 0) *strength = sqrt(*strength);
+      xe /= wb;
+      xe2 /= wb;
+      xs /= wb;
+      xc /= wb;
+      xe2 = xe2 - xe*xe;
+      if (xe2 < 0) xe2 = 0.0;
+    }      
+    rx->energy = xe;
+    rx->sdev = sqrt(xs + xe2);
+    rx->sci = xc;
   } else if (lev2->n_basis > 0) {
     sym = GetSymmetry(lev2->pj);
     DecodePJ(lev2->pj, &p, &j);
     *strength = 0.0;
     wm = 0.0;
+    xe = 0.0;
+    xe2 = 0.0;
+    xs = 0.0;
+    xc = 0.0;
     for (t = 0; t < lev2->n_basis; t++) {
       s = (STATE *) ArrayGet(&(sym->states), lev2->basis[t]);
       cfg = GetConfig(s);
-      k = TRMultipoleUTA0(&si, rx, m, lev1->iham, s->kgroup,
-			  lev1->pb, s->kcfg, te, p1, p2, NULL);
+      /*
+      if (lev1->iham != kg0 || s->kgroup != kg1 ||
+	  lev1->pb != kc0 || s->kcfg != kc1) {
+	k = TRMultipoleUTA0(&si, rx, m, lev1->iham, s->kgroup,
+			    lev1->pb, s->kcfg, te, p1, p2, NULL);
+	kg0 = lev1->iham;
+	kg1 = s->kgroup;
+	kc0 = lev1->pb;
+	kc1 = s->kcfg;
+      }
       if (k == 0) continue;
+      */
+      k = -1;
+      iuf = cfg->iulev - _ufmin;      
+      iuu = lower - _uumin;
+      u = iuu*_nuf_tr + iuf;
+      si = _ufuu_tr[u].strength;
       wb = lev2->mixing[t]*lev2->mixing[t]*(lev1->ilev+1.0);
       wb *= (j+1.0)/fabs(cfg->sweight);
       if (wb > wm) {
@@ -323,11 +423,26 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
 	mk = k;
       }
       if (m0 != 0) si *= si;
-      *strength += wb*si;
+      wb *= si;
+      *strength += wb;      
+      xe += wb*_ufuu_tr[u].energy;
+      xe2 += wb*_ufuu_tr[u].energy*_ufuu_tr[u].energy;
+      xs += wb*_ufuu_tr[u].sdev*_ufuu_tr[u].sdev;
+      xc += wb*_ufuu_tr[u].sci;
     }
-    if (m0 != 0) *strength = sqrt(*strength);
-    rx->energy = te;
-    rx->sdev = 0.0;
+    wb = *strength;
+    if (wb > 0) {
+      if (m0 != 0) *strength = sqrt(*strength);
+      xe /= wb;
+      xe2 /= wb;
+      xs /= wb;
+      xc /= wb;
+      xe2 = xe2 - xe*xe;
+      if (xe2 < 0) xe2 = 0.0;
+    }
+    rx->energy = xe;
+    rx->sdev = sqrt(xs + xe2);
+    rx->sci = xc;
   }
   return mk;
 }
@@ -408,7 +523,6 @@ int TRMultipoleUTA1(double *strength, TR_EXTRA *rx,
   }
 
   rx->energy = (lev2->energy - lev1->energy);
-
   rx->energy += ConfigEnergyShift(ns, idatum->bra, ia, ib, m2);
   rx->sdev = sqrt(ConfigEnergyVariance(ns, idatum->bra, ia, ib, m2));
 
@@ -453,12 +567,9 @@ int TRMultipole(double *strength, double *energy,
 		  lev2->energy-lev1->energy)) return -1;
   
   if (*energy <= 0.0) {
-    *energy = lev2->energy - lev1->energy;
-    if (_tr_all && *energy < 0) {
-      *energy = -(*energy);
-    }
+    *energy = lev2->energy - lev1->energy;    
   }
-  if (!_tr_all && *energy <= 0.0) return -1;
+  if (*energy <= 0.0) return -1;
   aw = FINE_STRUCTURE_CONST * (*energy);
   if (aw < 0.0) return -1;
 
@@ -795,12 +906,18 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
     for (j = 0; j < nup; j++) {
       lev2 = GetLevel(up[j]);
       if (lev1->nele != lev2->nele) continue;
+      if (fn == NULL) {
+	if (low[i] < 0 && up[j] < 0) continue;
+	if (low[i] >= 0 && up[j] >= 0) continue;
+      }
       e0 = lev2->energy - lev1->energy;
       if (OutOfERange(lev1->energy-eg, lev2->energy-eg, e0)) continue;
-      if (_tr_all || e0 > 0) k++;
-      if (e0 < emin && e0 > 0) emin = e0;
-      if (e0 > emax) emax = e0;
-      if (lev1->n_basis > 0 || lev2->n_basis > 0) auta = 0;
+      if (e0 > 0) {
+	k++;
+	if (e0 < emin && e0 > 0) emin = e0;
+	if (e0 > emax) emax = e0;
+	if (lev1->n_basis > 0 || lev2->n_basis > 0) auta = 0;
+      }
     }
   }
     
@@ -828,20 +945,21 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
       }
     }
   }
-  fhdr.type = DB_TR;
-  strcpy(fhdr.symbol, GetAtomicSymbol());
-  fhdr.atom = GetAtomicNumber();
-  tr_hdr.nele = nele;
-  tr_hdr.multipole = m;
-  tr_hdr.gauge = GetTransitionGauge();
-  if (m == 1) { /* always FR for M1 transitions */
-    tr_hdr.mode = M_FR;
-  } else {
-    tr_hdr.mode = GetTransitionMode();
+  if (fn) {
+    fhdr.type = DB_TR;
+    strcpy(fhdr.symbol, GetAtomicSymbol());
+    fhdr.atom = GetAtomicNumber();
+    tr_hdr.nele = nele;
+    tr_hdr.multipole = m;
+    tr_hdr.gauge = GetTransitionGauge();
+    if (m == 1) { /* always FR for M1 transitions */
+      tr_hdr.mode = M_FR;
+    } else {
+      tr_hdr.mode = GetTransitionMode();
+    }
+    f = OpenFile(fn, &fhdr);
+    InitFile(f, &fhdr, &tr_hdr);
   }
-  f = OpenFile(fn, &fhdr);
-  InitFile(f, &fhdr, &tr_hdr);
-    
   double tstart = WallTime();
   int nproc=0, *ntrans = NULL;
   if (_progress_report != 0) {
@@ -941,6 +1059,20 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	      ir++;
 	      continue;
 	    }
+	    if (fn == NULL) {
+	      if (low[i] < 0 && up[j] < 0) {
+		rd[ir].r.lower = -1;
+		rd[ir].r.upper = -1;
+		ir++;
+		continue;
+	      }
+	      if (low[i] >= 0 && up[j] >= 0) {
+		rd[ir].r.lower = -1;
+		rd[ir].r.upper = -1;
+		ir++;
+		continue;
+	      }
+	    }
 	    k = TRMultipoleUTA(&gf, &(rd[ir].rx), m, low[i], up[j], rd[ir].ks);
 	    if (k == 0) {
 	      rd[ir].r.lower = -1;
@@ -952,7 +1084,6 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	    rd[ir].r.lower = low[i];
 	    rd[ir].r.upper = up[j];
 	    rd[ir].r.strength = gf;
-	    rd[ir].rx.sci = 1.0;
 	    if (k == -1 && lev1->n_basis == 0 && lev2->n_basis == 0) {
 	      gf = OscillatorStrength(m, rd[ir].rx.energy, 
 				      rd[ir].r.strength, NULL);
@@ -970,7 +1101,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	    }
 	    ir++;
 	  }
-	}	
+	}
 	if (wp > 0 && wm > 0.0 && ir0 >= 0) {
 	  nrs0 = 0;
 	  nrs1 = 0;
@@ -1008,7 +1139,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	  ir = 0;
 	  for (i = imin; i < imax; i++) {
 	    for (j = jmin; j < jmax; j++) {
-	      if (rd[ir].r.lower < 0) {
+	      if (rd[ir].r.lower == -1 && rd[ir].r.upper == -1) {
 		ir++;
 		continue;
 	      }
@@ -1026,10 +1157,28 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	qsort(rd, ntr, sizeof(TR_DATUM), CompareTRDatum);
 	ir = 0;
 	for (ir = 0; ir < ntr; ir++) {
-	  if (rd[ir].r.lower < 0) {
+	  if (rd[ir].r.lower == -1 && rd[ir].r.upper == -1) {
 	    continue;
 	  }
-	  WriteTRRecord(f, &(rd[ir].r), &(rd[ir].rx));
+	  if (fn) {
+	    WriteTRRecord(f, &(rd[ir].r), &(rd[ir].rx));
+	  } else {
+	    int iuf, iuu;
+	    if (rd[ir].r.lower < 0) {
+	      iuf = -(rd[ir].r.lower+1);
+	      iuu = rd[ir].r.upper;
+	    } else {
+	      iuf = -(rd[ir].r.upper+1);
+	      iuu = rd[ir].r.lower;
+	    }
+	    iuu -= _uumin;
+	    iuf -= _ufmin;
+	    int u = iuu*_nuf_tr + iuf;
+	    _ufuu_tr[u].strength = rd[ir].r.strength;
+	    _ufuu_tr[u].energy = rd[ir].rx.energy;
+	    _ufuu_tr[u].sdev = rd[ir].rx.sdev;
+	    _ufuu_tr[u].sci = rd[ir].rx.sci;
+	  }
 	  if (ntrans) {
 	    ntrans[myrank]++;
 	    if (_progress_report > 0) {
@@ -1104,8 +1253,10 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
       free(et);
     }
   }
-  DeinitFile(f, &fhdr);
-  CloseFile(f, &fhdr);
+  if (fn) {
+    DeinitFile(f, &fhdr);
+    CloseFile(f, &fhdr);
+  }
   if (_progress_report != 0) {
     PrintTransReport(nproc, tstart, ntrans, "TR", -1);
   }
@@ -1216,11 +1367,26 @@ int OverlapLowUp(int nlow, int *low, int nup, int *up) {
   */
   return n;
 }
+
+int SaveTransition1(int nlow, int *low, int nup, int *up,
+		    char *fn, int m) {
+  int nc;
+
+  nc = OverlapLowUp(nlow, low, nup, up);
+  if (nc > 0) {
+    SaveTransition0(nc, low+nlow-nc, nc, up+nup-nc, fn, m);
+    SaveTransition0(nc, low+nlow-nc, nup-nc, up, fn, m);    
+    SaveTransition0(nup-nc, up, nc, low+nlow-nc, fn, m);
+  }
+  SaveTransition0(nlow-nc, low, nup, up, fn, m);
+  SaveTransition0(nup, up, nlow-nc, low, fn, m);
   
+  return 0;
+}
+   
 int SaveTransition(int nlow, int *low, int nup, int *up,
 		   char *fn, int m) {
-  int n, *alev, i, nc;
-  
+  int n, *alev, i, r;  
   n = 0;
   if (nlow == 0 || nup == 0) {
     n = GetNumLevels();
@@ -1240,20 +1406,83 @@ int SaveTransition(int nlow, int *low, int nup, int *up,
     }
   }
   if (nlow <= 0 || nup <= 0) return -1;
-
-  nc = OverlapLowUp(nlow, low, nup, up);
-  SaveTransition0(nc, low+nlow-nc, nc, up+nup-nc, fn, m);
-  SaveTransition0(nc, low+nlow-nc, nup-nc, up, fn, m);
-  SaveTransition0(nup-nc, up, nc, low+nlow-nc, fn, m);
-  SaveTransition0(nlow-nc, low, nup, up, fn, m);
-  SaveTransition0(nup, up, nlow-nc, low, fn, m);
   
+  if (!IsUTA()) {
+    r = SaveTransition1(nlow, low, nup, up, fn, m);
+  } else {
+    int *ufu0, nuf0, nuu0, ufmin0, ufmax0, uumin0, uumax0;  
+    int *ufu1, nuf1, nuu1, ufmin1, ufmax1, uumin1, uumax1;  
+    int nufu0, nufu1;
+    nufu0 = GetULevelIndices(nlow, low, &ufu0, &nuf0, &nuu0,
+			     &ufmin0, &ufmax0, &uumin0, &uumax0);
+    if (up == low) {
+      ufu1 = ufu0;
+      nuf1 = nuf0;
+      nuu1 = nuu0;
+      ufmin1 = ufmin0;
+      ufmax1 = ufmax0;
+      uumin1 = uumin0;
+      uumax1 = uumax0;
+    } else {
+      nufu1 = GetULevelIndices(nup, up, &ufu1, &nuf1, &nuu1,
+			       &ufmin1, &ufmax1, &uumin1, &uumax1);
+    }
+    if ((nuf0 == 0 && nuf1 == 0) || (nuu0 == 0 && nuu1 == 0)) {
+      if (nufu1 > 0 && ufu1 != ufu0) free(ufu1);
+      if (nufu0 > 0) free(ufu0);
+      r = SaveTransition1(nlow, low, nup, up, fn, m);
+    } else {
+      _ufmin = GetNumULevels();
+      _ufmax = 0;
+      _uumin = GetNumLevels();
+      _uumax = 0;
+      if (ufmax0 >= ufmin0) {
+	_ufmin = ufmin0;
+	_ufmax = ufmax0;
+      }
+      if (ufmax1 >= ufmin1) {
+	_ufmin = Min(_ufmin, ufmin1);
+	_ufmax = Max(_ufmax, ufmax1);
+      }
+      if (uumax0 >= uumin0) {
+	_uumin = uumin0;
+	_uumax = uumax0;
+      }
+      if (uumax1 >= uumin1) {
+	_uumin = Min(_uumin, uumin1);
+	_uumax = Max(_uumax, uumax1);
+      }
+      _nuf_tr = _ufmax-_ufmin+1;
+      _nuu_tr = _uumax-_uumin+1;
+      _ufuu_tr = malloc(sizeof(TR_UTA)*_nuf_tr*_nuu_tr);
+      int i;
+      for (i = 0; i < _nuf_tr*_nuu_tr; i++) {
+	_ufuu_tr[i].strength = 0;
+	_ufuu_tr[i].energy = 0;
+	_ufuu_tr[i].sdev = 0;
+	_ufuu_tr[i].sci = 0;
+      }
+      r = SaveTransition1(nufu0, ufu0, nufu1, ufu1, NULL, m);
+      if (nufu1 > 0 && ufu1 != ufu0) free(ufu1);
+      if (nufu0 > 0) free(ufu0);
+      r = SaveTransition1(nlow, low, nup, up, fn, m);
+      _ufmin = 0;
+      _ufmax = -1;
+      _nuf_tr = 0;
+      _uumin = 0;
+      _uumax = -1;
+      _nuu_tr = 0;
+      free(_ufuu_tr);
+      _ufuu_tr = NULL;
+    }
+  }
   if (n > 0) free(alev);
+
   ReinitRadial(1);
 
-  return 0;
+  return r;
 }
-  
+ 
 int GetLowUpEB(int *nlow, int **low, int *nup, int **up, 
 	       int nlow0, int *low0, int nup0, int *up0) {  
   int i, j, ilev, mlev, n;
@@ -1434,6 +1663,10 @@ void SetOptionTransition(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "transition:tr_emax")) {
     _tr_emax = dp/HARTREE_EV;
+    return;
+  }
+  if (0 == strcmp(s, "transition:uta_e1")) {
+    _uta_e1 = ip;
     return;
   }
 }
