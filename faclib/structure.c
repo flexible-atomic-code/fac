@@ -2869,10 +2869,8 @@ int AddToULevels(int ng, int *kg) {
       c = GetConfigFromGroup(kg[i], j);
       lev.ilev = ((int)(fabs(c ->sweight)+0.25))-1;
       lev.pj = c->sweight < 0;
-      if (c->energy == 0) {
-	c->energy = AverageEnergyConfig(c);
-	c->energy += c->delta+c->shift;
-      }
+      c->energy = AverageEnergyConfig(c);
+      c->energy += c->delta+c->shift;
       lev.energy = c->energy+_eoffset;
       if (ArrayAppend(ulevels, &lev, InitLevelData) == NULL) {
 	printf("Not enough memory for levels array\n");
@@ -2921,10 +2919,8 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
 	c = GetConfigFromGroup(kg[i], j);
 	lev.ilev = ((int)(fabs(c ->sweight)+0.25))-1;
 	lev.pj = c->sweight < 0;
-	if (c->energy == 0) {
-	  c->energy = AverageEnergyConfig(c);
-	  c->energy += c->delta+c->shift;
-	}
+	c->energy = AverageEnergyConfig(c);
+	c->energy += c->delta+c->shift;
 	lev.energy = c->energy+_eoffset;
 	if (ArrayAppend(levels, &lev, InitLevelData) == NULL) {
 	  printf("Not enough memory for levels array\n");

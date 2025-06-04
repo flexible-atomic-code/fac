@@ -6273,10 +6273,10 @@ double AverageEnergyConfig(CONFIG *cfg) {
 
 /* calculate the average energy of a configuration */
 double AverageEnergyConfigMode(CONFIG *cfg, int md) {
-  int i, j, n, kappa, nq, np, kappap, nqp;
+  int i, j, n, kappa, nq, np, kappap, nqp, k2;
   int k, kp, kk, kl, klp, kkmin, kkmax, j2, j2p;
   double x, y, t, q, a, b, r, e, *v1, *v2;
- 
+
   x = 0.0;
   for (i = 0; i < cfg->n_shells; i++) {
     n = (cfg->shells[i]).n;
@@ -6290,6 +6290,7 @@ double AverageEnergyConfigMode(CONFIG *cfg, int md) {
       if (nq > 1) {
 	t = 0.0;
 	for (kk = 1; kk <= j2; kk += 1) {
+	  k2 = kk*2;
 	  y = 0;
 	  if (kk == 1 && qed.sms) {
 	    v1 = Vinti(k, k);
@@ -6298,6 +6299,9 @@ double AverageEnergyConfigMode(CONFIG *cfg, int md) {
 	  }
 	  if (IsEven(kk)) {
 	    Slater(&y, k, k, k, k, kk, 0);
+	    if (k2 < MAXKSSC && k < MAXNSSC) {
+	      y *= _slater_scale[k2][k][k];
+	    }
 	  }
 	  if (v1 && qed.sms == 3) {
 	    double a1 = ReducedCL(j2, 2*kk, j2);
@@ -6320,6 +6324,9 @@ double AverageEnergyConfigMode(CONFIG *cfg, int md) {
 	  }
 	}
 	Slater(&y, k, k, k, k, 0, 0);
+	if (MAXKSSC > 0 && k < MAXNSSC) {
+	  y *= _slater_scale[0][k][k];
+	}
 	b = ((nq-1.0)/2.0) * (y - (1.0 + 1.0/j2)*t);
       } else {
 	b = 0.0;
@@ -6357,6 +6364,9 @@ double AverageEnergyConfigMode(CONFIG *cfg, int md) {
 	  }
 	  if (IsEven((kl+klp+kk)/2)) {
 	    Slater(&y, k, kp, kp, k, kk2, 0);
+	    if (kk+1 < MAXKSSC && k < MAXNSSC && kp < MAXNSSC) {
+	      y *= _slater_scale[kk+1][k][kp];
+	    }
 	    if (v1 && v2) {	    
 	      y -= (v1[0]+v1[2])*v2[0]/am;
 	    }
@@ -6393,6 +6403,9 @@ double AverageEnergyConfigMode(CONFIG *cfg, int md) {
 	}
 	y = 0;
 	Slater(&y, k, kp, k, kp, 0, 0);
+	if (MAXKSSC > 1 && k < MAXNSSC && kp < MAXNSSC) {
+	  y *= _slater_scale[1][k][kp];
+	}
 	t += nqp * (y - a);
       }    
       ResidualPotential(&y, k, k);
@@ -7825,6 +7838,7 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
       }
       if (IsEven((kl0+kl2)/2+kk) && IsEven((kl1+kl3)/2+kk)) {	
 	err = Slater(&d, k0, k1, k2, k3, kk, mode);
+	d *= xd;
 	if (v1 && v2) {
 	  d -= (v1[0] + v1[2]) * v2[0]/am;
 	}
@@ -7869,7 +7883,7 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 	if (k0 == k1 && k2 == k3) d *= 0.5;
       }
     }
-    *sd = d*xd;
+    *sd = d;
   }
   
   if (!se) goto EXIT;
@@ -7912,6 +7926,7 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
       }
       if (IsEven((kl0+kl3+t)/2) && IsEven((kl1+kl2+t)/2)) {
 	err = Slater(&e, k0, k1, k3, k2, t/2, mode);
+	e *= xe;
 	if (v1 && v2) {
 	  e -= (v1[0]+v1[2])*v2[0]/am;
 	}
@@ -7952,7 +7967,7 @@ int SlaterTotal(double *sd, double *se, int *j, int *ks, int k, int mode) {
 	}
       }
       if (e) {
-	e *= a * (k + 1.0) * a1 * a2 * xe;
+	e *= a * (k + 1.0) * a1 * a2;
 	if (IsOdd(t/2 + kk)) e = -e;
 	*se += e;
       }

@@ -90,6 +90,10 @@ static int _ix_iai[100];
 static int _nc_iai = 0;
 static int _nilast = 1;
 static int _collapse_mask = 0xff;
+static double _sfu_smin = -1.0;
+static double _sfu_dmax = 1.0;
+static double _sfu_wf = 1.0;
+static double _sfu_de = 0.0;
 
 #define _WSF0(sv, f) do{				\
     n = FWRITE(&(sv), sizeof(sv), 1, f);		\
@@ -7876,6 +7880,10 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
     iup2ph[k] = 0;
   }
   nk = k1-k0+1;
+  if (nk <= 0) {
+    printf("invalid k0 and k1: %d %d\n", k0, k1);
+    return;
+  }
   ima = malloc(sizeof(int *)*nk);
   for (i = 0; i < nk; i++) ima[i] = NULL;
   de = malloc(sizeof(double)*nk);
@@ -7897,7 +7905,22 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
     }
     fclose(frp1);
   }
-  
+  sprintf(ofn, "%s%02d%02db.uf", pref, k0, k1);
+  frp1 = fopen(ofn, "w");
+  if (frp1 != NULL) {
+    for (k = k1; k >= k0; k--) {
+      sprintf(ifn, "%s%02db.uf", pref, k);
+      frp0 = fopen(ifn, "r");
+      if (frp0 != NULL) {
+	while(NULL != fgets(buf, 1024, frp0)) {
+	  fprintf(frp1, "%s", buf);
+	}
+	fclose(frp0);
+	fprintf(frp1, "\n");
+      }
+    }
+    fclose(frp1);
+  }
   nth = 0;
   z = 0;
   for (k = k1; k >= k0; k--) {
@@ -8698,7 +8721,81 @@ int GroupLevels(EN_RECORD *rs, int nr, double ei, double des,
       n++;
     }
   }
+
   return ng;
+}
+
+int LoadSFU(char *ipr, int ke, double **efu) {
+  char buf[1024], ifn[1024];
+  FILE *f;
+  double d0, d1, d2, d3, d4;
+  int nmx, i, j, k, t, n, i0, i1;
+  int nm1, nm2, nm3, nm4, nm5;
+  
+  sprintf(ifn, "%sb.uf", ipr);
+  f = fopen(ifn, "r");
+  if (f == NULL) {
+    printf("cannot open file: %s", ifn);
+    return 0;
+  }
+
+  nmx = 0;
+  while (1) {
+    if (NULL == fgets(buf, 1024, f)) break;
+    char *c = buf;
+    while (c && isspace(*c)) c++;
+    if (*c == '\0') continue;
+    if (buf[0] == '#') {
+      n = sscanf(buf+1, "%d %d", &k, &nmx);
+      if (n != 2) {
+	printf("invalid sfu file 0: %s\n", ifn);
+	fclose(f);
+	return 0;
+      }
+      if (k != ke) {
+	for (i = 0; i < nmx; i++) {
+	  for (j = i; j < nmx; j++) {
+	    if (NULL == fgets(buf, 1024, f)) {
+	      fclose(f);
+	      return 0;
+	    }
+	  }
+	}
+	continue;
+      }
+      nm1 = nmx*nmx;
+      nm2 = nm1*2;
+      nm3 = nm1*3;
+      nm4 = nm1*4;
+      nm5 = nm1*5;
+      *efu = malloc(sizeof(double)*6*nm1);
+      for (i = 0; i < 6*nm1; i++) {
+	(*efu)[i] = 0.0;
+      }
+      for (i = 0; i < nmx; i++) {
+	for (j = 0; j < nmx; j++) {
+	  char *r = fgets(buf, 1024, f);
+	  if (NULL == r) {
+	    free(*efu);
+	    printf("invalid sfu file 1: %s\n", ifn);
+	    return 0;
+	  }
+	  n=sscanf(buf, "%d %d %lg %lg %lg %lg %lg %d %d\n",
+		   &t, &k, &d0, &d1, &d2, &d3, &d4, &i0, &i1);
+	  k = j*nmx + i;
+	  (*efu)[k] = d0/HARTREE_EV;
+	  (*efu)[k+nm1] = d1/HARTREE_EV;
+	  (*efu)[k+nm2] = d2;
+	  (*efu)[k+nm3] = d3;
+	  (*efu)[k+nm4] = i0;
+	  (*efu)[k+nm5] = i1;
+	}
+      }
+      break;
+    }
+  }
+  fclose(f);
+  return nmx;
 }
 
 void CollapseDBase(char *ipr, char *opr, int k0, int k1,
@@ -8725,7 +8822,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
   char ext[7][3] = {"en", "tr", "ce", "rr", "ci", "ai", "rc"};
   int types[7] = {DB_EN, DB_TR, DB_CE, DB_RR, DB_CI, DB_AI, DB_RC};
   int k, i, j, n, nb, nlevs, vn, swp, z, nth;
-  int ng0, ng1, ng, dm, ng2, ilo, iup, t, s;
+  int ng0, ng1, ng, dm, ng2, ilo, iup, m, t, s;
   int klev[N_ELEMENTS1], ngrp[N_ELEMENTS1];
   int imin[N_ELEMENTS1], imax[N_ELEMENTS1];
   LEVGRP *rg[N_ELEMENTS1];
@@ -8769,7 +8866,6 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
     if (k < nt0) nt0 = k;
     if (k > nt1) nt1 = k;
     klev[k] += h0.nlevels;
-    tlevs += klev[k];
     FSEEK(f0, h0.length, SEEK_CUR);
   }
   n = 0;
@@ -8780,6 +8876,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
       klev[k] = 0;
     }
   }
+  tlevs = n;
   FCLOSE(f0);
 
   for (k = 0; k <= z; k++) {
@@ -8915,9 +9012,87 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
     if (f1[1]) {
       TR_ALL **rt;
       int gauges[3] = {1, 2, 10};
-      int ig, ib;
+      int i0, ig, ib, nmx, nm, nmx1, nmx2, nmx3, nmx4;
+      double *efu;
+      short **nq;
+      char c, nc0[LNCOMPLEX], *p0, *p1;
+      
       for (k = z; k >= 0; k--) {
 	if (ngrp[k] == 0) continue;
+	nm = 0;
+	if (_sfu_smin >= 0 && ngrp[k] > 1) {
+	  nmx = LoadSFU(ipr, k, &efu);
+	  if (nmx > 0) {
+	    nmx1 = nmx*nmx;
+	    nmx2 = nmx1*2;
+	    nmx3 = nmx1*3;
+	    nmx4 = nmx1*4;
+	    nm = 0;
+	    for (i = 0; i < klev[k]; i++) {
+	      if (ra[k][i].p < 0) {
+		j = (-ra[k][i].p)/100;
+	      } else {
+		j = ra[k][i].p/100;
+	      }
+	      if (nm < j) nm = j;
+	    }
+	    n = imax[k]-imin[k]+1;
+	    nq = malloc(sizeof(short *)*n);
+	    for (i = 0; i < n; i++) nq[i] = NULL;
+	    for (i = 0; i < klev[k]; i++) {
+	      ig = ra[k][i].ilev-imin[k];
+	      nq[ig] = malloc(sizeof(short)*nm);
+	      for (j = 0; j < nm; j++) nq[ig][j] = 0;
+	      p0 = ra[k][i].ncomplex;
+	      p1 = nc0;
+	      for (j = 0; j < LNCOMPLEX; j++) {
+		if (isspace(p0[j])) continue;
+		if (p0[j] == '\0') break;
+		*p1 = p0[j];
+		p1++;
+	      }
+	      *p1 = '\0';
+	      m = p1-nc0;
+	      i0 = 0;
+	      ib = 0;
+	      for (j = 0; j <= m; j++) {
+		c = nc0[j];
+		if (c == '*') {
+		  vn = atoi(&nc0[i0]);
+		  i0 = j+1;
+		} else if (c == '.' || c == '\0') {
+		  nq[ig][vn-1] = (short)(atoi(&nc0[i0]));
+		  ib += nq[ig][vn-1];
+		  i0 = j+1;
+		}
+		if (c == '\0') break;
+	      }
+	      if (ib < k) {
+		int mk = 8;
+		int mi = (1<<mk)-1;
+		for (j = 0; j < mi; j++) {
+		  int nst = 0;
+		  for (t = 0; t < mk; t++) {
+		    if ((j&(1<<t)) && nq[ig][t] == 0) {
+		      nst += 2*(t+1)*(t+1);
+		    }
+		  }
+		  if (nst == k-ib) {
+		    for (t = 0; t < mk; t++) {
+		      if ((j&(1<<t)) && nq[ig][t] == 0) {
+			nq[ig][t] = 2*(t+1)*(t+1);
+			ib += nq[ig][t];
+		      }
+		    }
+		    break;
+		  }
+		}
+	      }
+	    }
+	  }
+	} else {
+	  nmx = 0;
+	}
 	wt0 = WallTime();
 	sprintf(ifn, "%sb.tr", ipr);
 	for (ig = 0; ig < 3; ig++) {	  
@@ -8980,16 +9155,59 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 		  if (e <= 0) {
 		    e = rg[k][iup].r.energy - rg[k][ilo].r.energy;
 		  }
-		  /*
-		  if (mem_en_table[r1.lower].ibase == -mem_en_table_size ||
-		      mem_en_table[r1.upper].ibase == -mem_en_table_size) {
-		    e += 10.0/HARTREE_EV;
+		  if (_sfu_smin >= 0 && nmx > 0) {
+		    if (mem_en_table[r1.lower].ibase == -mem_en_table_size ||
+			mem_en_table[r1.upper].ibase == -mem_en_table_size) {
+		      s = r1.lower - imin[k];
+		      t = r1.upper - imin[k];
+		      int nlo = 0;
+		      int nup = 0;
+		      for (m = 0; m < nm; m++) {
+			if (nlo == 0) {
+			  if (nq[s][m] > nq[t][m]) {
+			    nlo = m+1;
+			  }
+			}
+			if (nq[s][m] < nq[t][m]) {
+			  nup = m+1;
+			}
+		      }
+
+		      if (nlo == 0 && nup == 0) {
+			des = 1e30;
+			for (m = 0; m < nmx; m++) {
+			  nb = m*nmx + m;
+			  if (efu[nb+nmx3] > 0) {
+			    cs = fabs(e - efu[nb+nmx1]);
+			    if (cs < des) {
+			      des = cs;
+			      nlo = m+1;
+			    }
+			  }
+			}
+			nup = nlo;
+		      }
+		      if (nlo > 0 && nup > 0 && nlo <= nmx && nup <= nmx) {
+			nb = (nup-1)*nmx + nlo-1;
+			if (efu[nb+nmx3] > _sfu_smin &&
+			    efu[nb+nmx2] > _sfu_smin) {
+			  des = fabs(e - efu[nb+nmx1]);
+			  if (des < _sfu_dmax) {
+			    cs = efu[nb]-efu[nb+nmx1];
+			    if (_sfu_de > 0) {
+			      cs = Max(cs, _sfu_de);
+			    }
+			    e *= 1+cs/efu[nb+nmx1];
+			  }
+			}
+		      }
+		    }		    
 		  }
-		  */
 		  rt[j]->sd += r1.strength*e*e;
 		  rt[j]->r.strength += r1.strength;
 		  rt[j]->x.energy += e*r1.strength;
-		  rt[j]->x.sdev += r1x.sdev*r1x.sdev*r1.strength;
+		  cs = r1x.sdev*_sfu_wf;
+		  rt[j]->x.sdev += cs*r1.strength;
 		  rt[j]->x.sci += r1x.sci*r1.strength;
 		}		
 		nt0++;
@@ -9008,6 +9226,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 		rt[i]->sd /= rt[i]->r.strength;
 		e = rt[i]->sd - rt[i]->x.energy*rt[i]->x.energy;
 		if (e < 0.0) e = 0.0;
+		else e *= 0.1;
 		e = sqrt(e + rt[i]->x.sdev);
 		rt[i]->x.sdev = e;
 		WriteTRRecord(f1[1], &(rt[i]->r), &(rt[i]->x));
@@ -9017,6 +9236,14 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	    }
 	    DeinitFile(f1[1], &fh1[1]);
 	    free(rt);
+	    if (nmx > 0) {
+	      n = imax[k]-imin[k]+1;
+	      for (i = 0; i < n; i++) {
+		if (nq[i]) free(nq[i]);
+	      }
+	      free(nq);
+	      free(efu);
+	    }		
 	    wt1 = WallTime();
 	    printf(" %d %d %.3e\n", nt0, nt1, wt1-wt0);
 	  }
@@ -10181,6 +10408,22 @@ void SetOptionDBase(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "dbase:collapse_mask")) {
     _collapse_mask = ip;
+    return;
+  }
+  if (0 == strcmp(s, "dbase:sfu_smin")) {
+    _sfu_smin = dp;
+    return;
+  }
+  if (0 == strcmp(s, "dbase:sfu_dmax")) {
+    _sfu_dmax = dp/HARTREE_EV;
+    return;
+  }
+  if (0 == strcmp(s, "dbase:sfu_wf")) {
+    _sfu_wf = dp;
+    return;
+  }
+  if (0 == strcmp(s, "dbase:sfu_de")) {
+    _sfu_de = dp/HARTREE_EV;
     return;
   }
 }

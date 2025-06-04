@@ -6887,7 +6887,7 @@ void SaveTransitionMBPT(MBPT_TR *mtr) {
   F_HEADER fhdr;
   double *awgrid, *rg, a, x, e, s, s0;
   int n, i, j, k, m, t, ti, q, m1, m2, p;
-  int i0, i1, p1, p2, j1, j2, q1, q2;
+  int i0, i1, p1, p2, j1, j2, q1, q2, k0, k1;
 
   if (MyRankMPI() != 0) return;
   double wt0 = WallTime();
@@ -6911,7 +6911,7 @@ void SaveTransitionMBPT(MBPT_TR *mtr) {
       tr_hdr.mode = 0;
       InitFile(f, &fhdr, &tr_hdr);
       ResetWidMPI();
-#pragma omp parallel default(shared) private(i, j, k, sym, st, lev1, lev2, e, p1, j1, p2, j2, s0, i0, i1, m1, m2, a, p, rg, x, s, r, q1, q2)
+#pragma omp parallel default(shared) private(i, j, k, sym, st, lev1, lev2, e, p1, j1, p2, j2, s0, i0, i1, m1, m2, a, p, rg, x, s, r, q1, q2, k0, k1)
       {
       for (j = 1; j < n; j++) {
 	lev2 = GetLevel(j);
@@ -6932,7 +6932,7 @@ void SaveTransitionMBPT(MBPT_TR *mtr) {
 	  if (skip) continue;
 	  DecodePJ(lev1->pj, &p1, &j1);
 	  e = 0.0;
-	  k = TRMultipole(&s0, &e, m, i, j);
+	  k = TRMultipole(&s0, &e, m, i, j, &k0, &k1);
 	  e *= FINE_STRUCTURE_CONST;
 	  if (k != 0) continue;
 	  s = 0;
