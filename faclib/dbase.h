@@ -788,5 +788,6 @@ void SetInnerAI(char *s);
 double GroundEnergy(int k);
 int *InitTransReport(int *np);
 void PrintTransReport(int nproc, double t0, int *ntrans, char *sid, int isf);
+int LoadSFU(char *ipr, int ke, double **efu);
 #endif
 

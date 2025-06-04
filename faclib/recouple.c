@@ -1565,7 +1565,7 @@ int GetInteract(INTERACT_DATUM **idatum,
 
   ci = GetConfigFromGroup(kgi, kci);
   cj = GetConfigFromGroup(kgj, kcj);
-  if (ci->n_csfs > 0 && cj->n_csfs > 0) {
+  if (ci->n_csfs > 0 && cj->n_csfs > 0 && sbra && sket) {
     csf_i = ci->csfs + ki;
     csf_j = cj->csfs + kj;
   } else {
