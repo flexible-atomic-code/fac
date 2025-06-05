@@ -92,8 +92,10 @@ static int _nilast = 1;
 static int _collapse_mask = 0xff;
 static double _sfu_smin = -1.0;
 static double _sfu_dmax = 1.0;
-static double _sfu_wf = 1.0;
-static double _sfu_de = 0.0;
+static double _sfu_uwf = 1.0;
+static double _sfu_cwf = 0.0;
+static double _sfu_minde = -1e30;
+static double _sfu_maxde = 1e30;
 
 #define _WSF0(sv, f) do{				\
     n = FWRITE(&(sv), sizeof(sv), 1, f);		\
@@ -7988,10 +7990,14 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
       nlevs += h0.nlevels;
     }
     if (_adj_ip) {
-      eip = GetGroundIP(z, k);
+      eip = GetGroundIP(z, k)/HARTREE_EV;
       if (eip > 0) {
-	e1 = e0 + eip/HARTREE_EV;
+	e1 = e0 + eip;
+      } else {
+	eip = -1;
       }
+    } else {
+      eip = -1;
     }
     if (k < k1) {
       de[k-k0] = de[k+1-k0]+ (e1p - e0);
@@ -8190,6 +8196,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
     wt0 = WallTime();
     printf("writing level file: %d %d %s ...", z, k, ifn);
     fflush(stdout);
+    e0 = 1e30;
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = ReadENHeader(f0, &h0, swp);
       if (n == 0) break;
@@ -8204,6 +8211,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	  }
 	  r0.ilev = im[r0.ilev];
 	  r0.energy += de[k-k0];
+	  if (r0.energy < e0) e0 = r0.energy;
 	  Match2PhotonLevels(k, &r0, ilow2ph, iup2ph, elow2ph, eup2ph);
 	  WriteENRecord(f1[0], &r0);
 	  if (nm[k-k0] < vn) nm[k-k0] = vn;
@@ -8239,6 +8247,9 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	      r0.ibase = im[r0.ibase];
 	    }
 	    r0.ilev = im[r0.ilev];
+	    if (eip > 0) {
+	      r0.energy = e0 + eip;
+	    }
 	    WriteENRecord(f1[0], &r0);
 	  }
 	  DeinitFile(f1[0], &fh1[0]);
@@ -8739,6 +8750,7 @@ int LoadSFU(char *ipr, int ke, double **efu) {
     return 0;
   }
 
+  *efu = NULL;
   nmx = 0;
   while (1) {
     if (NULL == fgets(buf, 1024, f)) break;
@@ -8795,6 +8807,7 @@ int LoadSFU(char *ipr, int ke, double **efu) {
     }
   }
   fclose(f);
+  if (*efu == NULL) nmx = 0;
   return nmx;
 }
 
@@ -9194,10 +9207,12 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 			  des = fabs(e - efu[nb+nmx1]);
 			  if (des < _sfu_dmax) {
 			    cs = efu[nb]-efu[nb+nmx1];
-			    if (_sfu_de > 0) {
-			      cs = Max(cs, _sfu_de);
-			    }
-			    e *= 1+cs/efu[nb+nmx1];
+			    cs = Max(cs, _sfu_minde);
+			    cs = Min(cs, _sfu_maxde);
+			    cs = 1 + cs/efu[nb+nmx1];
+			    cs = Max(1e-2, cs);
+			    cs = Min(1e2, cs);
+			    e *= cs;
 			  }
 			}
 		      }
@@ -9206,7 +9221,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 		  rt[j]->sd += r1.strength*e*e;
 		  rt[j]->r.strength += r1.strength;
 		  rt[j]->x.energy += e*r1.strength;
-		  cs = r1x.sdev*_sfu_wf;
+		  cs = r1x.sdev*_sfu_uwf;
 		  rt[j]->x.sdev += cs*r1.strength;
 		  rt[j]->x.sci += r1x.sci*r1.strength;
 		}		
@@ -9226,7 +9241,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 		rt[i]->sd /= rt[i]->r.strength;
 		e = rt[i]->sd - rt[i]->x.energy*rt[i]->x.energy;
 		if (e < 0.0) e = 0.0;
-		else e *= 0.1;
+		else e *= _sfu_cwf;
 		e = sqrt(e + rt[i]->x.sdev);
 		rt[i]->x.sdev = e;
 		WriteTRRecord(f1[1], &(rt[i]->r), &(rt[i]->x));
@@ -10418,12 +10433,20 @@ void SetOptionDBase(char *s, char *sp, int ip, double dp) {
     _sfu_dmax = dp/HARTREE_EV;
     return;
   }
-  if (0 == strcmp(s, "dbase:sfu_wf")) {
-    _sfu_wf = dp;
+  if (0 == strcmp(s, "dbase:sfu_uwf")) {
+    _sfu_uwf = dp;
     return;
   }
-  if (0 == strcmp(s, "dbase:sfu_de")) {
-    _sfu_de = dp/HARTREE_EV;
+  if (0 == strcmp(s, "dbase:sfu_minde")) {
+    _sfu_minde = dp/HARTREE_EV;
+    return;
+  }
+  if (0 == strcmp(s, "dbase:sfu_cwf")) {
+    _sfu_cwf = dp;
+    return;
+  }
+  if (0 == strcmp(s, "dbase:sfu_maxde")) {
+    _sfu_maxde = dp/HARTREE_EV;
     return;
   }
 }

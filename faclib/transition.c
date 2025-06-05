@@ -595,7 +595,6 @@ void AddSFU(int md, int k0, int k1, int ke, double e, double r) {
 #pragma omp atomic
 	_efu[i+nm5] += 1;
       }
-      if (_sfu_ke < ke) _sfu_ke = ke;
     }
   }
 }
@@ -1233,6 +1232,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	  }
 	  if (fn) {
 	    if (_sfu_nmax > 0 && rd[ir].r.lower >= 0 && rd[ir].r.upper >= 0) {
+	      if (_sfu_ke < nele) _sfu_ke = nele;
 	      lev1 = GetLevel(rd[ir].r.lower);
 	      lev2 = GetLevel(rd[ir].r.upper);
 	      if (lev1->n_basis > 0 && lev2->n_basis > 0 &&
@@ -1279,6 +1279,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 		       rd[ir].r.upper < 0 &&
 		       rd[ir].k0 >= 0 &&
 		       rd[ir].k1 >= 0) {
+	      if (_sfu_ke < nele) _sfu_ke = nele;
 	      lev2 = GetLevel(rd[ir].r.upper);
 	      c1 = GetConfigFromGroup(lev2->iham, lev2->pb);	      
 	      ORBITAL *orb = GetOrbital(rd[ir].k1);
