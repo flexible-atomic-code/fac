@@ -58,7 +58,7 @@ static int mem_en_table_size = 0;
 static EN_SRECORD *mem_enf_table = NULL;
 static int mem_enf_table_size = 0;
 static int iground;
-static double _eground[200];
+static double _eground[N_ELEMENTS1];
 static int iuta = 0;
 static int utaci = 1;
 static int cuta = 0;
@@ -96,6 +96,8 @@ static double _sfu_uwf = 1.0;
 static double _sfu_cwf = 0.0;
 static double _sfu_minde = -1e30;
 static double _sfu_maxde = 1e30;
+static char _shift_file[1024] = "";
+static double _ste = -1.0;
 
 #define _WSF0(sv, f) do{				\
     n = FWRITE(&(sv), sizeof(sv), 1, f);		\
@@ -831,7 +833,7 @@ int InitDBase(void) {
   mem_enf_table = NULL;
   mem_enf_table_size = 0;
   iground = 0;
-  for (i = 0; i < 200; i++) _eground[i] = 0.0;
+  for (i = 0; i < N_ELEMENTS1; i++) _eground[i] = 0.0;
   itrf = 0;
 
   if (_idxmap.imap == NULL) {
@@ -887,7 +889,7 @@ int ReinitDBase(int m) {
     return InitDBase();
   } else {
     iground = 0;
-    for (i = 0; i < 200; i++) _eground[i] = 0.0;
+    for (i = 0; i < N_ELEMENTS1; i++) _eground[i] = 0.0;
     itrf = 0;
     if (m > NDB) return -1;
     i = m-1;
@@ -2948,6 +2950,180 @@ void RemoveClosedShell(EN_RECORD *r) {
   else p[j] = '\0';
 }
 
+int FindNRShells(int nele, EN_RECORD *r, int nm, short *nqc, short *nqs) {
+  const int nmax=32;
+  const int nmax2 = (nmax*(nmax+1))/2;
+  int ncq[nmax], npq[nmax], nk[nmax];
+  int nsq[nmax2], jmq[nmax2], jpq[nmax2];
+  int nmj[nmax2], npj[nmax2], nmt[nmax2], npt[nmax2];
+  int i, i0, n, ns, nq, k, kp, ik, nqt, nst, mk, kf, dq, wk, mi, ij;
+  char c, *p0, *p1, nc0[LNCOMPLEX], sn0[LSNAME], nm0[LNAME], ss[16];
+
+  if (nm > nmax) return -1;
+  
+  for (i = 0; i < nmax; i++) {
+    ncq[i] = 0;
+    npq[i] = 0;
+  }
+  if (nqs) {
+    for (i = 0; i < nmax2; i++) {
+      nsq[i] = 0;
+      jmq[i] = 0;
+      jpq[i] = 0;
+      nmj[i] = 0;
+      npj[i] = 0;
+      nmt[i] = 0;
+      npt[i] = 0;
+    }
+  }
+  i0 = 0;
+  n = 0;
+  nqt = 0;
+  p0 = r->ncomplex;
+  p1 = nc0;
+  for (i = 0; i < LNCOMPLEX; i++) {
+    if (isspace(p0[i])) continue;
+    if (p0[i] == '\0') break;
+    *p1 = p0[i];
+    p1++;
+  }
+  *p1 = '\0';
+
+  ns = strlen(nc0);
+  for (i = 0; i <= ns; i++) {
+    c = nc0[i];
+    if (c == '*') {
+      n = atoi(&nc0[i0]);
+      i0 = i+1;
+    } else if (c == '.' || c == '\0') {
+      nq = atoi(&nc0[i0]);
+      ncq[n-1] = nq;
+      nqt += nq;
+      i0 = i+1;
+      if (c == '\0') break;
+    }
+  }
+  if (nqt > nele) return 1;
+  if (nqt < nele) {
+    mk = 8;
+    mi = (1<<mk)-1;
+    for (i = 0; i < mi; i++) {
+      nst = 0;
+      for (k = 0; k < mk; k++) {
+	if ((i & (1<<k)) && ncq[k] == 0) {
+	  nst += 2*(k+1)*(k+1);
+	}
+      }
+      if (nst == nele-nqt) {
+	for (k = 0; k < mk; k++) {
+	  if ((i & (1<<k)) && ncq[k] == 0) {
+	    ncq[k] = 2*(k+1)*(k+1);
+	    nqt += ncq[k];
+	  }
+	}
+	break;
+      }
+    }
+    if (nqt != nele) return 2;
+  }
+  for (n = 1; n <= nm; n++) {
+    nqc[n-1] = ncq[n-1];
+  }
+  
+  if (nqs) {
+    p0 = r->sname;
+    p1 = sn0;
+    for (i = 0; i < LSNAME; i++) {
+      if (isspace(p0[i])) continue;
+      if (p0[i] == '\0') break;
+      *p1 = p0[i];
+      p1++;
+    }
+    i0 = 0;
+    n = 0;
+    k = -1;
+    nst = 0;
+    ns = strlen(sn0);
+    for (i = 0; i <= ns; i++) {
+      c = sn0[i];
+      k = GetLFromSymbol(c);
+      if (k >= 0) {
+	n = atoi(&sn0[i0]);
+	kp = k;
+	ik = (n*(n-1))/2 + kp;
+	i0 = i+1;
+      } else if (c == '.' || c == '\0') {
+	nq = atoi(&sn0[i0]);
+	nsq[ik] = nq;
+	npq[n-1] += nq;
+	nst += nq;
+	i0 = i+1;
+	if (c == '\0') break;
+      }
+    }
+  
+    for (n = 1; n <= nmax; n++) {
+      i0 = (n*(n-1))/2;
+      if (ncq[n-1] > npq[n-1]) {
+	dq = ncq[n-1] - npq[n-1];
+	mk = -1;
+	kf = -1;
+	nqt = 0;
+	for (k = 0; k < n; k++) {
+	  if (nsq[k+i0] == 0) {
+	    mk++;
+	    nk[mk] = k;
+	    wk = 2*(2*k+1);
+	    if (wk > dq) {
+	      nk[mk] = -1;
+	      mk--;
+	    }
+	    nqt += wk;
+	  }
+	}
+	mk++;
+	if (nqt == dq) {
+	  for (k = 0; k < mk; k++) {
+	    wk = 2*(2*nk[k]+1);
+	    nsq[nk[k]+i0] = wk;
+	  }
+	} else if (nqt < dq) {
+	  return 3;
+	} else {
+	  mk = Min(mk,8);
+	  mi = (1<<mk) - 1;
+	  for (i = 0; i < mi; i++) {
+	    nst = 0;
+	    for (k = 0; k < mk; k++) {
+	      if (i&(1<<k)) {
+		nst += 2*(2*nk[k]+1);
+	      }
+	    }
+	    if (nst == dq) {
+	      for (k = 0; k < mk; k++) {
+		if (i&(1<<k)) {
+		  nsq[nk[k]+i0] = 2*(2*nk[k]+1);
+		}
+	      }
+	      break;
+	    }
+	  }
+	}
+      }
+    }
+    if (nqs) {
+      i0 = 0;
+      for (n = 1; n <= nm; n++) {
+	for (k = 0; k < n; k++) {
+	  nqs[i0] = nsq[i0];
+	  i0++;
+	}
+      }
+    }
+  }
+  return 0;
+}
+
 int FillClosedShell(int nele, EN_RECORD *r, char *nc, char *sn, char *nm) {
   const int nmax=32;
   const int nmax2 = (nmax*(nmax+1))/2;
@@ -4902,7 +5078,7 @@ int JFromENRecord(EN_RECORD *r) {
 }
 
 int IBaseFromENRecord(EN_RECORD *r) {
-  if (r->j < 0) return -1;
+  if (r->j < 0) return r->j;
   else return r->ibase;
 }
 
@@ -4953,7 +5129,7 @@ int MemENTableWC(char *fn, int k0, int *ifk, short ***nc) {
   mem_en_table = (EN_SRECORD *) malloc(sizeof(EN_SRECORD)*nlevels);
   mem_en_table_size = nlevels;
 
-  for (i = 0; i < 200; i++) _eground[i] = 0.0;
+  for (i = 0; i < N_ELEMENTS1; i++) _eground[i] = 0.0;
   e0 = 0.0;
   if (version_read[DB_EN-1] < 109) {
     FSEEK(f, sizeof(F_HEADER), SEEK_SET);
@@ -4975,7 +5151,11 @@ int MemENTableWC(char *fn, int k0, int *ifk, short ***nc) {
       mem_en_table[r.ilev].p = r.p;
       if (r.j < 0) {
 	mem_en_table[r.ilev].j = r.ibase;
-	mem_en_table[r.ilev].ibase = -nlevels;
+	if (r.j == -10) {
+	  mem_en_table[r.ilev].ibase = -1;
+	} else {
+	  mem_en_table[r.ilev].ibase = -nlevels-1;
+	}
       } else {
 	mem_en_table[r.ilev].j = r.j;
 	mem_en_table[r.ilev].ibase = r.ibase;
@@ -8642,7 +8822,7 @@ int GroupLevels(EN_RECORD *rs, int nr, double ei, double des,
 	memcpy(&rg[i].r, &rs[i], sizeof(EN_RECORD));
 	if (rg[i].r.j >= 0) {
 	  rg[i].r.ibase = rg[i].r.j;
-	  rg[i].r.j = -1;
+	  rg[i].r.j = -10;
 	}
 	rg[i].nlev = 1;
 	rg[i].ilev = malloc(sizeof(int));
@@ -8683,7 +8863,7 @@ int GroupLevels(EN_RECORD *rs, int nr, double ei, double des,
       memcpy(&rg[i].r, &rs[i], sizeof(EN_RECORD));
       if (rg[i].r.j >= 0) {
 	rg[i].r.ibase = rg[i].r.j;
-	rg[i].r.j = -1;
+	rg[i].r.j = -10;
       }
       rg[i].nlev = 1;
       rg[i].ilev = malloc(sizeof(int));
@@ -8714,7 +8894,11 @@ int GroupLevels(EN_RECORD *rs, int nr, double ei, double des,
 	  wt += w;
 	}
 	memcpy(&rg[ng].r, &(rs[j0]), sizeof(EN_RECORD));
-	rg[ng].r.j = -1;
+	if (n == 1) {
+	  rg[ng].r.j = -10;
+	} else {
+	  rg[ng].r.j = -1;
+	}
 	rg[ng].r.ibase = (int)(wt-0.5);
 	rg[ng].r.energy *= w0;
 	for (k = 0; k < n; k++) {
@@ -8811,6 +8995,132 @@ int LoadSFU(char *ipr, int ke, double **efu) {
   return nmx;
 }
 
+int LoadLineShift(char *fn, int z, LINESHIFT *sd) {
+  FILE *f;
+  char buf[1024], *p;
+
+  printf("loading line shift data from %s\n", fn);
+  f = fopen(fn, "r");
+  if (f == NULL) {
+    printf("cannot open file: %s\n", fn);
+    return 0;
+  }
+  int i, j, n, ns, zi, ki, n0, n1, k0, k1;
+  double e0, e1, d0, d1;
+  for (i = 0; i < z; i++) {
+    sd[i].minlo = 1000000;
+    sd[i].maxlo = 0;
+    sd[i].minup = 1000000;
+    sd[i].maxup = 0;
+    sd[i].nde = 0;
+    sd[i].emin = NULL;
+    sd[i].emax = NULL;
+    sd[i].fde = NULL;
+    sd[i].ude = NULL;
+    sd[i].fme = NULL;
+    sd[i].ume = NULL;
+    sd[i].fwe = NULL;
+    sd[i].uwe = NULL;
+    sd[i].fst = NULL;
+    sd[i].ust = NULL;
+    sd[i].usd = NULL;
+  }
+
+  while (1) {
+    if (NULL == fgets(buf, 1024, f)) break;
+    p = buf;
+    while(isspace(*p)) p++;
+    if (p[0] == '#') continue;
+    n = sscanf(p, "%d %d %d %d %lg %lg %lg %lg",
+	       &zi, &ki, &n0, &n1, &e0, &e1, &d0, &d1);
+    if (n != 8) continue;
+    if (z != zi) continue;
+    if (ki <= 0) continue;
+    if (ki > 1000) {
+      k0 = ki/1000;
+      k1 = ki%1000;
+    } else {
+      k0 = ki;
+      k1 = ki;
+    }
+    for (ki = k0; ki <= k1; ki++) {      
+      if (ki < 1 || ki > z) continue;
+      i = ki-1;
+      if (n0 < sd[i].minlo) sd[i].minlo = n0;
+      if (n0 > sd[i].maxlo) sd[i].maxlo = n0;
+      if (n1 < sd[i].minup) sd[i].minup = n1;
+      if (n1 > sd[i].maxup) sd[i].maxup = n1;
+    }
+  }
+  ns = 0;
+  for (i = 0; i < z; i++) {
+    if (sd[i].maxlo >= sd[i].minlo &&
+	sd[i].maxup >= sd[i].minup) {
+      sd[i].nlo = 1 + sd[i].maxlo - sd[i].minlo;
+      sd[i].nup = 1 + sd[i].maxup - sd[i].minup;
+      sd[i].nde = sd[i].nlo * sd[i].nup;
+      sd[i].emin = malloc(sizeof(double)*sd[i].nde);
+      sd[i].emax = malloc(sizeof(double)*sd[i].nde);
+      sd[i].fde = malloc(sizeof(double)*sd[i].nde);
+      sd[i].ude = malloc(sizeof(double)*sd[i].nde);
+      sd[i].fme = malloc(sizeof(double)*sd[i].nde);
+      sd[i].fwe = malloc(sizeof(double)*sd[i].nde);
+      sd[i].ume = malloc(sizeof(double)*sd[i].nde);
+      sd[i].uwe = malloc(sizeof(double)*sd[i].nde);
+      sd[i].fst = malloc(sizeof(double)*sd[i].nde);
+      sd[i].ust = malloc(sizeof(double)*sd[i].nde);
+      sd[i].usd = malloc(sizeof(double)*sd[i].nde);
+      for (j = 0; j < sd[i].nde; j++) {
+	sd[i].emin[j] = 0.0;
+	sd[i].emax[j] = 0.0;
+	sd[i].fde[j] = 0.0;
+	sd[i].ude[j] = 0.0;
+	sd[i].fme[j] = 0.0;
+	sd[i].fwe[j] = 0.0;
+	sd[i].ume[j] = 0.0;
+	sd[i].uwe[j] = 0.0;
+	sd[i].fst[j] = 0.0;
+	sd[i].ust[j] = 0.0;
+	sd[i].usd[j] = 0.0;
+      }
+      ns++;
+    }
+  }
+
+  if (ns == 0) return ns;
+  fseek(f, 0, SEEK_SET);
+  while (1) {
+    if (NULL == fgets(buf, 1024, f)) break;
+    p = buf;
+    while(isspace(*p)) p++;
+    if (p[0] == '#') continue;
+    n = sscanf(buf, "%d %d %d %d %lg %lg %lg %lg",
+	       &zi, &ki, &n0, &n1, &e0, &e1, &d0, &d1);
+    if (n != 8) continue;
+    if (z != zi) continue;
+    if (ki <= 0) continue;
+    if (ki > 1000) {
+      k0 = ki/1000;
+      k1 = ki%1000;
+    } else {
+      k0 = ki;
+      k1 = ki;
+    }
+    for (ki = k0; ki <= k1; ki++) {      
+      if (ki < 1 || ki > z) continue;
+      i = ki-1;
+      j = (n1-sd[i].minup)*sd[i].nlo + n0-sd[i].minlo;
+      sd[i].emin[j] = e0/HARTREE_EV;
+      sd[i].emax[j] = e1/HARTREE_EV;
+      sd[i].fde[j] = d0/HARTREE_EV;
+      sd[i].ude[j] = d1/HARTREE_EV;
+    }
+  }
+  fclose(f);
+  return ns;
+}
+
+		  
 void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 		   double des00, double des01,
 		   int minlevs, int maxlevs, int ic) {
@@ -9025,87 +9335,61 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
     if (f1[1]) {
       TR_ALL **rt;
       int gauges[3] = {1, 2, 10};
-      int i0, ig, ib, nmx, nm, nmx1, nmx2, nmx3, nmx4;
+      int i0, i1, ig, ib, nm, nm2, nmx, nmx1, nmx2, nmx3, nmx4;
       double *efu;
-      short **nq;
+      short **nq, *nqs;
       char c, nc0[LNCOMPLEX], *p0, *p1;
-      
-      for (k = z; k >= 0; k--) {
-	if (ngrp[k] == 0) continue;
-	nm = 0;
-	if (_sfu_smin >= 0 && ngrp[k] > 1) {
-	  nmx = LoadSFU(ipr, k, &efu);
-	  if (nmx > 0) {
-	    nmx1 = nmx*nmx;
-	    nmx2 = nmx1*2;
-	    nmx3 = nmx1*3;
-	    nmx4 = nmx1*4;
-	    nm = 0;
-	    for (i = 0; i < klev[k]; i++) {
-	      if (ra[k][i].p < 0) {
-		j = (-ra[k][i].p)/100;
-	      } else {
-		j = ra[k][i].p/100;
-	      }
-	      if (nm < j) nm = j;
-	    }
-	    n = imax[k]-imin[k]+1;
-	    nq = malloc(sizeof(short *)*n);
-	    for (i = 0; i < n; i++) nq[i] = NULL;
-	    for (i = 0; i < klev[k]; i++) {
-	      ig = ra[k][i].ilev-imin[k];
-	      nq[ig] = malloc(sizeof(short)*nm);
-	      for (j = 0; j < nm; j++) nq[ig][j] = 0;
-	      p0 = ra[k][i].ncomplex;
-	      p1 = nc0;
-	      for (j = 0; j < LNCOMPLEX; j++) {
-		if (isspace(p0[j])) continue;
-		if (p0[j] == '\0') break;
-		*p1 = p0[j];
-		p1++;
-	      }
-	      *p1 = '\0';
-	      m = p1-nc0;
-	      i0 = 0;
-	      ib = 0;
-	      for (j = 0; j <= m; j++) {
-		c = nc0[j];
-		if (c == '*') {
-		  vn = atoi(&nc0[i0]);
-		  i0 = j+1;
-		} else if (c == '.' || c == '\0') {
-		  nq[ig][vn-1] = (short)(atoi(&nc0[i0]));
-		  ib += nq[ig][vn-1];
-		  i0 = j+1;
-		}
-		if (c == '\0') break;
-	      }
-	      if (ib < k) {
-		int mk = 8;
-		int mi = (1<<mk)-1;
-		for (j = 0; j < mi; j++) {
-		  int nst = 0;
-		  for (t = 0; t < mk; t++) {
-		    if ((j&(1<<t)) && nq[ig][t] == 0) {
-		      nst += 2*(t+1)*(t+1);
-		    }
-		  }
-		  if (nst == k-ib) {
-		    for (t = 0; t < mk; t++) {
-		      if ((j&(1<<t)) && nq[ig][t] == 0) {
-			nq[ig][t] = 2*(t+1)*(t+1);
-			ib += nq[ig][t];
-		      }
-		    }
-		    break;
-		  }
-		}
-	      }
-	    }
-	  }
-	} else {
-	  nmx = 0;
+      LINESHIFT *sd;
+
+      sd = NULL;
+      nq = NULL;
+      nqs = NULL;
+      if (strlen(_shift_file) > 0) {
+	sd = malloc(sizeof(LINESHIFT)*z);
+	nb = LoadLineShift(_shift_file, z, sd);
+	if (nb == 0) {
+	  free(sd);
+	  sd = NULL;
 	}
+      }
+      for (k = z; k >= 0; k--) {
+	if (ngrp[k] <= 1) continue;
+	nm = 0;
+	nmx = 0;
+	if (_sfu_smin >= 0) {
+	  nmx = LoadSFU(ipr, k, &efu);
+	}
+	if (sd || nmx) {
+	  nm = 0;
+	  for (i = 0; i < klev[k]; i++) {
+	    if (ra[k][i].p < 0) {
+	      n = (-ra[k][i].p)/100;
+	    } else {
+	      n = (ra[k][i].p)/100;
+	    }
+	    if (n > nm) nm = n;
+	  }
+	  nm2 = (nm*(nm+1))/2;
+	  n = imax[k]-imin[k]+1;
+	  nq = malloc(sizeof(short *)*n);
+	  for (i = 0; i < n; i++) nq[i] = NULL;
+	  for (i = 0; i < klev[k]; i++) {
+	    ig = ra[k][i].ilev - imin[k];
+	    nq[ig] = malloc(sizeof(short)*(nm+nm2));
+	    nqs = nq[ig] + nm;
+	    for (j = 0; j < nm+nm2; j++) {
+	      nq[ig][j] = 0;
+	    }
+	    j = FindNRShells(k, &ra[k][i], nm, nq[ig], nqs);
+	  }		
+	}
+	if (nmx > 0) {
+	  nmx1 = nmx*nmx;
+	  nmx2 = nmx1*2;
+	  nmx3 = nmx1*3;
+	  nmx4 = nmx1*4;
+	}
+
 	wt0 = WallTime();
 	sprintf(ifn, "%sb.tr", ipr);
 	for (ig = 0; ig < 3; ig++) {	  
@@ -9162,30 +9446,79 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 		    rt[j]->x.sci = 0.0;
 		    rt[j]->r.lower = rg[k][ilo].r.ilev;
 		    rt[j]->r.upper = rg[k][iup].r.ilev;
-		    rt[j]->sd = 0.0;
 		  }
 		  e = r1x.energy;
 		  if (e <= 0) {
-		    e = rg[k][iup].r.energy - rg[k][ilo].r.energy;
+		    e = mem_en_table[r1.upper].energy-mem_en_table[r1.lower].energy;
 		  }
-		  if (_sfu_smin >= 0 && nmx > 0) {
-		    if (mem_en_table[r1.lower].ibase == -mem_en_table_size ||
-			mem_en_table[r1.upper].ibase == -mem_en_table_size) {
-		      s = r1.lower - imin[k];
-		      t = r1.upper - imin[k];
-		      int nlo = 0;
-		      int nup = 0;
-		      for (m = 0; m < nm; m++) {
-			if (nlo == 0) {
-			  if (nq[s][m] > nq[t][m]) {
-			    nlo = m+1;
-			  }
-			}
-			if (nq[s][m] < nq[t][m]) {
-			  nup = m+1;
+		  int isuta = 0;
+		  if (mem_en_table[r1.lower].ibase == -mem_en_table_size-1 ||
+		      mem_en_table[r1.upper].ibase == -mem_en_table_size-1) {
+		    isuta = 1;
+		  }
+		  if (ig < 10 && (sd || (isuta && _sfu_smin >= 0 && nmx > 0))) {
+		    s = r1.lower - imin[k];
+		    t = r1.upper - imin[k];
+		    int nlo = 0;
+		    int nup = 0;
+		    for (m = 0; m < nm; m++) {
+		      if (nlo == 0) {
+			if (nq[s][m] > nq[t][m]) {
+			  nlo = m+1;
 			}
 		      }
-
+		      if (nq[s][m] < nq[t][m]) {
+			nup = m+1;
+		      }
+		    }
+		    if (nlo == 0 && nup == 0) {
+		      i0 = nm;
+		      for (m = 1; m <= nm; m++) {
+			for (i1 = 0; i1 < m; i1++) {			 
+			  if (nq[s][i0] != nq[t][i0]) {
+			    nlo = m;
+			    nup = nlo;
+			    break;
+			  }
+			  i0++;
+			}
+			if (nlo > 0) break;
+		      }
+		    }		
+		    if (nlo > 0 && nup > 0 && sd) {
+		      int km = k-1;
+		      if (sd[km].nde > 0) {
+			double emin, emax, fde, ude;
+			i0 = nlo - sd[km].minlo;
+			i1 = nup - sd[km].minup;
+			i0 = i1*sd[km].nlo + i0;
+			emin = sd[km].emin[i0];
+			emax = sd[km].emax[i0];
+			fde = sd[km].fde[i0];
+			ude = sd[km].ude[i0];
+			if (e >= emin && e <= emax) {
+			  if (_ste > 0) {
+			    des = mem_en_table[r1.upper].energy - _eground[k];
+			    cs = exp(-des/_ste)*r1.strength;
+			    if (isuta) {
+			      cs *= r1x.sci;
+			      sd[km].ume[i0] += cs*e;
+			      sd[km].uwe[i0] += cs*e*e;
+			      des = r1x.sdev*_sfu_uwf;
+			      sd[km].usd[i0] += cs*des*des;
+			      sd[km].ust[i0] += cs;			    
+			      e += ude;
+			    } else {
+			      sd[km].fme[i0] += cs*e;
+			      sd[km].fwe[i0] += cs*e*e;
+			      sd[km].fst[i0] += cs;	      
+			      e += fde;
+			    }
+			  }
+			}
+		      }
+		    }
+		    if (isuta && _sfu_smin >= 0 && nmx > 0) {
 		      if (nlo == 0 && nup == 0) {
 			des = 1e30;
 			for (m = 0; m < nmx; m++) {
@@ -9218,12 +9551,18 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 		      }
 		    }		    
 		  }
-		  rt[j]->sd += r1.strength*e*e;
-		  rt[j]->r.strength += r1.strength;
-		  rt[j]->x.energy += e*r1.strength;
-		  cs = r1x.sdev*_sfu_uwf;
-		  rt[j]->x.sdev += cs*r1.strength;
-		  rt[j]->x.sci += r1x.sci*r1.strength;
+		  if (isuta) {
+		    cs = r1.strength*r1x.sci;
+		  } else {
+		    cs = r1.strength;
+		  }
+		  if (cs > 0) {
+		    rt[j]->x.sci += cs*e*e;
+		    rt[j]->r.strength += cs;
+		    rt[j]->x.energy += e*cs;
+		    des = r1x.sdev*_sfu_uwf;
+		    rt[j]->x.sdev += des*des*cs;
+		  }
 		}		
 		nt0++;
 	      }
@@ -9235,35 +9574,98 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	    InitFile(f1[1], &fh1[1], &h1);
 	    for (i = 0; i < ng2; i++) {
 	      if (rt[i]) {
-		rt[i]->x.energy /= rt[i]->r.strength;
-		rt[i]->x.sdev /= rt[i]->r.strength;
-		rt[i]->x.sci /= rt[i]->r.strength;
-		rt[i]->sd /= rt[i]->r.strength;
-		e = rt[i]->sd - rt[i]->x.energy*rt[i]->x.energy;
-		if (e < 0.0) e = 0.0;
-		else e *= _sfu_cwf;
-		e = sqrt(e + rt[i]->x.sdev);
-		rt[i]->x.sdev = e;
-		WriteTRRecord(f1[1], &(rt[i]->r), &(rt[i]->x));
-		nt1++;
+		if (rt[i]->r.strength > 0) {
+		  rt[i]->x.energy /= rt[i]->r.strength;
+		  rt[i]->x.sdev /= rt[i]->r.strength;
+		  rt[i]->x.sci /= rt[i]->r.strength;
+		  e = rt[i]->x.sci - rt[i]->x.energy*rt[i]->x.energy;
+		  if (e < 0.0) e = 0.0;
+		  else e *= _sfu_cwf;
+		  e = sqrt(e + rt[i]->x.sdev);
+		  rt[i]->x.sdev = e;
+		  rt[i]->x.sci = 1.0;
+		  WriteTRRecord(f1[1], &(rt[i]->r), &(rt[i]->x));
+		  nt1++;
+		}
 		free(rt[i]);
 	      }
 	    }
 	    DeinitFile(f1[1], &fh1[1]);
 	    free(rt);
 	    if (nmx > 0) {
+	      free(efu);
+	    }
+	    if (nq) {
 	      n = imax[k]-imin[k]+1;
 	      for (i = 0; i < n; i++) {
 		if (nq[i]) free(nq[i]);
 	      }
 	      free(nq);
-	      free(efu);
 	    }		
 	    wt1 = WallTime();
 	    printf(" %d %d %.3e\n", nt0, nt1, wt1-wt0);
 	  }
 	}
       }
+      FILE *f = NULL;
+      if (sd) {
+	sprintf(buf, "%s.out", _shift_file);
+	f = fopen(buf, "w");
+      }
+      for (i = 0; i < z; i++) {
+	k = i+1;
+	if (ngrp[k] <= 1) continue;
+	if (sd[i].nde > 0) {
+	  if (f) {
+	    for (ilo = sd[i].minlo; ilo <= sd[i].maxlo; ilo++) {
+	      for (iup = sd[i].minup; iup <= sd[i].maxup; iup++) {
+		m = (iup-sd[i].minup)*sd[i].nlo + (ilo-sd[i].minlo);
+		if (sd[i].emax[m] > 0) {
+		  if (sd[i].fst[m] > 0) {
+		    sd[i].fme[m] /= sd[i].fst[m];
+		    sd[i].fwe[m] /= sd[i].fst[m];
+		    sd[i].fwe[m] = sd[i].fwe[m] - sd[i].fme[m]*sd[i].fme[m];
+		    if (sd[i].fwe[m] < 0) sd[i].fwe[m] = 0.0;
+		    sd[i].fwe[m] = sqrt(sd[i].fwe[m]);
+		  }
+		  if (sd[i].ust[m] > 0) {
+		    sd[i].ume[m] /= sd[i].ust[m];
+		    sd[i].uwe[m] /= sd[i].ust[m];
+		    sd[i].usd[m] /= sd[i].ust[m];
+		    sd[i].uwe[m] = sd[i].uwe[m] - sd[i].ume[m]*sd[i].ume[m];
+		    if (sd[i].uwe[m] < 0) sd[i].uwe[m] = 0.0;
+		    sd[i].uwe[m] = sqrt(sd[i].uwe[m] + sd[i].usd[m]);
+		  }
+		  fprintf(f, "%3d %3d %2d %2d %12.6E %12.6E %12.6E %12.6E %12.6E %12.6E %12.6E %12.6E %12.6E\n",
+			  z, k, ilo, iup,
+			  sd[i].emin[m]*HARTREE_EV,
+			  sd[i].emax[m]*HARTREE_EV,
+			  sd[i].fme[m]*HARTREE_EV,
+			  sd[i].fwe[m]*HARTREE_EV,
+			  sd[i].fst[m],
+			  sd[i].ume[m]*HARTREE_EV,
+			  sd[i].uwe[m]*HARTREE_EV,
+			  sqrt(sd[i].usd[m])*HARTREE_EV,
+			  sd[i].ust[m]);
+		}
+	      }
+	    }
+	  }
+	  free(sd[i].emin);
+	  free(sd[i].emax);
+	  free(sd[i].fde);
+	  free(sd[i].ude);
+	  free(sd[i].fme);
+	  free(sd[i].ume);
+	  free(sd[i].fst);
+	  free(sd[i].ust);
+	  free(sd[i].fwe);
+	  free(sd[i].uwe);
+	  free(sd[i].usd);
+	}
+      }
+      if (sd) free(sd);
+      if (f) fclose(f);
     }
     if (f1[2]) {
       CE_RECORD **rt;
@@ -10447,6 +10849,14 @@ void SetOptionDBase(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "dbase:sfu_maxde")) {
     _sfu_maxde = dp/HARTREE_EV;
+    return;
+  }
+  if (0 == strcmp(s, "dbase:line_shift")) {
+    strncpy(_shift_file, sp, 1024);
+    return;
+  }
+  if (0 == strcmp(s, "dbase:ste")) {
+    _ste = dp/HARTREE_EV;
     return;
   }
 }

@@ -4153,7 +4153,6 @@ int SaveLevels(char *fn, int m, int n) {
       sp.kstate = 0;
 
       r.ilev = i;
-      r.ibase = lev->ibase;
       r.p = lev->pj;
       r.j = -1;
       r.ibase = lev->ilev;
