@@ -61,7 +61,18 @@
 #define LNAME       128
 
 #define MAXNCOMPLEX 8
-  
+
+typedef struct _LINESHIFT_ {
+  int minlo, maxlo;
+  int minup, maxup;
+  int nlo, nup, nde;
+  double *emin, *emax;  
+  double *fde, *ude;
+  double *fme, *ume;
+  double *fwe, *uwe, *usd;
+  double *fst, *ust;
+} LINESHIFT;
+
 typedef struct _NCOMPLEX_ {
   short n;
   short nq;
@@ -178,7 +189,6 @@ typedef struct _TR_EXTRA_ {
 typedef struct _TR_ALL_ {
   TR_RECORD r;
   TR_EXTRA x;
-  double sd;
 } TR_ALL;
 
 typedef struct _TRF_RECORD_ {
@@ -789,5 +799,7 @@ double GroundEnergy(int k);
 int *InitTransReport(int *np);
 void PrintTransReport(int nproc, double t0, int *ntrans, char *sid, int isf);
 int LoadSFU(char *ipr, int ke, double **efu);
+int LoadLineShift(char *fn, int z, LINESHIFT *sd);
+int FindNRShells(int nele, EN_RECORD *r, int nm, short *nqc, short *nqs);
 #endif
 
