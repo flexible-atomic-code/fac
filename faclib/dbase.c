@@ -92,11 +92,10 @@ static int _nilast = 1;
 static int _collapse_mask = 0xff;
 static double _sfu_smin = -1.0;
 static double _sfu_dmax = 1.0;
-static double _sfu_uwf = 1.0;
-static double _sfu_cwf = 0.0;
 static double _sfu_minde = -1e30;
 static double _sfu_maxde = 1e30;
-static char _shift_file[1024] = "";
+static double _cwf = 1.0;
+static char _transmod_file[1024] = "";
 static double _ste = -1.0;
 
 #define _WSF0(sv, f) do{				\
@@ -8995,18 +8994,18 @@ int LoadSFU(char *ipr, int ke, double **efu) {
   return nmx;
 }
 
-int LoadLineShift(char *fn, int z, LINESHIFT *sd) {
+int LoadTransMod(char *fn, int z, TRANSMOD *sd) {
   FILE *f;
   char buf[1024], *p;
 
-  printf("loading line shift data from %s\n", fn);
+  printf("load transmod data from %s\n", fn);
   f = fopen(fn, "r");
   if (f == NULL) {
     printf("cannot open file: %s\n", fn);
     return 0;
   }
   int i, j, n, ns, zi, ki, n0, n1, k0, k1;
-  double e0, e1, d0, d1;
+  double e0, e1, d0, d1, f0, f1, w0;
   for (i = 0; i < z; i++) {
     sd[i].minlo = 1000000;
     sd[i].maxlo = 0;
@@ -9017,6 +9016,9 @@ int LoadLineShift(char *fn, int z, LINESHIFT *sd) {
     sd[i].emax = NULL;
     sd[i].fde = NULL;
     sd[i].ude = NULL;
+    sd[i].fmf = NULL;
+    sd[i].umf = NULL;
+    sd[i].uwf = NULL;
     sd[i].fme = NULL;
     sd[i].ume = NULL;
     sd[i].fwe = NULL;
@@ -9031,9 +9033,9 @@ int LoadLineShift(char *fn, int z, LINESHIFT *sd) {
     p = buf;
     while(isspace(*p)) p++;
     if (p[0] == '#') continue;
-    n = sscanf(p, "%d %d %d %d %lg %lg %lg %lg",
-	       &zi, &ki, &n0, &n1, &e0, &e1, &d0, &d1);
-    if (n != 8) continue;
+    n = sscanf(p, "%d %d %d %d %lg %lg %lg %lg %lg %lg %lg",
+	       &zi, &ki, &n0, &n1, &e0, &e1, &d0, &d1, &f0, &f1, &w0);
+    if (n != 11) continue;
     if (z != zi) continue;
     if (ki <= 0) continue;
     if (ki > 1000) {
@@ -9063,6 +9065,9 @@ int LoadLineShift(char *fn, int z, LINESHIFT *sd) {
       sd[i].emax = malloc(sizeof(double)*sd[i].nde);
       sd[i].fde = malloc(sizeof(double)*sd[i].nde);
       sd[i].ude = malloc(sizeof(double)*sd[i].nde);
+      sd[i].fmf = malloc(sizeof(double)*sd[i].nde);
+      sd[i].umf = malloc(sizeof(double)*sd[i].nde);
+      sd[i].uwf = malloc(sizeof(double)*sd[i].nde);
       sd[i].fme = malloc(sizeof(double)*sd[i].nde);
       sd[i].fwe = malloc(sizeof(double)*sd[i].nde);
       sd[i].ume = malloc(sizeof(double)*sd[i].nde);
@@ -9075,6 +9080,9 @@ int LoadLineShift(char *fn, int z, LINESHIFT *sd) {
 	sd[i].emax[j] = 0.0;
 	sd[i].fde[j] = 0.0;
 	sd[i].ude[j] = 0.0;
+	sd[i].fmf[j] = 1.0;
+	sd[i].umf[j] = 1.0;
+	sd[i].uwf[j] = 1.0;
 	sd[i].fme[j] = 0.0;
 	sd[i].fwe[j] = 0.0;
 	sd[i].ume[j] = 0.0;
@@ -9094,9 +9102,9 @@ int LoadLineShift(char *fn, int z, LINESHIFT *sd) {
     p = buf;
     while(isspace(*p)) p++;
     if (p[0] == '#') continue;
-    n = sscanf(buf, "%d %d %d %d %lg %lg %lg %lg",
-	       &zi, &ki, &n0, &n1, &e0, &e1, &d0, &d1);
-    if (n != 8) continue;
+    n = sscanf(buf, "%d %d %d %d %lg %lg %lg %lg %lg %lg %lg",
+	       &zi, &ki, &n0, &n1, &e0, &e1, &d0, &d1, &f0, &f1, &w0);
+    if (n != 11) continue;
     if (z != zi) continue;
     if (ki <= 0) continue;
     if (ki > 1000) {
@@ -9114,6 +9122,9 @@ int LoadLineShift(char *fn, int z, LINESHIFT *sd) {
       sd[i].emax[j] = e1/HARTREE_EV;
       sd[i].fde[j] = d0/HARTREE_EV;
       sd[i].ude[j] = d1/HARTREE_EV;
+      sd[i].fmf[j] = f0;
+      sd[i].umf[j] = f1;
+      sd[i].uwf[j] = w0;
     }
   }
   fclose(f);
@@ -9339,14 +9350,14 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
       double *efu;
       short **nq, *nqs;
       char c, nc0[LNCOMPLEX], *p0, *p1;
-      LINESHIFT *sd;
+      TRANSMOD *sd;
 
       sd = NULL;
       nq = NULL;
       nqs = NULL;
-      if (strlen(_shift_file) > 0) {
-	sd = malloc(sizeof(LINESHIFT)*z);
-	nb = LoadLineShift(_shift_file, z, sd);
+      if (strlen(_transmod_file) > 0) {
+	sd = malloc(sizeof(TRANSMOD)*z);
+	nb = LoadTransMod(_transmod_file, z, sd);
 	if (nb == 0) {
 	  free(sd);
 	  sd = NULL;
@@ -9448,13 +9459,18 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 		    rt[j]->r.upper = rg[k][iup].r.ilev;
 		  }
 		  e = r1x.energy;
+		  double gf = r1.strength;
+		  double uw = 0.0;
 		  if (e <= 0) {
-		    e = mem_en_table[r1.upper].energy-mem_en_table[r1.lower].energy;
+		    e = mem_en_table[r1.upper].energy -
+		      mem_en_table[r1.lower].energy;
 		  }
 		  int isuta = 0;
 		  if (mem_en_table[r1.lower].ibase == -mem_en_table_size-1 ||
 		      mem_en_table[r1.upper].ibase == -mem_en_table_size-1) {
 		    isuta = 1;
+		    gf *= r1x.sci;
+		    uw = r1x.sdev;
 		  }
 		  if (ig < 10 && (sd || (isuta && _sfu_smin >= 0 && nmx > 0))) {
 		    s = r1.lower - imin[k];
@@ -9499,22 +9515,27 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 			if (e >= emin && e <= emax) {
 			  if (_ste > 0) {
 			    des = mem_en_table[r1.upper].energy - _eground[k];
-			    cs = exp(-des/_ste)*r1.strength;
+			    cs = exp(-des/_ste)*gf;
 			    if (isuta) {
-			      cs *= r1x.sci;
 			      sd[km].ume[i0] += cs*e;
 			      sd[km].uwe[i0] += cs*e*e;
-			      des = r1x.sdev*_sfu_uwf;
+			      des = r1x.sdev;
 			      sd[km].usd[i0] += cs*des*des;
 			      sd[km].ust[i0] += cs;			    
-			      e += ude;
 			    } else {
 			      sd[km].fme[i0] += cs*e;
 			      sd[km].fwe[i0] += cs*e*e;
 			      sd[km].fst[i0] += cs;	      
-			      e += fde;
 			    }
 			  }
+			  if (isuta) {
+			    e += ude;
+			    gf *= sd[km].umf[i0];
+			    uw *= sd[km].uwf[i0];
+			  } else {
+			    e += fde;
+			    gf *= sd[km].fmf[i0];
+			  }			    
 			}
 		      }
 		    }
@@ -9551,17 +9572,11 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 		      }
 		    }		    
 		  }
-		  if (isuta) {
-		    cs = r1.strength*r1x.sci;
-		  } else {
-		    cs = r1.strength;
-		  }
-		  if (cs > 0) {
-		    rt[j]->x.sci += cs*e*e;
-		    rt[j]->r.strength += cs;
-		    rt[j]->x.energy += e*cs;
-		    des = r1x.sdev*_sfu_uwf;
-		    rt[j]->x.sdev += des*des*cs;
+		  if (gf > 0) {
+		    rt[j]->x.sci += gf*e*e;
+		    rt[j]->r.strength += gf;
+		    rt[j]->x.energy += e*gf;
+		    rt[j]->x.sdev += uw*uw*gf;
 		  }
 		}		
 		nt0++;
@@ -9579,8 +9594,8 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 		  rt[i]->x.sdev /= rt[i]->r.strength;
 		  rt[i]->x.sci /= rt[i]->r.strength;
 		  e = rt[i]->x.sci - rt[i]->x.energy*rt[i]->x.energy;
-		  if (e < 0.0) e = 0.0;
-		  else e *= _sfu_cwf;
+		  if (e <= 0.0) e = 0.0;
+		  else e *= _cwf;
 		  e = sqrt(e + rt[i]->x.sdev);
 		  rt[i]->x.sdev = e;
 		  rt[i]->x.sci = 1.0;
@@ -9609,7 +9624,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
       }
       FILE *f = NULL;
       if (sd) {
-	sprintf(buf, "%s.out", _shift_file);
+	sprintf(buf, "%s.out", _transmod_file);
 	f = fopen(buf, "w");
       }
       for (i = 0; i < z; i++) {
@@ -9657,6 +9672,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	  free(sd[i].ude);
 	  free(sd[i].fme);
 	  free(sd[i].ume);
+	  free(sd[i].uwf);
 	  free(sd[i].fst);
 	  free(sd[i].ust);
 	  free(sd[i].fwe);
@@ -10835,24 +10851,20 @@ void SetOptionDBase(char *s, char *sp, int ip, double dp) {
     _sfu_dmax = dp/HARTREE_EV;
     return;
   }
-  if (0 == strcmp(s, "dbase:sfu_uwf")) {
-    _sfu_uwf = dp;
-    return;
-  }
   if (0 == strcmp(s, "dbase:sfu_minde")) {
     _sfu_minde = dp/HARTREE_EV;
-    return;
-  }
-  if (0 == strcmp(s, "dbase:sfu_cwf")) {
-    _sfu_cwf = dp;
     return;
   }
   if (0 == strcmp(s, "dbase:sfu_maxde")) {
     _sfu_maxde = dp/HARTREE_EV;
     return;
   }
-  if (0 == strcmp(s, "dbase:line_shift")) {
-    strncpy(_shift_file, sp, 1024);
+  if (0 == strcmp(s, "dbase:cwf")) {
+    _cwf = dp;
+    return;
+  }
+  if (0 == strcmp(s, "dbase:transmod")) {
+    strncpy(_transmod_file, sp, 1024);
     return;
   }
   if (0 == strcmp(s, "dbase:ste")) {

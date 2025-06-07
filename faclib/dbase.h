@@ -62,16 +62,17 @@
 
 #define MAXNCOMPLEX 8
 
-typedef struct _LINESHIFT_ {
+typedef struct _TRANSMOD_ {
   int minlo, maxlo;
   int minup, maxup;
   int nlo, nup, nde;
   double *emin, *emax;  
   double *fde, *ude;
+  double *fmf, *umf, *uwf;
   double *fme, *ume;
   double *fwe, *uwe, *usd;
   double *fst, *ust;
-} LINESHIFT;
+} TRANSMOD;
 
 typedef struct _NCOMPLEX_ {
   short n;
@@ -799,7 +800,7 @@ double GroundEnergy(int k);
 int *InitTransReport(int *np);
 void PrintTransReport(int nproc, double t0, int *ntrans, char *sid, int isf);
 int LoadSFU(char *ipr, int ke, double **efu);
-int LoadLineShift(char *fn, int z, LINESHIFT *sd);
+int LoadTransMod(char *fn, int z, TRANSMOD *sd);
 int FindNRShells(int nele, EN_RECORD *r, int nm, short *nqc, short *nqs);
 #endif
 
