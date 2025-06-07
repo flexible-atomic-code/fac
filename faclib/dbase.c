@@ -9672,6 +9672,8 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	  free(sd[i].ude);
 	  free(sd[i].fme);
 	  free(sd[i].ume);
+	  free(sd[i].fmf);
+	  free(sd[i].umf);
 	  free(sd[i].uwf);
 	  free(sd[i].fst);
 	  free(sd[i].ust);
