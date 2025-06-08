@@ -3038,6 +3038,8 @@ int FindNRShells(int nele, EN_RECORD *r, int nm, short *nqc, short *nqs) {
       *p1 = p0[i];
       p1++;
     }
+    *p1 = '\0';
+    
     i0 = 0;
     n = 0;
     k = -1;
@@ -9363,8 +9365,8 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	  sd = NULL;
 	}
       }
-      for (k = z; k >= 0; k--) {
-	if (ngrp[k] <= 1) continue;
+      for (k = z; k >= 0; k--) {	
+	if (ngrp[k] <= 1) continue;	
 	nm = 0;
 	nmx = 0;
 	if (_sfu_smin >= 0) {
@@ -9392,7 +9394,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	      nq[ig][j] = 0;
 	    }
 	    j = FindNRShells(k, &ra[k][i], nm, nq[ig], nqs);
-	  }		
+	  }
 	}
 	if (nmx > 0) {
 	  nmx1 = nmx*nmx;
@@ -10179,6 +10181,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	}
 	FCLOSE(f0);
 	InitFile(f1[5], &fh1[5], &ht);
+	nt1 = 0;
 	for (i = 0; i < ng2; i++) {
 	  if (rt[i] == NULL) continue;
 	  if (rt[i]->rate > 0) {
