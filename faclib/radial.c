@@ -1916,7 +1916,6 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
     }
     return 0;
   }
-
   if (potential->mps <= 2 ) {
     b = potential->N/potential->atom->atomic_number;
     if (1+potential->N1 == 1) {
@@ -1930,6 +1929,7 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
     b = (potential->N+potential->nqf)/potential->atom->atomic_number;
   }
   b = Max(1.0, b);
+  //printf("mps: %d %g %g\n", potential->mps, potential->N1, b);
   for (m = 0; m < potential->maxrp; m++) {
     u[m] = u0[m] - ue[m];
     if (potential->mps <= 2) {
@@ -1977,9 +1977,11 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
 	  break;
 	}
       }
+      _opm_csi = j;
     } else {
       j = _opm_csi;
     }
+    //printf("n12: %g %g %g %g %d\n", n0, n1, n2, _opm_ahx, j);
     if (j < 10) {
       for (m = 0; m <= jmax; m++) {
 	u[m] = 0.0;
@@ -2002,7 +2004,6 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
       a = 1-_opm_ahx;
       r2 = _opm_ahx*r2 + a*potential->rad[j];
       double un = _opm_ahx*n2 + a*ut[j];
-      _opm_csi = j;
       a = Min(n1, ut[jm]) - un;
       b = 1/(a*c1[m]);
       for (m = j+1; m <= jmax; m++) {
