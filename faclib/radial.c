@@ -114,6 +114,8 @@ static double *_dphasep;
 static double *_yk;
 static double *_zk;
 static double *_xk;
+static double _opm_ahx = 1.0;
+static int    _opm_csi = 0;
 
 #pragma omp threadprivate(potential,hpotential,rpotential,_nws,_dws,_dwork,_dwork1,_dwork2,_dwork3,_dwork4,_dwork5,_dwork6,_dwork7,_dwork8,_dwork9,_dwork10,_dwork11,_dwork12,_dwork13,_dwork14,_dwork15,_dwork16,_dwork17,_phase,_dphase,_dphasep,_yk,_zk,_xk)
 
@@ -1959,20 +1961,24 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
 	break;
       }
     }
-    for (m = jm+1; m <= jmax; m++) {
-      ut[m] = ut[jm];
-    }
-    for (m = jm; m > 0; m--) {
-      if (ut[m] <= n1) {
-	i = m;
-	break;
+    if (_opm_ahx > 0) {
+      for (m = jm+1; m <= jmax; m++) {
+	ut[m] = ut[jm];
       }
-    }
-    for (m = i; m > 0; m--) {
-      if (ut[m] < n2) {
-	j = m;
-	break;
+      for (m = jm; m > 0; m--) {
+	if (ut[m] <= n1) {
+	  i = m;
+	  break;
+	}
       }
+      for (m = i; m > 0; m--) {
+	if (ut[m] < n2) {
+	  j = m;
+	  break;
+	}
+      }
+    } else {
+      j = _opm_csi;
     }
     if (j < 10) {
       for (m = 0; m <= jmax; m++) {
@@ -1985,25 +1991,22 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
     } else if (j < jm) {
       i = j;
       if (ut[i-1] < ut[i]) i--;
-      if (ut[i-1] < ut[i]) i--;
       m = j;
       if (ut[m+1] > ut[m]) m++;
-      if (m < jm && ut[m+1] > ut[m]) m++;
       m = m-i+1;
-      if (m > 3) {
-	np = 3;
-      } else {
-	np = 2;
-      }
+      np = 2;
       UVIP3C(np, m, ut+i, potential->rad+i, c1, c2, c3);
-      a = n2-ut[j];
+      ur = n2-ut[j];
       m = j-i;
-      b = a*a;
-      r2 = potential->rad[j] + c1[m]*a + c2[m]*b + c3[m]*a*b;
-      a = Min(n1, ut[jm]) - n2;
+      r2 = potential->rad[j] + c1[m]*ur + c2[m]*ur*ur;
+      a = 1-_opm_ahx;
+      r2 = _opm_ahx*r2 + a*potential->rad[j];
+      double un = _opm_ahx*n2 + a*ut[j];
+      _opm_csi = j;
+      a = Min(n1, ut[jm]) - un;
       b = 1/(a*c1[m]);
       for (m = j+1; m <= jmax; m++) {
-	ur = n2 + a*(1-exp(-(potential->rad[m]-r2)*b));
+	ur = un + a*(1-exp(-(potential->rad[m]-r2)*b));
 	if (potential->mps > 2) {
 	  ut[m] = u[m] + potential->ZPS[m];
 	} else {
@@ -3242,7 +3245,7 @@ void FreezeOrbital(char *s, int m) {
 
 int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
 		  double emin, double emax, int sc) {
-  double tol, atol, tol0, atol0, tol1, a, b, ahx, hxs0;
+  double tol, atol, tol0, atol0, tol1, a, b, ahx, hxs0, ihx0;
   ORBITAL orb_old, *orb;
   int i, k, no_old;
 
@@ -3253,8 +3256,12 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
   tol1 = optimize_control.tolerance*ENERELERR1;
   atol0 = optimize_control.tolerance*ENEABSERR;
   ahx = 1.0;
+  ihx0 = potential->ihx;
   hxs0 = potential->hxs;
-  if (_scpot.md == 0 || _scpot.md == 1 || fabs(hxs0)<1e-5) ahx = 0.0;
+  _opm_ahx = 1.0;
+  _opm_csi = 0;
+  if (_scpot.md == 0 || _scpot.md == 1 ||
+      (fabs(hxs0) < 1e-5 && fabs(ihx0) < 1e-5)) ahx = 0.0;
   if (iter == 0) SetOptDPH(-1, 0.0, iter);
   double az0 = -1.0;
   double af0 = -1.0;
@@ -3270,10 +3277,13 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
     } else {
       potential->miter = iter;
     }
-    if ((_scpot.md < 0 || _scpot.md > 1) && fabs(hxs0) > 1e-5) {
+    if ((_scpot.md < 0 || _scpot.md > 1) &&
+	(fabs(hxs0) > 1e-5 || fabs(ihx0) > 1e-5))  {
       ahx = exp(-iter*0.75);
       if (ahx < 1e-4) ahx = 0.0;
       potential->hxs = hxs0*(1-ahx);
+      potential->ihx = ihx0*(1-ahx);
+      _opm_ahx = ahx;
     }
     SetPotential(acfg, iter);
     if (potential->mps == 0 && potential->ups > 0 && SPMode() > 3) {
@@ -5540,7 +5550,8 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	    continue;
 	  }
 	} else {
-	  if (OptimizeRadial(ngp, gp, -1, NULL, 1) < 0) {
+	  k = OptimizeRadial(ngp, gp, -1, NULL, 1);
+	  if (k < 0) {
 	    ReinitRadial(1);
 	    ClearOrbitalTable(0);
 	    continue;
@@ -5614,8 +5625,8 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	    e0 = AverageEnergyConfigMode(cfg, md1);
 	    cfg->delta = cfg->energy - e0;	
 	    if (optimize_control.iprint) {
-	      MPrintf(-1, "ConfigEnergy: %d %d %d %d %g %g %g\n", 
-		      md, md1, kk, i, cfg->energy, e0, cfg->delta);
+	      MPrintf(-1, "ConfigEnergy: %d %d %d %d %g %g %g %s\n", 
+		      md, md1, kk, i, cfg->energy, e0, cfg->delta, g->name);
 	    }
 	  }
 	}
