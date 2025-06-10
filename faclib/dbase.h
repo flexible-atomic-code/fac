@@ -62,6 +62,11 @@
 
 #define MAXNCOMPLEX 8
 
+typedef struct _GROUPMOD_ {
+  int minlevs, maxlevs;
+  double des0, des1;
+} GROUPMOD;
+
 typedef struct _TRANSMOD_ {
   int minlo, maxlo;
   int minup, maxup;
@@ -802,5 +807,6 @@ void PrintTransReport(int nproc, double t0, int *ntrans, char *sid, int isf);
 int LoadSFU(char *ipr, int ke, double **efu);
 int LoadTransMod(char *fn, int z, TRANSMOD *sd);
 int FindNRShells(int nele, EN_RECORD *r, int nm, short *nqc, short *nqs);
+int LoadGroupMod(char *fn, int z, GROUPMOD *d);
 #endif
 

@@ -97,6 +97,7 @@ static double _sfu_maxde = 1e30;
 static double _cwf = 1.0;
 static char _transmod_file[1024] = "";
 static double _ste = -1.0;
+static char _groupmod_file[1024] = "";
 
 #define _WSF0(sv, f) do{				\
     n = FWRITE(&(sv), sizeof(sv), 1, f);		\
@@ -8996,16 +8997,61 @@ int LoadSFU(char *ipr, int ke, double **efu) {
   return nmx;
 }
 
-int LoadTransMod(char *fn, int z, TRANSMOD *sd) {
+int LoadGroupMod(char *fn, int z, GROUPMOD *gd) {
   FILE *f;
   char buf[1024], *p;
 
-  printf("load transmod data from %s\n", fn);
+  printf("load groupmod data from %s\n", fn);
+  int i, j, n, zi, ki, k0, k1, n0, n1;
+  double d0, d1;
+
+  for (i = 0; i <= z; i++) {
+    gd[i].minlevs = 0;
+    gd[i].maxlevs = 0;
+    gd[i].des0 = 0.0;
+    gd[i].des1 = 0.0;
+  }
   f = fopen(fn, "r");
   if (f == NULL) {
     printf("cannot open file: %s\n", fn);
     return 0;
   }
+  j = 0;
+  while (1) {
+    if (NULL == fgets(buf, 1024, f)) break;
+    p = buf;
+    while(isspace(*p)) p++;
+    if (p[0] == '#') continue;
+    n = sscanf(p, "%d %d %d %d %lg %lg",
+	       &zi, &ki, &n0, &n1, &d0, &d1);
+    if (n != 6) continue;
+    if (z != zi) continue;
+    if (ki <= 0) continue;
+    if (ki > 1000) {
+      k0 = ki/1000;
+      k1 = ki%1000;
+    } else {
+      k0 = ki;
+      k1 = ki;
+    }
+    for (ki = k0; ki <= k1; ki++) {
+      if (ki < 0 || ki > z) continue;
+      gd[ki].minlevs = n0;
+      gd[ki].maxlevs = n1;
+      gd[ki].des0 = d0/HARTREE_EV;
+      gd[ki].des1 = d1/HARTREE_EV;
+      j++;
+    }
+  }
+  fclose(f);
+  return j;
+}
+
+int LoadTransMod(char *fn, int z, TRANSMOD *sd) {
+  FILE *f;
+  char buf[1024], *p;
+
+  printf("load transmod data from %s\n", fn);
   int i, j, n, ns, zi, ki, n0, n1, k0, k1;
   double e0, e1, d0, d1, f0, f1, w0;
   for (i = 0; i < z; i++) {
@@ -9030,6 +9076,12 @@ int LoadTransMod(char *fn, int z, TRANSMOD *sd) {
     sd[i].usd = NULL;
   }
 
+  f = fopen(fn, "r");
+  if (f == NULL) {
+    printf("cannot open file: %s\n", fn);
+    return 0;
+  }
+  
   while (1) {
     if (NULL == fgets(buf, 1024, f)) break;
     p = buf;
@@ -9136,7 +9188,7 @@ int LoadTransMod(char *fn, int z, TRANSMOD *sd) {
 		  
 void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 		   double des00, double des01,
-		   int minlevs, int maxlevs, int ic) {
+		   int minlevs0, int maxlevs0, int ic) {
   char ifn[1024], ofn[1024], buf[1024];
   F_HEADER fh, fh1[7];
   EN_HEADER h0;
@@ -9166,7 +9218,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
   TFILE *f0, *f1[7];
   double ei, des, te, e, cs, des0, des1;
   float fte;
-  int *im, tlevs, nt0, nt1, nt2;
+  int *im, tlevs, nt0, nt1, nt2, minlevs, maxlevs;
   double wt0, wt1, tt0, tt1;
 
   sprintf(ifn, "%sb.en", ipr);
@@ -9245,10 +9297,24 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
   FCLOSE(f0);
   wt1 = WallTime();
   printf(" %d %d %d %.3e\n", tlevs, nt0, nt1, wt1-wt0);
-  
+
+  GROUPMOD gd[N_ELEMENTS1];
+  int ngm = 0;
+  if (strlen(_groupmod_file) > 0) {
+    ngm = LoadGroupMod(_groupmod_file, z, gd);
+  }
   for (k = z; k >= 0; k--) {
-    des0 = des00/HARTREE_EV;
-    des1 = des01/HARTREE_EV;
+    if (gd[k].minlevs > 0 && gd[k].maxlevs > 0) {
+      minlevs = gd[k].minlevs;
+      maxlevs = gd[k].maxlevs;
+      des0 = gd[k].des0;
+      des1 = gd[k].des1;
+    } else {
+      minlevs = minlevs0;
+      maxlevs = maxlevs0;
+      des0 = des00/HARTREE_EV;
+      des1 = des01/HARTREE_EV;
+    }
     ngrp[k] = 0;
     if (klev[k] == 0) continue;
     wt0 = WallTime();
@@ -10874,6 +10940,10 @@ void SetOptionDBase(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "dbase:ste")) {
     _ste = dp/HARTREE_EV;
+    return;
+  }
+  if (0 == strcmp(s, "dbase:groupmod")) {
+    strncpy(_groupmod_file, sp, 1024);
     return;
   }
 }

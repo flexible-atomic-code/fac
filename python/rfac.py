@@ -1919,7 +1919,7 @@ def interp_ipd(z, k, odir, d, t, ss):
         ys = ys[0]
     return ys
 
-def tab_ipd(z, odir, wdir='', k0=0, k1=0, md=0):
+def tab_ipd(z, odir, wdir='', k0=0, k1=0, md=0, ifill=True):
     if k0 == 0:
         k0 = 1
     if k1 == 0:
@@ -1933,22 +1933,39 @@ def tab_ipd(z, odir, wdir='', k0=0, k1=0, md=0):
         f = open(fn, 'wb')
     else:
         f = open(fn, 'w')
-    for k in range(k0, k1+1):
-        print('z=%d k=%d'%(z, k))        
-        r = read_rps_zk(z, k, 0, odir)
-        if k == k0:
-            ts = r['ts']
-            nt = len(ts)
-            t0 = np.log(ts[0])
-            t1 = np.log(ts[-1])
-            dt = np.log(ts[1]/ts[0])
-            ndm = len(r['ds'])-1
-            if md == 0:
-                f.write(struct.pack('iii', z, ndm, nt))
-                f.write(struct.pack('dd', t0, dt))
-            else:
-                s = '%3d %3d %3d %15.8E %15.8E %15.8E\n'%(z, ndm, nt, t0, t1, dt)
-                f.write(s)
+
+    print('header: z=%d k=%d'%(z,k0))
+    r = read_rps_zk(z, k0, 0, odir)
+    ts = r['ts']
+    nt = len(ts)
+    t0 = np.log(ts[0])
+    t1 = np.log(ts[-1])
+    dt = np.log(ts[1]/ts[0])
+    ndm = len(r['ds'])-1
+    if md == 0:
+        zk = z
+        if not ifill:
+            if k1 < z:
+                zk = 256*k1 + zk
+            if k0 > 1:
+                zk = 256*256*k0 + zk
+        f.write(struct.pack('iii', zk, ndm, nt))
+        f.write(struct.pack('dd', t0, dt))
+    else:
+        s = '%3d %3d %3d %15.8E %15.8E %15.8E\n'%(z, ndm, nt, t0, t1, dt)
+        f.write(s)
+    
+    for k in range(1, z+1):
+        if k < k0 or k > k1:
+            if ifill:
+                for p in range(nt):
+                    if md == 0:
+                        f.write(struct.pack('i', 0))
+                    else:
+                        s = '%3d %15.8E %3d\n'%(p, ts[p], 0)
+                        f.write(s)            
+            continue        
+        print('z=%d k=%d'%(z, k))
         for p in range(nt):
             r = read_rps_zk(z, k, p, odir)
             ds = r['ds'][1:]
