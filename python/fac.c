@@ -5844,6 +5844,37 @@ static PyObject *PAppendTable(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PJoinDBase(PyObject *self, PyObject *args) {
+  int ic, i, n, *ks;
+  char *s;
+  PyObject *p, *q;
+  
+  if (sfac_file) {
+    SFACStatement("JoinDBase", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+  if (!PyArg_ParseTuple(args, "sOi", &s, &p, &ic))
+    return NULL;
+
+  if (!PyList_Check(p)) return NULL;
+  n = PyList_Size(p);
+  if (n < 3) return NULL;
+
+  ks = malloc(sizeof(int)*n);
+  for (i = 0; i < n; i++) {
+    q = PyList_GetItem(p, i);
+    ks[i] = PyLong_AsLong(q);
+  }
+  
+  JoinDBase(s, n, ks, ic);
+
+  free(ks);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
 static PyObject *PCombineDBase(PyObject *self, PyObject *args) {
   int k0, k1, kic, n, c;
   char *s;
@@ -6702,6 +6733,7 @@ static struct PyMethodDef fac_methods[] = {
   {"AppendTable", PAppendTable, METH_VARARGS}, 
   {"JoinTable", PJoinTable, METH_VARARGS}, 
   {"PreloadTable", PPreloadTable, METH_VARARGS}, 
+  {"JoinDBase", PJoinDBase, METH_VARARGS}, 
   {"CombineDBase", PCombineDBase, METH_VARARGS}, 
   {"CollapseDBase", PCollapseDBase, METH_VARARGS}, 
   {"ModifyTable", PModifyTable, METH_VARARGS},
