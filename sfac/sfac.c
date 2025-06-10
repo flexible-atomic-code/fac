@@ -4562,6 +4562,30 @@ static int PAppendTable(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PJoinDBase(int argc, char *argv[], int argt[], 
+		      ARRAY *variables) {
+  if (argc != 3) return -1;
+  if (argt[0] != STRING) return -1;
+  if (argt[1] != LIST) return -1;
+  if (argt[2] != NUMBER) return -1;
+  
+  int i, n, ic, *ks;
+
+  ic = atoi(argv[2]);
+
+  n = IntFromList(argv[1], argt[1], variables, &ks);
+  if (n < 3) {
+    if (n > 0) free(ks);
+    return -1;
+  }
+  
+  JoinDBase(argv[0], n, ks, ic);
+
+  free(ks);
+  
+  return 0;
+}
+
 static int PCombineDBase(int argc, char *argv[], int argt[], 
 			 ARRAY *variables) {
   if (argc != 6) return -1;
@@ -5480,6 +5504,7 @@ static METHOD methods[] = {
   {"AppendTable", PAppendTable, METH_VARARGS}, 
   {"JoinTable", PJoinTable, METH_VARARGS}, 
   {"PreloadTable", PPreloadTable, METH_VARARGS}, 
+  {"JoinDBase", PJoinDBase, METH_VARARGS}, 
   {"CombineDBase", PCombineDBase, METH_VARARGS}, 
   {"CollapseDBase", PCollapseDBase, METH_VARARGS}, 
   {"ModifyTable", PModifyTable, METH_VARARGS},

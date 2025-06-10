@@ -770,6 +770,7 @@ int SortUniqSName(int n, EN_RECORD *a);
 int FindLevelBlock(int n0, EN_RECORD *r0, EN_RECORD **r1, 
 		   int nele, char *ifn);
 int MatchLevelsPJ(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1);
+int JoinDBase(char *pref, int nk, int *ks, int ic);
 void CombineDBase(char *pref, int k0, int k1, int kic, int nexc, int ic);
 int GroupLevels(EN_RECORD *rs, int nr, double ei, double des,
 		int minlev, LEVGRP *rg);

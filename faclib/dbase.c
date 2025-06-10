@@ -89,6 +89,7 @@ static int _ic_iai[100];
 static int _ix_iai[100];
 static int _nc_iai = 0;
 static int _nilast = 1;
+static double _grptol = 0.05;
 static int _collapse_mask = 0xff;
 static double _sfu_smin = -1.0;
 static double _sfu_dmax = 1.0;
@@ -8016,6 +8017,367 @@ int ChannelAI(int b, int nmb, short *ncb,
   return -1;
 }
 
+int JoinDBase(char *pref, int nk, int *ks, int ic) {
+  char ifn[1024], ofn[1024], buf[1024], a[16];
+  int k, i, j, n, nb, swp, k0, k1, z, nth, tlevs, nt;
+  double wt0, wt1, tt0, tt1;
+  F_HEADER fh, fh1[7];
+  EN_HEADER h0;
+  EN_RECORD r0;
+  TR_HEADER h1;
+  TR_RECORD r1;
+  TR_EXTRA r1x;
+  CE_HEADER h2;
+  CE_RECORD r2;
+  RR_HEADER h3;
+  RR_RECORD r3;
+  CI_HEADER h4;
+  CI_RECORD r4;
+  AI_HEADER h5;
+  AI_RECORD r5;
+  RC_HEADER h6;
+  RC_RECORD r6;
+  char ext[7][3] = {"en", "tr", "ce", "rr", "ci", "ai", "rc"};
+  int types[7] = {DB_EN, DB_TR, DB_CE, DB_RR, DB_CI, DB_AI, DB_RC};
+  TFILE *f0, *f1[7];
+  int nlevs0, nlevs1, nlast, rdn;
+  double er0[N_ELEMENTS1], er1[N_ELEMENTS1], de[N_ELEMENTS1];
+
+  tt0 = WallTime();
+  for (k = 0; k < nk-1; k++) {
+    k0 = ks[k];
+    k1 = ks[k+1];
+    wt0 = WallTime();
+    sprintf(ifn, "%s%02d%02db.en", pref, k0, k1);
+    printf("check levels: %s ... ", ifn);
+    f0 = OpenFileRO(ifn, &fh, &swp);
+    if (f0 == NULL) {
+      printf("cannot open file: %s\n", ifn);
+      return -1;
+    }
+    if (z == 0) {
+      z = (int)(fh.atom);
+      strcpy(a, fh.symbol);
+    } else if (z != (int)(fh.atom)) {
+      printf("atomic number does not match: %d %d\n", z, (int)(fh.atom));
+      return -1;
+    }
+    if (fh.nthreads > nth) nth = fh.nthreads;
+    tlevs = 0;
+    nlevs0 = 0;
+    nlevs1 = 0;
+    j = -1;
+    for (nb = 0; nb < fh.nblocks; nb++) {
+      n = ReadENHeader(f0, &h0, swp);
+      if (n == 0) break;
+      tlevs += h0.nlevels;
+      nt = 0;
+      if (h0.nele == k0) {
+	nlevs0 += h0.nlevels;
+	if (h0.nele != j) {
+	  nt = ReadENRecord(f0, &r0, swp);
+	  er0[k] = r0.energy;
+	}
+      } else if (h0.nele == k1) {
+	nlevs1 += h0.nlevels;
+	if (h0.nele != j) {
+	  nt = ReadENRecord(f0, &r0, swp);
+	  er1[k] = r0.energy;
+	}
+      }
+      j = h0.nele;
+      FSEEK(f0, h0.length-nt, SEEK_CUR);
+    }
+    if (k > 0) {
+      if (nlevs0 != nlast) {
+	printf("nlevels do not match: %d %d %d\n", k0, nlast, nlevs0);
+	return -1;
+      }
+    }
+    nlast = nlevs1;
+    wt1 = WallTime();
+    printf("%d %.3e\n", tlevs, wt1-wt0);
+    FCLOSE(f0);
+  }
+
+  de[0] = 0.0;
+  for (k = 1; k < nk-1; k++) {
+    de[k] = de[k-1] + er1[k-1]-er0[k];
+  }
+  for (i = 0; i < 7; i++) {
+    sprintf(ofn, "%s%02d%02db.%s", pref, ks[0], ks[nk-1], ext[i]);
+    fh1[i].atom = z;
+    strcpy(fh1[i].symbol, a);
+    fh1[i].type = types[i];
+    f1[i] = OpenFileWTN(ofn, &fh1[i], nth);
+  }
+
+  FILE *frp0, *frp1;
+  sprintf(ofn, "%s%02d%02db.rp", pref, ks[0], ks[nk-1]);
+  frp1 = fopen(ofn, "w");
+  if (frp1) {
+    for (k = nk-1; k > 0; k--) {
+      k0 = ks[k-1];
+      k1 = ks[k];
+      sprintf(ifn, "%s%02d%02db.rp", pref, k0, k1);
+      frp0 = fopen(ifn, "r");
+      if (frp0) {
+	while (NULL != fgets(buf, 1024, frp0)) {
+	  n = sscanf(buf, "%d %d", &i, &j);
+	  if (k > 1 && j == k0) break;
+	  fprintf(frp1, "%s", buf);
+	}
+	fclose(frp0);
+      }
+    }
+    fclose(frp1);
+  }
+
+  nlevs0 = 0;
+  for (k = nk-1; k > 0; k--) {
+    k0 = ks[k-1];
+    k1 = ks[k];    
+    sprintf(ifn, "%s%02d%0db.en", pref, k0, k1);
+    wt0 = WallTime();
+    printf("write EN: %s ... ", ifn);
+    f0 = OpenFileRO(ifn, &fh, &swp);
+    rdn = 0;
+    tlevs = 0;
+    for (nb = 0; nb < fh.nblocks; nb++) {
+      n = ReadENHeader(f0, &h0, swp);
+      if (n == 0) break;
+      if (k == 1 || h0.nele > k0) {
+	InitFile(f1[0], &fh1[0], &h0);
+      }
+      for (i = 0; i < h0.nlevels; i++) {
+	n = ReadENRecord(f0, &r0, swp);
+        if (h0.nele == k0) {
+	  if (k > 1) {
+	    rdn = 1;
+	    break;
+	  }
+	}
+	r0.energy += de[k-1];
+	tlevs++;
+	r0.ilev += nlevs0;
+	WriteENRecord(f1[0], &r0);
+      }
+      if (rdn) break;
+      DeinitFile(f1[0], &fh1[0]);
+    }
+    FCLOSE(f0);
+    wt1 = WallTime();
+    printf("%d %.3e\n", tlevs, wt1-wt0);
+    
+    sprintf(ifn, "%s%02d%02db.tr", pref, k0, k1);
+    wt0 = WallTime();
+    printf("write TR: %s ... ", ifn);
+    f0 = OpenFileRO(ifn, &fh, &swp);
+    nt = 0;    
+    for (nb = 0; nb < fh.nblocks; nb++) {
+      n = ReadTRHeader(f0, &h1, swp);
+      if (n == 0) break;
+      if (k > 1 && h1.nele == k0) {
+	break;
+      }
+      InitFile(f1[1], &fh1[1], &h1);
+      for (i = 0; i < h1.ntransitions; i++) {
+	n = ReadTRRecord(f0, &r1, &r1x, swp);
+	if (n == 0) break;
+	r1.lower += nlevs0;
+	r1.upper += nlevs0;
+	WriteTRRecord(f1[1], &r1, &r1x);
+	nt++;
+      }
+      DeinitFile(f1[1], &fh1[1]);
+    }
+    FCLOSE(f0);
+    wt1 = WallTime();
+    printf("%d %.3e\n", nt, wt1-wt0);
+
+    sprintf(ifn, "%s%02d%02db.ce", pref, k0, k1);
+    wt0 = WallTime();
+    printf("write CE: %s ... ", ifn);
+    f0 = OpenFileRO(ifn, &fh, &swp);
+    nt = 0;
+    for (nb = 0; nb < fh.nblocks; nb++) {
+      n = ReadCEHeader(f0, &h2, swp);
+      if (n == 0) break;
+      if (k > 1 && h2.nele == k0) {
+	break;
+      }
+      InitFile(f1[2], &fh1[2], &h2);
+      for (i = 0; i < h2.ntransitions; i++) {
+	n = ReadCERecord(f0, &r2, swp, &h2);
+	if (n == 0) break;
+	r2.lower += nlevs0;
+	r2.upper += nlevs0;
+	WriteCERecord(f1[2], &r2);
+	nt++;
+	if (h2.qk_mode == QK_FIT) free(r2.params);
+	free(r2.strength);
+      }
+      DeinitFile(f1[2], &fh1[2]);
+      free(h2.tegrid);
+      free(h2.egrid);
+      free(h2.usr_egrid);
+    }
+    FCLOSE(f0);
+    wt1 = WallTime();
+    printf("%d %.3e\n", nt, wt1-wt0);
+
+    sprintf(ifn, "%s%02d%02db.rr", pref, k0, k1);
+    f0 = OpenFileRO(ifn, &fh, &swp);
+    wt0 = WallTime();
+    printf("write RR: %s ... ", ifn);
+    nt = 0;
+    for (nb = 0; nb < fh.nblocks; nb++) {
+      n = ReadRRHeader(f0, &h3, swp);
+      if (n == 0) break;
+      if (k > 1 && h3.nele == k0) {
+	break;
+      }
+      InitFile(f1[3], &fh1[3], &h3);
+      for (i = 0; i < h3.ntransitions; i++) {
+	n = ReadRRRecord(f0, &r3, swp, &h3);
+	if (n == 0) break;
+	r3.b += nlevs0;
+	if (r3.f >= 0) {
+	  r3.f += nlevs0;
+	}
+	WriteRRRecord(f1[3], &r3);
+	nt++;
+	free(r3.params);
+	free(r3.strength);
+      }
+      DeinitFile(f1[3], &fh1[3]);
+      free(h3.tegrid);
+      free(h3.egrid);
+      free(h3.usr_egrid);
+    }
+    FCLOSE(f0);
+    wt1 = WallTime();
+    printf("%d %.3e\n", nt, wt1-wt0);
+
+    sprintf(ifn, "%s%02d%02db.ci", pref, k0, k1);
+    f0 = OpenFileRO(ifn, &fh, &swp);
+    wt0 = WallTime();
+    printf("write CI: %s ... ", ifn);
+    nt = 0;
+    for (nb = 0; nb < fh.nblocks; nb++) {
+      n = ReadCIHeader(f0, &h4, swp);
+      if (k > 1 && h4.nele == k0) {
+	break;
+      }
+      InitFile(f1[4], &fh1[4], &h4);
+      for (i = 0; i < h4.ntransitions; i++) {
+	n = ReadCIRecord(f0, &r4, swp, &h4);
+	if (n == 0) break;
+	r4.b += nlevs0;
+	r4.f += nlevs0;
+	WriteCIRecord(f1[4], &r4);
+	nt++;
+	free(r4.params);
+	free(r4.strength);
+      }
+      DeinitFile(f1[4], &fh1[4]);
+      free(h4.tegrid);
+      free(h4.egrid);
+      free(h4.usr_egrid);
+    }
+    FCLOSE(f0);
+    wt1 = WallTime();
+    printf("%d %.3e\n", nt, wt1);
+
+    sprintf(ifn, "%s%02d%02db.ai", pref, k0, k1);
+    f0 = OpenFileRO(ifn, &fh, &swp);
+    wt0 = WallTime();
+    printf("write AI: %s ... ", ifn);
+    nt = 0;
+    for (nb = 0; nb < fh.nblocks; nb++) {
+      n = ReadAIHeader(f0, &h5, swp);
+      if (k > 1 && h5.nele == k0) {
+	break;
+      }
+      InitFile(f1[5], &fh1[5], &h5);
+      for (i = 0; i < h5.ntransitions; i++) {
+	n = ReadAIRecord(f0, &r5, swp);
+	if (n == 0) break;
+	r5.b += nlevs0;
+	r5.f += nlevs0;
+	WriteAIRecord(f1[5], &r5);
+	nt++;
+      }
+      DeinitFile(f1[5], &fh1[5]);
+      free(h5.egrid);
+    }
+    FCLOSE(f0);
+    wt1 = WallTime();
+    printf("%d %.3e\n", nt, wt1-wt0);
+
+    sprintf(ifn, "%s%02d%02db.rc", pref, k0, k1);
+    f0 = OpenFileRO(ifn, &fh, &swp);
+    wt0 = WallTime();
+    printf("write RC: %s ... ", ifn);
+    nt = 0;
+    for (nb = 0; nb < fh.nblocks; nb++) {
+      n = ReadRCHeader(f0, &h6, swp);
+      if (k > 1 && h6.nele == k0) {
+	break;
+      }
+      InitFile(f1[6], &fh1[6], &h6);
+      for (i = 0; i < h6.ntransitions; i++) {
+	n = ReadRCRecord(f0, &r6, swp, &h6);
+	if (n == 0) break;
+	r6.lower += nlevs0;
+	r6.upper += nlevs0;
+	WriteRCRecord(f1[6], &r6);
+	nt++;
+	free(r6.rc);
+      }
+      DeinitFile(f1[6], &fh1[6]);
+    }
+    FCLOSE(f0);
+    wt1 = WallTime();
+    printf("%d %.3e\n", nt, wt1-wt0);
+
+    nlevs0 += tlevs;
+  }
+
+  for (i = 0; i < 7; i++) {
+    CloseFile(f1[i], &fh1[i]);
+  }
+  
+  if (ic > 0) {
+    k0 = ks[0];
+    k1 = ks[nk-1];
+    n = ic;
+    k = 0;    
+    for (i = 0; i < 7; i++) {
+      if (n < 10) {	
+	k = i < n;
+      } else {
+	k = ic%10;
+	ic = ic/10;
+      }
+      if (k) {
+	wt0 = WallTime();	
+	sprintf(ifn, "%s%02d%02db.%s", pref, k0, k1, ext[i]);
+	sprintf(ofn, "%s%02d%02da.%s", pref, k0, k1, ext[i]);
+	printf("print table: %s %s ...", ifn, ofn);
+	fflush(stdout);
+	PrintTable(ifn, ofn, 1);
+	wt1 = WallTime();
+	printf(" %.3e\n", wt1-wt0);
+      }
+    }
+  }
+  tt1 = WallTime();
+  printf("total time: %.3e\n", tt1-tt0);
+
+  return 0;
+}
+
 void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
   int k, i, j, n, nb, nlevs, clevs, ni0, ni1, vn, vni, vn0, z;
   char ifn[1024], ofn[1024], buf[1024];
@@ -9343,7 +9705,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
       ng = ng1;
     }      
     if (des < 0) {
-      dm = (int)(0.05*maxlevs);
+      dm = (int)(_grptol*maxlevs);
       if (dm < 1) dm = 1;
       while (des1-des0 > EPS6) {
 	des = 0.5*(des0+des1);
@@ -10912,6 +11274,10 @@ void SetOptionDBase(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "dbase:collapse_mask")) {
     _collapse_mask = ip;
+    return;
+  }
+  if (0 == strcmp(s, "dbase:grptol")) {
+    _grptol = dp;
     return;
   }
   if (0 == strcmp(s, "dbase:sfu_smin")) {
