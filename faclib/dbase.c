@@ -8044,6 +8044,7 @@ int JoinDBase(char *pref, int nk, int *ks, int ic) {
   double er0[N_ELEMENTS1], er1[N_ELEMENTS1], de[N_ELEMENTS1];
 
   tt0 = WallTime();
+  z = 0;
   for (k = 0; k < nk-1; k++) {
     k0 = ks[k];
     k1 = ks[k+1];
