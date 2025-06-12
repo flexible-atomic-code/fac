@@ -8883,11 +8883,11 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
       }
       double r2p = 0.0;
       i = -1;
-      if (k == 1 && ilow2ph[0] && iup2ph[0]) {
+      if (k == 1 && ilow2ph[0] >= 0 && iup2ph[0] >= 0) {
 	i = 0;
-      } else if (k == 2 && ilow2ph[1] && iup2ph[1]) {
+      } else if (k == 2 && ilow2ph[1] >= 0 && iup2ph[1] >= 0) {
 	i = 1;
-      } else if (k == 4 && ilow2ph[2] && iup2ph[2]) {
+      } else if (k == 4 && ilow2ph[2] >= 0 && iup2ph[2] >= 0) {
 	i = 2;
       }
       if (i >= 0) {
@@ -10038,20 +10038,20 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	    }
 	    DeinitFile(f1[1], &fh1[1]);
 	    free(rt);
-	    if (nmx > 0) {
-	      free(efu);
-	    }
-	    if (nq) {
-	      n = imax[k]-imin[k]+1;
-	      for (i = 0; i < n; i++) {
-		if (nq[i]) free(nq[i]);
-	      }
-	      free(nq);
-	    }		
 	    wt1 = WallTime();
 	    printf(" %d %d %.3e\n", nt0, nt1, wt1-wt0);
 	  }
 	}
+	if (nmx > 0) {
+	  free(efu);
+	}
+	if (nq) {
+	  n = imax[k]-imin[k]+1;
+	  for (i = 0; i < n; i++) {
+	    if (nq[i]) free(nq[i]);
+	  }
+	  free(nq);
+	}		
       }
       FILE *f = NULL;
       if (sd) {
