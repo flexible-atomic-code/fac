@@ -1874,6 +1874,12 @@ def read_rps_zk(z, k, i, odir):
     fs = [p+'b.rp'] + fs
     r = read_rps(fs, ds)
     r['ts'] = t[0]
+    if len(t) > 4:
+        r['ts0'] = t[5]
+        r['tzs'] = t[4][0]
+    else:
+        r['ts0'] = r['ts']
+        r['tzs'] = 0.0
     return r
 
 def interp_ipd(z, k, odir, d, t, ss):
@@ -1936,11 +1942,14 @@ def tab_ipd(z, odir, wdir='', k0=0, k1=0, md=0, ifill=True):
 
     print('header: z=%d k=%d'%(z,k0))
     r = read_rps_zk(z, k0, 0, odir)
-    ts = r['ts']
+    ts = r['ts0']
+    tzs = r['tzs']
     nt = len(ts)
     t0 = np.log(ts[0])
     t1 = np.log(ts[-1])
     dt = np.log(ts[1]/ts[0])
+    if (tzs > 0):
+        dt = dt + 1e6*tzs
     ndm = len(r['ds'])-1
     if md == 0:
         zk = z

@@ -86,6 +86,7 @@ static double _starkzix = -1.0;
 static double _starkvg = 0.0;
 static double _epstau = 0.05;
 static double _reemit = 1.0;
+static double _rctzs = 0.0;
 static INTERPSP _interpsp;
 static double _mfd0[10] = {0.        ,  0.97792763,  1.26508455,
 			   1.22263597, -0.25197702,
@@ -7771,6 +7772,10 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
     _new_level_blocks = ip;
     return;
   }
+  if (0 == strcmp(s, "crm:rctzs")) {
+    _rctzs = dp;
+    return;
+  }
 }
 
 void FreeLineRec(LINEREC *r) {
@@ -8790,7 +8795,7 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
   int nk, ni, na, nb, p, i, ntd, m, vn, vni, nkk, nii, nki, nbi, nr, s, n, ib;
   int it, id, ilo, iup, j0, nce, nci, nrr, ndr, nre, nea, kg, ig, n1, vn0;
   double dt, dd, rdt, rdd, *ra, *ra0, ek, ei, de, te, mp[3], br, rt, x;
-  double **wr, *drs, eii;
+  double **wr, *drs, eii, zp;
   int *nbai, *nbtr, ncap, mdr, mea, mdrea;
   RATE *r, **bai, **btr;
   BLK_RATE *brts;
@@ -8849,6 +8854,9 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
   rh.nte = nt;
   rh.nde = nd;
   rh.dte = dt;
+  if (_rctzs > 0) {
+    rh.dte += 1e6*_rctzs;
+  }
   rh.dde = dd;
 
   ek = 0.0;
@@ -8863,6 +8871,7 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
     } else {
       eii = ei-ek;
     }
+    zp = fh.atom-ion->nele+1.0;
     nk = 0;
     ni = 0;
     na = 0;
@@ -9016,6 +9025,9 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
     }
     drs = malloc(sizeof(double)*n1*nd);
     _krc = p;
+    if (_rctzs > 0) {
+      t0 *= pow(zp, _rctzs);
+    }
     te = t0;
     nce = 0;
     nci = 0;

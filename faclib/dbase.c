@@ -6131,7 +6131,11 @@ int PrintRCTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     fprintf(f2, "NCAP\t= %d\n", h.ncap);
     fprintf(f2, "NTE\t= %d\n", h.nte);
     fprintf(f2, "TE0\t= %15.8E\n", h.te0);
+    e = h.dte/100;
+    h.dte = (e - (int)e)*100;
+    e = ((int)(e))/1e4;
     fprintf(f2, "DTE\t= %15.8E\n", h.dte);
+    fprintf(f2, "TZS\t= %15.8E\n", e);
     fprintf(f2, "NDE\t= %d\n", h.nde);
     fprintf(f2, "DE0\t= %15.8E\n", h.de0);
     fprintf(f2, "DDE\t= %15.8E\n", h.dde);
