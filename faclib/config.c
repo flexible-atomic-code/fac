@@ -53,8 +53,9 @@ static int _ugid = MAX_GROUPS;
 static int max_groups = MAX_GROUPS;
 static int n_groups = 0;
 static int n_optgrps = 0;
-static int *optgrps[MAX_OPTGRPS];
-static char optgrp_ids[MAX_OPTGRPS][GROUP_NAME_LEN];
+static int max_optgrps = MAX_OPTGRPS;
+static int **optgrps;
+static char **optgrp_ids;
 
 /*
 ** VARIABLE:    symmetry_list
@@ -2143,6 +2144,7 @@ int **GetOptGrps(int *n) {
 }
 
 char *GetOptGrpId(int i) {
+  if (i >= max_optgrps) return NULL;
   return optgrp_ids[i];
 }
 
@@ -2152,18 +2154,25 @@ int AddOptGrp(char *sid, int n, int *kg) {
   if (n <= 0) {
     for (i = 0; i < n_optgrps; i++) {
       free(optgrps[i]);
+      free(optgrp_ids[i]);
       optgrps[i] = NULL;
-      optgrp_ids[i][0] = '\0';
+      optgrp_ids[i] = NULL;
     }
     n_optgrps = 0;
     return 0;
   }
-  if (n_optgrps >= MAX_OPTGRPS) {
-    printf("num. of optgrps exceeded maximum: %d>=%d\n",
-	   n_optgrps, MAX_OPTGRPS);
-    return -1;
+  if (n_optgrps >= max_optgrps) {
+    int nn = max_optgrps + MAX_OPTGRPS;
+    optgrps = realloc(optgrps, sizeof(int *)*nn);
+    optgrp_ids = realloc(optgrp_ids, sizeof(char *)*nn);
+    for (i = max_optgrps; i < nn; i++) {
+      optgrps[i] = NULL;
+      optgrp_ids[i] = NULL;
+    }
+    max_optgrps = nn;
   }
   i = n_optgrps;
+  optgrp_ids[i] = malloc(GROUP_NAME_LEN);
   if (sid) {
     strncpy(optgrp_ids[i], sid, GROUP_NAME_LEN-1);
   } else {
@@ -3451,6 +3460,14 @@ int InitConfig(void) {
   _grpidx = malloc(sizeof(MULTI));
   for (i = 0; i < 4; i++) blks[i] = MULTI_BLOCK4;
   MultiInit(_grpidx, sizeof(int), 4, blks, "grpidx");
+
+  optgrps = malloc(MAX_OPTGRPS*sizeof(int *));
+  optgrp_ids = malloc(MAX_OPTGRPS*sizeof(char *));
+  max_optgrps = MAX_OPTGRPS;
+  for (i = 0; i < max_optgrps; i++) {
+    optgrps[i] = NULL;
+    optgrp_ids[i] = NULL;
+  }
   
   symmetry_list = malloc(MAX_SYMMETRIES*sizeof(SYMMETRY));
   for (i = 0; i < MAX_SYMMETRIES; i++) {

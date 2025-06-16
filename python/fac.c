@@ -6632,7 +6632,7 @@ static PyObject *PFermiFun(PyObject *self, PyObject *args) {
   int m;
   y = -1.0;
   if (!PyArg_ParseTuple(args, "id|d", &m, &x, &y)) return NULL;
-  if (m <= 10 && y < 0) {
+  if (m <= 5 && y <= 0) {
     return Py_BuildValue("d", -1E30);
   }
   switch (m) {
@@ -6655,7 +6655,7 @@ static PyObject *PFermiFun(PyObject *self, PyObject *args) {
     r = FreeTe(x, y*VOLUME_AU)*HARTREE_EV;
     break;
   case 6:
-    r = pow(3*PI*PI*x*VOLUME_AU, TWOTHIRD)*HARTREE_EV;
+    r = 0.5*pow(3*PI*PI*x*VOLUME_AU, TWOTHIRD)*HARTREE_EV;
     break;
   default:
     if (m > 10) {
