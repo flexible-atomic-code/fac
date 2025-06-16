@@ -1873,6 +1873,10 @@ def read_rps_zk(z, k, i, odir):
     ds = np.append([0.0], ds)
     fs = [p+'b.rp'] + fs
     r = read_rps(fs, ds)
+    r['z'] = z
+    r['k'] = k
+    r['zp'] = z-k+1
+    r['it'] = i
     r['ts'] = t[0]
     if len(t) > 4:
         r['ts0'] = t[5]
@@ -1882,50 +1886,218 @@ def read_rps_zk(z, k, i, odir):
         r['tzs'] = 0.0
     return r
 
-def interp_ipd(z, k, odir, d, t, ss):
-    r = read_rps_zk(z, k, 0, odir)
-    xt = r['ts']
-    nt = len(xt)
-    w = np.where(xt > t)[0]
-    if len(w) == 0:
-        i0 = nt-1
-        i1 = i0
-    else:
-        i1 = w[0]
-        if i1 == 0:
-            i0 = 0
+def interp_ipd_at(s, r0, d, eth=1e-3, ood=0):
+    xd = r0['ds'][1:]
+    yd = r0[s][1:] - r0[s][0]
+    e0 = r0[s][0]
+    w = np.where(r0[s][1:] < e0*eth)[0]
+    n = len(w)
+    if n == 0:
+        return jsp(d, t0, zp, 1.0)
+    xd = xd[w]
+    yd = yd[w]
+    x = np.log(d)
+    xi = np.log(xd)
+    yi = np.log(yd)
+    i0 = r0['it']
+    t0 = r0['ts'][i0]
+    zp = r0['zp']
+    dd = 1.025
+    dx = np.log(dd)
+    if x < xi[0]:
+        if n == 1 or ood//10 == 0:
+            y0 = jsp(d, t0, zp, 1.0)
+            y1 = jsp(xd[0], t0, zp, 1.0)
+            r = yd[0]*(y0/y1)
+            if n > 1:
+                y2 = jsp(d*dd, t0, zp, 1.0)
+                k0 = (yi[1]-yi[0])/(xi[1]-xi[0])
+                k1 = np.log(y2/y0)/dx
+                r = r*(d/xd[0])**(k0-k1)
         else:
-            i0 = i1-1
-    if i0 == 0:
-        r0 = r
-    else:
-        r0 = read_rps_zk(z, k, i0, odir)
-    if i1 != i0:
-        r1 = read_rps_zk(z, k, i1, odir)
-    ys = []
-    if type(ss) == type(''):
+            k0 = (yi[1]-yi[0])/(xi[1]-xi[0])
+            r = np.exp(yi[0] + k0*(x-xi[0]))
+        return r
+    if x > xi[-1]:
+        if n == 1 or ood%10 == 0:
+            y0 = jsp(d, t0, zp, 1.0)
+            y1 = jsp(xd[-1], t0, zp, 1.0)
+            r = yd[-1]*(y0/y1)
+            if n > 1:
+                y2 = jsp(d*dd, t0, zp, 1.0)
+                k0 = (yi[-1]-yi[-2])/(xi[-1]-xi[-2])
+                k1 = np.log(y2/y0)/dx
+                r = r*(d/xd[-1])**(k0-k1)
+        else:
+            k0 = (yi[-1]-yi[-2])/(xi[-1]-xi[-2])
+            r = np.exp(yi[-1] + k0*(x-xi[-1]))
+        return r
+    return np.exp(np.interp(x, xi, yi))
+
+def interp_ipd(z, k, ds, ts, ss, odir=None, rs=None,
+               eth=1e-3, rr=False, oot=1, ood=0):
+    if (odir is None) and (rs is None):
+        print('must have odir or rs')
+        return
+    if type(ss) == type(''):        
         ss = [ss]
-    for s in ss:
-        xd = np.log(r0['ds'][1:])
-        yd = r0[s][1:] - r0[s][0]
-        w = np.where(r0[s][1:] <= 0)[0]
-        y0 = np.interp(np.log(d), xd[w], yd[w])
-        if i1 != i0:
-            xd = np.log(r1['ds'][1:])
-            yd = r1[s][1:] - r1[s][0]
-            w = np.where(r1[s][1:] <= 0)[0]
-            y1 = np.interp(np.log(d), xd[w], yd[w])
-            dt = (np.log(xt[i1]/xt[i0]))
-            dt0 = (np.log(t/xt[i0]))
-            y = y0+dt0*(y1-y0)/dt
+    if type(ds) == type(0) or type(ds) == type(0.0):
+        ds = [ds]
+    if type(ts) == type(0) or type(ts) == type(0.0):
+        ts = [ts]
+    ns = len(ss)
+    nd = len(ds)
+    nti = len(ts)    
+    ys = np.zeros((ns,nti,nd))
+    if not (odir is None):
+        p = '%s/%s/k%02d/%s%02d'%(odir,fac.ATOMICSYMBOL[z],k,
+                                  fac.ATOMICSYMBOL[z],k)
+        r = np.loadtxt(p+'a.tdg', unpack=1, ndmin=2)
+        xt = r[0]
+    else:
+        xt = rs[k][0]['ts']
+    nt = len(xt)
+    for m in range(nti):
+        t = ts[m]
+        w = np.where(xt > t)[0]
+        if len(w) == 0:
+            i1 = nt-1
+            if oot//10 > 0:
+                i0 = i1-1
+            else:
+                i0 = i1
         else:
-            y = y0
-        ys.append(y)
-    if len(ys) == 1:
-        ys = ys[0]
+            i1 = w[0]
+            if i1 == 0:
+                if oot%10 > 0:
+                    i0 = 0
+                    i1 = 1
+                else:
+                    i0 = 0
+            else:
+                i0 = i1-1
+        if rs is None:
+            r0 = read_rps_zk(z, k, i0, odir)
+            if i1 != i0:
+                r1 = read_rps_zk(z, k, i1, odir)
+            else:
+                r1 = r0
+        else:
+            if odir is None:
+                rp0 = rs[k][i0]
+                rp1 = rs[k][i1]
+            else:
+                rp0 = rs[0]
+                rp1 = rs[1]
+            r0 = None
+            r1 = None
+            if i0 == rp0['it']:
+                r0 = rp0
+            elif i0 == rp1['it']:
+                r0 = rp1
+            if i1 == rp1['it']:
+                r1 = rp1
+            elif i1 == rp0['it']:
+                r1 = rp0
+            if r0 is None:        
+                r0 = read_rps_zk(z, k, i0, odir)
+            if i1 == i0:
+                r1 = r0
+            elif r1 is None:
+                r1 = read_rps_zk(z, k, i1, odir)
+        rsr = (r0,r1)
+        zp = z-k+1
+        for i in range(ns):
+            s = ss[i]
+            for j in range(nd):
+                d = ds[j]
+                y0 = interp_ipd_at(s, r0, d, eth=eth, ood=ood)
+                if i1 != i0:
+                    y1 = interp_ipd_at(s, r1, d, eth=eth, ood=ood)
+                    dt = np.log(xt[i1]/xt[i0])
+                    dt0 = np.log(t/xt[i0])
+                    y = np.exp(np.log(y0)+dt0*np.log(y1/y0)/dt)
+                elif i0 == 0:
+                    j0 = jsp(d, t, zp, 1.0)
+                    j1 = jsp(d, xt[0], zp, 1.0)
+                    y = y0*(j0/j1)
+                else:
+                    j0 = jsp(d, t, zp, 1.0)
+                    j1 = jsp(d, xt[-1], zp, 1.0)
+                    y = y0*(j0/j1)
+                ys[i,m,j] = y
+
+    ys = np.squeeze(ys)
+    if (len(ys.shape) == 0):
+        ys = float(ys)
+    if rr:
+        return ys,rsr
     return ys
 
-def tab_ipd(z, odir, wdir='', k0=0, k1=0, md=0, ifill=True):
+def read_ipd(fn):
+    with open(fn, 'rb') as f:
+        d = f.read()
+    i0 = 0
+    i1 = 28
+    zk,ndm,nt,t0,dt = struct.unpack('=iiidd', d[i0:i1])
+    tzs = (dt//100)/1e4
+    dt = (dt - 100*(dt//100))
+    t1 = t0 + (nt-1)*dt
+    ts0 = np.exp(np.linspace(t0, t1, nt))
+    z = zk%256
+    kk = zk//256
+    k1 = kk%256
+    k0 = kk//256
+    if k0 == 0:
+        k0 = 1
+    if k1 == 0:
+        k1 = z
+    rs = []
+    for k in range(z+1):
+        rs.append([])
+    for k in range(k0, k1+1):
+        rk = []
+        for p in range(nt):
+            i0 = i1
+            i1 = i1+4        
+            ns = struct.unpack('i', d[i0:i1])[0]
+            if ns == 0:
+                continue
+            r = {}
+            r['z'] = z
+            r['k'] = k
+            r['zp'] = z-k+1
+            r['it'] = p
+            r['tzs'] = tzs
+            r['ts0'] = ts0
+            r['ts'] = ts0
+            if tzs > 0:
+                r['ts'] = ts0*(z-k+1)**tzs
+            for j in range(ns):
+                i0 = i1
+                i1 = i1 + 3*4 + 3*8
+                n,m,nd,d0,dd,e0 = struct.unpack('=iiiddd', d[i0:i1])
+                if nd == 0:
+                    continue
+                ipd = np.zeros(nd)
+                for t in range(nd):
+                    i0 = i1
+                    i1 = i1 + 8
+                    ipd[t] = struct.unpack('d', d[i0:i1])[0]
+                if j == 0:
+                    d1 = d0 + (nd-1)*dd
+                    ds = np.exp(np.linspace(d0, d1, nd))
+                    ds = np.append([0.0], ds)
+                    r['ds'] = ds
+                    r['dx'] = ds**(1/3.)
+                es = np.append([-e0], ipd-e0)
+                ss = '%d%s'%(n,fac.SPECSYMBOL[m])
+                r[ss] = es
+            rk.append(r)
+        rs[k] = rk
+    return rs
+
+def tab_ipd(z, odir, wdir='', k0=0, k1=0, md=0, ifill=True, eth=1e-3):
     if k0 == 0:
         k0 = 1
     if k1 == 0:
@@ -2006,7 +2178,7 @@ def tab_ipd(z, odir, wdir='', k0=0, k1=0, md=0, ifill=True):
                 m = mm[i]
                 y = r[ks][1:]
                 e0 = r[ks][0]
-                w = np.where(y < 0)[0]
+                w = np.where(y < e0*eth)[0]
                 if len(w) == 0:
                     i0 = 0
                     i1 = 0
