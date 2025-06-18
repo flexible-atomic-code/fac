@@ -119,6 +119,8 @@ static int    _opm_csi = 0;
 
 #pragma omp threadprivate(potential,hpotential,rpotential,_nws,_dws,_dwork,_dwork1,_dwork2,_dwork3,_dwork4,_dwork5,_dwork6,_dwork7,_dwork8,_dwork9,_dwork10,_dwork11,_dwork12,_dwork13,_dwork14,_dwork15,_dwork16,_dwork17,_phase,_dphase,_dphasep,_yk,_zk,_xk)
 
+static int _mhx = 1;
+static double _ihxmin = 0.1;
 static double **_refine_wfb = NULL;
 static double _refine_xtol = EPS5;
 static double _refine_scale = 0.1;
@@ -2687,6 +2689,7 @@ int GetPotential(char *s, int m) {
   fprintf(f, "#    kps = %d\n", potential->kps);
   fprintf(f, "#    vxf = %d\n", potential->vxf);
   fprintf(f, "#    vxm = %d\n", potential->vxm);
+  fprintf(f, "#    mhx = %d\n", _mhx);
   fprintf(f, "#    csi = %15.8E\n", _csi);
   fprintf(f, "#    zps = %15.8E\n", potential->zps);
   fprintf(f, "#    nps = %15.8E\n", potential->nps);
@@ -3271,20 +3274,30 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
   int ierr, muconv;
   muconv = 0;
   potential->miter = -1;
+  if (_mhx > 0) {
+    potential->ihx = 0.0;
+    a = potential->atom->atomic_number-potential->N;
+    if (a < _ihxmin) potential->ihx = -_ihxmin;
+  }
   while (1) {
     if (((tol > tol0*sta || atol > atol0*sta) && (tol > tol1*sta)) ||
 	iter <= 1+NDPH || ahx > 1e-5 || muconv == 0) {
       potential->miter = -1;
     } else {
       potential->miter = iter;
+      if (_mhx == 1) {
+	potential->ihx = ihx0;
+      }
     }
     if ((_scpot.md < 0 || _scpot.md > 1) &&
 	(fabs(hxs0) > 1e-5 || fabs(ihx0) > 1e-5))  {
       ahx = exp(-iter*0.75);
       if (ahx < 1e-4) ahx = 0.0;
       potential->hxs = hxs0*(1-ahx);
-      potential->ihx = ihx0*(1-ahx);
-      _opm_ahx = ahx;
+      if (_mhx == 0) {
+	potential->ihx = ihx0*(1-ahx);
+	_opm_ahx = ahx;
+      }
     }
     SetPotential(acfg, iter);
     if (potential->mps == 0 && potential->ups > 0 && SPMode() > 3) {
@@ -3384,6 +3397,7 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
     printf("OptimizeLoop Max Iter: %4d\n", iter);
   }
   potential->miter = iter;
+  potential->ihx = ihx0;
   return iter;
 }
 
@@ -12844,6 +12858,14 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "radial:ihx")) {
     potential->ihx = dp;
+    return;
+  }
+  if (0 == strcmp(s, "radial:mhx")) {
+    _mhx = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:ihxmin")) {
+    _ihxmin = dp;
     return;
   }
   if (0 == strcmp(s, "radial:print_spm")) {
