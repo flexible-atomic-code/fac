@@ -21,7 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define MAXNALLOC 1000000
+#define MAXNALLOC 10000000
 typedef struct _MEM_INFO_ {
   long int base;
   char *f;

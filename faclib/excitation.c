@@ -98,7 +98,7 @@ static CEPW_SCRATCH pw_scratch = {1, 0, MAXKL, 100, 5E-2, 0, 0, 10};
 static int _topup = 2;
 
 static int maxcecache = MAXCECACHE;
-static CECACHE cecache = {0};
+static CECACHE cecache = {0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL};
 
 static MULTI *pk_array;
 static MULTI *qk_array;

@@ -1083,7 +1083,7 @@ int GetConfigOrAverageFromString(CONFIG **cfg, double **nq, char *scfg0) {
   }
   free(dcfg);
   free(dnc);
-  if (!nq) {
+  if (nq) {
     free(dnq);
   }
   return ncfg;
@@ -3456,11 +3456,12 @@ int InitConfig(void) {
     cfg_groups[i].name[0] = '\0';
     cfg_groups[i].n_cfgs = 0;
     ArrayInit(&(cfg_groups[i].cfg_list), sizeof(CONFIG), CONFIGS_BLOCK);
-  }
+  }  
+  
   _grpidx = malloc(sizeof(MULTI));
   for (i = 0; i < 4; i++) blks[i] = MULTI_BLOCK4;
   MultiInit(_grpidx, sizeof(int), 4, blks, "grpidx");
-
+  
   optgrps = malloc(MAX_OPTGRPS*sizeof(int *));
   optgrp_ids = malloc(MAX_OPTGRPS*sizeof(char *));
   max_optgrps = MAX_OPTGRPS;
@@ -3609,8 +3610,8 @@ int ReinitConfig(int m) {
     cfg_groups[i].name[0] = '\0';
   }
   n_groups = 0;
-  MultiFree(_grpidx, NULL);
-
+  
+  MultiFreeLock(_grpidx, NULL);
   for (i = 0; i < 4; i++) blks[i] = MULTI_BLOCK4;
   MultiInit(_grpidx, sizeof(int), 4, blks, "grpidx");
   
@@ -3623,10 +3624,12 @@ int ReinitConfig(int m) {
   
   for (i = 0; i <= _cfghmask; i++) {
     if (_cfghasha[i]) {
-      ArrayFree(_cfghasha[i], NULL);
+      ArrayFreeLock(_cfghasha[i], NULL);
+      free(_cfghasha[i]);
       _cfghasha[i] = NULL;
     }
   }
+  
   SetClosedShellNR(0, 0);
 
   for (i = 0; i <= MAXNRN; i++) _nrk[i] = 0;

@@ -752,7 +752,7 @@ void LimitMultiSize(MULTI *ma, double r) {
 }
 
 double TotalSize() {
-#if PMALLOC_CHECK == 2
+#if PMALLOC_CHECK > 0
   return (double) msize();
 #else
   return _totalsize;
@@ -1131,7 +1131,9 @@ int NMultiFreeData(MULTI *ma, void (*FreeElem)(void *)) {
 	      _totalsize, _overheadsize, _maxsize, ma->clean_flag, ma->cth);
     }
   } else {
-    if (ma->totalsize <= 0 && ma->clean_flag <= 0) clean = 0;
+    if (ma->totalsize <= 0 && ma->clean_flag <= 0) {
+      clean = 0;
+    }
   }
   if (clean) {
 #pragma omp atomic write
@@ -1145,7 +1147,12 @@ int NMultiFreeData(MULTI *ma, void (*FreeElem)(void *)) {
       a = &(ma->array[i]);
       if (a->lock) SetLock(a->lock);
       NMultiFreeDataOnly(a, FreeElem);
-      if (a->lock) ReleaseLock(a->lock);
+      if (a->lock) {
+	ReleaseLock(a->lock);
+	DestroyLock(a->lock);
+	free(a->lock);
+	a->lock = NULL;
+      }
     }
     _totalsize -= ma->totalsize;
 #pragma omp atomic write
@@ -1165,6 +1172,7 @@ int NMultiFreeData(MULTI *ma, void (*FreeElem)(void *)) {
 int NMultiFree(MULTI *ma, void (*FreeElem)(void *)) {
   if (!ma) return 0;
   if (ma->ndim <= 0) return 0;
+  ma->clean_flag = 1;
   NMultiFreeData(ma, FreeElem);
   free(ma->array);
   ma->array = NULL;
@@ -1187,6 +1195,7 @@ int MultiFreeLock(MULTI *ma, void (*FreeElem)(void *)) {
     free(ma->clean_lock);
     ma->clean_lock = NULL;
   }
+
   return 0;
 }
 

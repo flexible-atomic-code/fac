@@ -768,7 +768,7 @@ void PrintWallTime(char *s, int m) {
       if (nlock > mnlock) mnlock = nlock;
     }
   }
-  printf("WallTime%d: %9.3E %9.3E %9.3E/%9.3E %9.3E/%9.3E %8lld %8lld ... %s\n",
+  printf("WallTime%d: %11.5E %15.9E %9.3E/%9.3E %9.3E/%9.3E %8lld %8lld ... %s\n",
 	 m, t, TotalSize(), ttskip, mtskip, ttlock, mtlock, tnlock, mnlock, s);
   fflush(stdout);
 }

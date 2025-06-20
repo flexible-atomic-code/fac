@@ -90,7 +90,7 @@ static REC_COMPLEX rec_complex[MAX_COMPLEX];
 int n_complex = 0;
 
 static int maxaicache = MAXAICACHE;
-static AICACHE aicache = {0, 0};
+static AICACHE aicache = {0, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 
 void SetMaxAICache(int n) {
   if (n > 0) {
