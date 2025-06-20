@@ -3277,7 +3277,7 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
   double tol, atol, tol0, atol0, tol1, a, b, ahx, hxs0, ihx0;
   double *p, *q, wp, wq, w;
   ORBITAL orb_old, *orb;
-  int i, k, m, no_old;
+  int i, k, m, no_old, *freeze;
 
   no_old = 0;
   tol = 1.0;
@@ -3302,6 +3302,10 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
     potential->ihx = 0.0;
     a = potential->atom->atomic_number-potential->N;
     if (a < _ihxmin) potential->ihx = -_ihxmin;
+  }
+  freeze = malloc(sizeof(int)*acfg->n_shells);
+  for (i = 0; i < acfg->n_shells; i++) {
+    freeze[i] = 0;
   }
   while (1) {
     if (((tol > tol0*sta || atol > atol0*sta) && (tol > tol1*sta)) ||
@@ -3328,14 +3332,14 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
     tol = 0.0;
     atol = 0.0;
     for (i = 0; i < acfg->n_shells; i++) {
-      int freeze = 0;
+      if (freeze[i]) continue;
       k = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
       if (k < 0) {
 	orb_old.energy = 0.0;
 	orb = GetNewOrbital(acfg->n[i], acfg->kappa[i], 1.0);
 	orb->energy = 1.0;
 	no_old = 1;	
-      } else {
+      } else {	
 	orb = GetOrbital(k);
 	if (orb->isol == 0 || orb->wfun == NULL) {
 	  orb_old.energy = 0.0;
@@ -3360,17 +3364,17 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
 	      wp = sta/w;
 	      wp = Min(1.0, wp);
 	      if ((b < atol0*wp && wq < tol0*wp) || wq < tol1*wp) {
-		freeze = 1;
+		freeze[i] = 1;
 	      }
 	      //printf("wf: %d %d %d %d %d %g %g %g %g %d\n", iter, orb->n, orb->kappa, orb->ilast, _jsi, potential->rad[_jsi], w, orb->energy, orb_old.energy, freeze);
 	    }
 	  }
-	  if (!freeze && orb->energy >= emin && orb->energy < emax) {
+	  if (!freeze[i] && orb->energy >= emin && orb->energy < emax) {
 	    free(orb->wfun);
 	    orb->wfun = NULL;
 	    orb->isol = 0;
 	  } else {
-	    freeze = 1;
+	    freeze[i] = 1;
 	  }	    
 	  no_old = 0;
 	} else {
@@ -3378,7 +3382,7 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
 	}
       }
 
-      if (!freeze) {
+      if (!freeze[i]) {
 	ierr = SolveDirac(orb);
 	if (ierr < 0) {
 	  return -1;
@@ -3389,7 +3393,7 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
 	atol = 1e1;
 	continue;
       }
-      if (!freeze) {
+      if (!freeze[i]) {
 	wp = fabs(orb_old.energy);
 	wq = fabs(orb->energy);
 	w = Max(wp, wq);
@@ -3436,6 +3440,19 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
     iter++;
     if (iter > miter) break;
   }
+  for (i = 0; i < acfg->n_shells; i++) {
+    if (!freeze[i]) continue;
+    k = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
+    orb = GetOrbital(k);
+    free(orb->wfun);
+    orb->wfun = NULL;
+    orb->isol = 0;
+    ierr = SolveDirac(orb);
+    if (ierr < 0) {
+      return -1;
+    }
+  }
+  free(freeze);
   if (_print_maxiter) {
     printf("OptimizeLoop Max Iter: %4d\n", iter);
   }
