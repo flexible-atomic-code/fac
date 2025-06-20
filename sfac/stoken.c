@@ -321,8 +321,8 @@ int EvalFile(FILE *f, int exebyline, METHOD *methods) {
     }
   }
   
-  ArrayFree(&statements, FreeStatementData);
-  ArrayFree(&variables, FreeVariableData);
+  ArrayFreeLock(&statements, FreeStatementData);
+  ArrayFreeLock(&variables, FreeVariableData);
   
   return 0;
 }

@@ -397,12 +397,9 @@ static int PAvgConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   double *nq;
 
   if (argc != 1 || argt[0] != STRING) return -1;
-
   ns = GetAverageConfigFromString(&n, &kappa, &nq, argv[0]);
   if (ns <= 0) return -1;
-
   if (SetAverageConfig(ns, n, kappa, nq) < 0) return -1;
-
   free(n);
   free(kappa);
   free(nq);
@@ -1307,7 +1304,6 @@ static int POptimizeRadial(int argc, char *argv[], int argt[],
     weight = NULL;
     goto END;
   } 
-  
   if (argt[0] == STRING) {
     weight = NULL;
     ng = DecodeGroupArgs(&kg, argc, NULL, argv, argt, variables);
@@ -1346,7 +1342,7 @@ static int POptimizeRadial(int argc, char *argv[], int argt[],
   }
 
  END:
-  if (ng == 0) kg = NULL;  
+  if (ng == 0) kg = NULL;
   if (OptimizeRadial(ng, kg, -1, weight, 0) < 0) {
     if (kg) free(kg);
     if (weight) free(weight);
@@ -1354,9 +1350,7 @@ static int POptimizeRadial(int argc, char *argv[], int argt[],
   }
   if (weight) free(weight);
   if (kg) free(kg);
-
   for (i = 0; i < ni; i++) free(vw[i]);
-
   return 0;
 }
 
@@ -2010,6 +2004,7 @@ static int PSetAvgConfig(int argc, char *argv[], int argt[],
   int ic[MAXNARGS], is[MAXNARGS];
 
   if (argc != 1 || argt[0] != LIST) {
+    printf("SetAvgConfig arg is List\n");
     return -1;
   }
   
@@ -2021,6 +2016,7 @@ static int PSetAvgConfig(int argc, char *argv[], int argt[],
   for (i = 0; i < ns; i++) {
     j = DecodeArgs(vc[i], vs, is, variables);
     if (j != 4) {
+      printf("SetAvgConfig has 4-tuple: %d %d %s\n", i, j, vc[i]);
       return -1;
     }
     n[i] = atoi(vs[0]);
@@ -5735,12 +5731,12 @@ int main(int argc, char *argv[]) {
 #if PMALLOC_CHECK == 1
   pmalloc_open();
 #endif
-  
+
   if (InitFac() < 0) {
     printf("initialization failed\n");
     exit(1);
   }
-
+  
   SetModName("fac");
 
   ParseArgs(argc, argv, methods);
