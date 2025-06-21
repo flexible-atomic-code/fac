@@ -3355,6 +3355,7 @@ int GetAverageConfig(int ng, int *kg, int ic, double *weight, int wm,
   return j;
 
  ERROR:
+  acfg->ng = 0;
   if (acfg->n) free(acfg->n);
   if (acfg->nq) free(acfg->nq);
   if (acfg->kappa) free(acfg->kappa);
