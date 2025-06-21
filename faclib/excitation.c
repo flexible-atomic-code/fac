@@ -4558,7 +4558,7 @@ int InitExcitation(void) {
   SetAngleGrid(0, 10, 0.0, PI);
   SetAngleGrid(1, 20, 0.0, TWO_PI);
 
-  SetMaxCECache(-1);
+  //SetMaxCECache(-1);
   return 0;
 }
 
