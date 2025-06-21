@@ -1149,9 +1149,11 @@ int NMultiFreeData(MULTI *ma, void (*FreeElem)(void *)) {
       NMultiFreeDataOnly(a, FreeElem);
       if (a->lock) {
 	ReleaseLock(a->lock);
-	DestroyLock(a->lock);
-	free(a->lock);
-	a->lock = NULL;
+	if (ma->clean_flag == 10) {
+	  DestroyLock(a->lock);
+	  free(a->lock);
+	  a->lock = NULL;
+	}
       }
     }
     _totalsize -= ma->totalsize;
@@ -1172,7 +1174,7 @@ int NMultiFreeData(MULTI *ma, void (*FreeElem)(void *)) {
 int NMultiFree(MULTI *ma, void (*FreeElem)(void *)) {
   if (!ma) return 0;
   if (ma->ndim <= 0) return 0;
-  ma->clean_flag = 1;
+  ma->clean_flag = 10;
   NMultiFreeData(ma, FreeElem);
   free(ma->array);
   ma->array = NULL;
