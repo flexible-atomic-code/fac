@@ -4003,7 +4003,7 @@ int InitRecombination(void) {
   SetRecQkMode(QK_DEFAULT, 0.1);
   SetRecPWOptions(RECLMAX, RECLMAX);
 
-  SetMaxAICache(-1);
+  //SetMaxAICache(-1);
   SetCXEGrid(36, 1e-2, 1e5, NULL, 1, 0);
   
   return 0;
