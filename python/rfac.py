@@ -985,14 +985,15 @@ def read_pot(fn, cfg=None, header=None):
 
     if j == 0:
         fb = np.sum(d[3][w1])+np.sum(d[3][w2])
-        eb = -(np.sum(d[3][w1]*d[8][w1]) +
-               np.sum(d[3][w2]*d[8][w2]))/fb * 27.21
+        eb = np.sum(d[8][w1]*abs(d[2][w1]))+np.sum(d[8][w2]*abs(d[2][w2]))
+        eb = eb / (np.sum(abs(d[2][w1]))+np.sum(abs(d[2][w2])))
+        eb = eb * const.Hartree_eV
     elif j == 1:
-        fb = np.sum(d[3][w2])
-        eb = np.sum(d[3][w2]*d[8][w2])/fb * 27.21
+        fb = np.sum(d[3][w2])        
+        eb = np.sum(d[8][w2])/len(w2) * const.Hartree_eV
     else:
         fb = np.sum(d[3][w1])
-        eb = np.sum(d[3][w1]*d[8][w1])/fb * 27.21
+        eb = np.sum(d[8][w1])/len(w1) * const.Hartree_eV
     return fb,eb
 
 def valence_shells(fn, nr=0):

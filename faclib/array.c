@@ -342,6 +342,7 @@ int ArrayFreeData(DATA *p, int esize, int block,
 
   if (p->next) {
     ArrayFreeData(p->next, esize, block, FreeElem);
+    p->next = NULL;
   }
     
   if (FreeElem && p->dptr) {
