@@ -6667,6 +6667,54 @@ static PyObject *PFermiFun(PyObject *self, PyObject *args) {
   return Py_BuildValue("d", r);
 }
   
+static PyObject *PFermiDirac(PyObject *self, PyObject *args) {
+  double n, x, r, t;
+  int m, ie, k;
+
+  m = 0;
+  if (!PyArg_ParseTuple(args, "dd|i", &n, &x, &m)) return NULL;
+
+  k = 0;
+  if (fabs(n+0.5) < EPS5) k = -1;
+  else if (fabs(n-0.5) < EPS5) k = 1;
+  else if (fabs(n-1.5) < EPS5) k = 3;
+  else if (fabs(n-2.5) < EPS5) k = 5;
+  
+  if (m < 0 && k == 0) return NULL;
+  
+  if (k == 0) m = 0;
+  else if (k != 1 && m > 1) m = 1;
+  t = EPS10;
+  r = 0.0;
+  if (m == 0) {
+    FERMID(n, x, t, &r, &ie);
+    r *= exp(DLOGAM(1+n));
+  } else if (m == 1) {
+    if (k == -1) {
+      r = FM1M(x);
+    } else if (k == 1) {
+      r = FM1P(x);
+    } else if (k == 3) {
+      r = FM3P(x);
+    } else if (k == 5) {
+      r = FM5P(x);
+    }
+  } else if (m > 1){
+    r = FermiIntegral(x, 0.0, 0.0);
+  } else {
+    if (k == -1) {
+      r = FM1MI(x);
+    } else if (k == 1) {
+      r = FM1PI(x);
+    } else if (k == 3) {
+      r = FM3PI(x);
+    } else if (k == 5) {
+      r = FM5PI(x);
+    }
+  }
+  return Py_BuildValue("d", r);
+}
+
 static PyObject *PXCPotential(PyObject *self, PyObject *args) {
   double t, n, r;
   int md;
@@ -6977,6 +7025,7 @@ static struct PyMethodDef fac_methods[] = {
   {"Bessel", PBessel, METH_VARARGS},
   {"MaxwellRC", PMaxwellRC, METH_VARARGS},
   {"FermiFun", PFermiFun, METH_VARARGS},
+  {"FermiDirac", PFermiDirac, METH_VARARGS},
   {"XCPotential", PXCPotential, METH_VARARGS},
   {"FillClosedShell", PFillClosedShell, METH_VARARGS},
   {"RemoveClosedShell", PRemoveClosedShell, METH_VARARGS},

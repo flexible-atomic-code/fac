@@ -395,7 +395,6 @@ class AA:
     def run(self, tol=0.1, imd=1, cvg=1, p=0.0, ptol=0.01):
         if p > 0:
             pref = '%s/%s%s'%(self.dd,self.pref,self.asym)
-            self.d = 1.0
             self.run()
             pn = self.rden(pref, header='tp')
             biter = 0
@@ -405,6 +404,8 @@ class AA:
                 while (True):
                     biter = biter+1
                     xp = 2*p/pn
+                    if xp > 10:
+                        xp = 10.0
                     self.d = self.d * xp
                     self.run()
                     pn = self.rden(pref, header='tp')
@@ -422,7 +423,9 @@ class AA:
                 while (True):
                     biter = biter+1
                     xp = 2*p/pn
-                    self.d = self.d * 1.5*p/pn
+                    if xp < 0.1:
+                        xp = 0.1
+                    self.d = self.d * xp
                     self.run()
                     pn = self.rden(pref, header='tp')
                     print('iter1: %3d %12.5E %12.5E %12.5E %12.5E'%(biter, d0, p0, pn, xp))
@@ -440,12 +443,15 @@ class AA:
             xp = np.log(p)
             while ((p1-p0)/p > ptol):
                 piter = piter+1
-                xp0 = np.log(p0)
-                xp1 = np.log(p1)
-                xd0 = np.log(d0)
-                xd1 = np.log(d1)
-                xf = (xp-xp0)/(xp1-xp0)
-                dn = np.exp(xd0*(1-xf) + xd1*xf)
+                if p1/p0 > 1e5:
+                    dn = 0.5*(d0+d1)
+                else:
+                    xp0 = np.log(p0)
+                    xp1 = np.log(p1)
+                    xd0 = np.log(d0)
+                    xd1 = np.log(d1)
+                    xf = (xp-xp0)/(xp1-xp0)
+                    dn = np.exp(xd0*(1-xf) + xd1*xf)
                 self.d = dn
                 self.run()
                 pn = self.rden(pref, header='tp')
@@ -632,8 +638,8 @@ class AA:
                         self.run1z(asym)                    
                 self.ds[i] = self.d
 
-# AA model at fixed pressure. t in eV, p in Mbar
-def AAP(z, t, p, dd=None, pref='', ptol=0.01, bqp=1e30):
-    a = AA(z=z, t=t, dd=dd, pref=pref, bqp=bqp)
+# AA model at fixed pressure or mass density. t in eV, p in Mbar, d in g/cc
+def AAPD(z, t, d=1.0, p=0.0, dd=None, pref='', ptol=0.01, bqp=1e30):
+    a = AA(z=z, t=t, d=d, dd=dd, pref=pref, bqp=bqp)
     a.run(p=p, ptol=ptol)
     
