@@ -68,7 +68,8 @@ class AA:
     or
     AA('H0.56C0.42Cu0.02', 10.0, 200).run()
     """
-    def __init__(self, z=1, d=1.0, t=1.0, wm=None, dd=None, pref='',
+    def __init__(self, z=1, d=1.0, t=1.0,
+                 wm=None, dd=None, pref='',
                  cc=None, znb=0, nr=6, nc=0, sc=0, pmi=0, bqp=-1E12,
                  vxf=2, vxm=2, hxs=-10.0, ngrid=0, maxiter=512,
                  ewm=0, ewf=1.0, vmin=0.2, ztol=-1.0, ids='',
@@ -391,7 +392,76 @@ class AA:
                 c = 'rm -rf %s.*'%pf
                 os.system(c)
                 
-    def run(self, tol=0.1, imd=1, cvg=1):
+    def run(self, tol=0.1, imd=1, cvg=1, p=0.0, ptol=0.01):
+        if p > 0:
+            pref = '%s/%s%s'%(self.dd,self.pref,self.asym)
+            self.d = 1.0
+            self.run()
+            pn = self.rden(pref, header='tp')
+            biter = 0
+            if pn < p:
+                p0 = pn
+                d0 = self.d
+                while (True):
+                    biter = biter+1
+                    xp = 2*p/pn
+                    self.d = self.d * xp
+                    self.run()
+                    pn = self.rden(pref, header='tp')
+                    print('iter0: %3d %12.5E %12.5E %12.5E %12.5E'%(biter, d0, p0, pn, xp))
+                    if pn >= p:
+                        break
+                    else:
+                        p0 = pn
+                        d0 = self.d
+                p1 = pn
+                d1 = self.d
+            elif pn > p:
+                p1 = pn
+                d1 = self.d
+                while (True):
+                    biter = biter+1
+                    xp = 2*p/pn
+                    self.d = self.d * 1.5*p/pn
+                    self.run()
+                    pn = self.rden(pref, header='tp')
+                    print('iter1: %3d %12.5E %12.5E %12.5E %12.5E'%(biter, d0, p0, pn, xp))
+                    if pn <= p:
+                        break
+                    else:
+                        p1 = pn
+                        d1 = self.d
+                p0 = pn
+                d0 = self.d
+            print('biter: %3d %12.5E %12.5E %12.5E %12.5E %12.5E'%(biter, d0, p0, d1, p1, p))
+            if abs(1-pn/p) < ptol:
+                return
+            piter = 0
+            xp = np.log(p)
+            while ((p1-p0)/p > ptol):
+                piter = piter+1
+                xp0 = np.log(p0)
+                xp1 = np.log(p1)
+                xd0 = np.log(d0)
+                xd1 = np.log(d1)
+                xf = (xp-xp0)/(xp1-xp0)
+                dn = np.exp(xd0*(1-xf) + xd1*xf)
+                self.d = dn
+                self.run()
+                pn = self.rden(pref, header='tp')
+                print('piter: %3d %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E'%(piter, d0, d1, dn, pn, p, 1-pn/p))
+                if abs(1-pn/p) < ptol:
+                    return
+                if pn < p:
+                    d0 = dn
+                    p0 = pn
+                else:
+                    d1 = dn
+                    p1 = pn
+                if piter > 100:
+                    print('pressure bisection failed')
+                    break
+            return
         if imd <= 0:
             self.irun(tol=tol)
             return
@@ -561,4 +631,9 @@ class AA:
                         self.d = self.d*(1-wst) + dn*wst
                         self.run1z(asym)                    
                 self.ds[i] = self.d
-            
+
+# AA model at fixed pressure. t in eV, p in Mbar
+def AAP(z, t, p, dd=None, pref='', ptol=0.01, bqp=1e30):
+    a = AA(z=z, t=t, dd=dd, pref=pref, bqp=bqp)
+    a.run(p=p, ptol=ptol)
+    

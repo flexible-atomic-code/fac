@@ -4637,10 +4637,15 @@ double XCPotential(double tx, double n, int md) {
     
 int DensityToSZ(POTENTIAL *pot, double *d, double *z,
 		double *zx, double *jps, int md) {
-  int i, im;
+  int i, im, maxrp;
   double nx, rx;
 
-  for (im = pot->maxrp-1; im >= 0; im--) {
+  if (pot->ips > 0 && pot->ups+1 == 1) {
+    maxrp = pot->ips+1;
+  } else {
+    maxrp = pot->maxrp;
+  }
+  for (im = maxrp-1; im >= 0; im--) {
     if (d[im] || zx[im]) break;
   }
   if (im <= 0) {
@@ -4651,7 +4656,7 @@ int DensityToSZ(POTENTIAL *pot, double *d, double *z,
     *jps = 0.0;
     return 0;
   }
-  im = pot->maxrp-1;
+  im = maxrp-1;
   for (i = 0; i <= im; i++) {
     _dwork[i] = d[i]*pot->dr_drho[i];
   }

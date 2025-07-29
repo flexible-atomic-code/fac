@@ -3303,9 +3303,12 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
     a = potential->atom->atomic_number-potential->N;
     if (a < _ihxmin) potential->ihx = -_ihxmin;
   }
-  freeze = malloc(sizeof(int)*acfg->n_shells);
-  for (i = 0; i < acfg->n_shells; i++) {
-    freeze[i] = 0;
+  freeze = NULL;
+  if (potential->mps < 3 && acfg->n_cores > 0) {
+      freeze = malloc(sizeof(int)*acfg->n_cores);
+      for (i = 0; i < acfg->n_cores; i++) {
+	freeze[i] = 0;
+      }
   }
   while (1) {
     if (((tol > tol0*sta || atol > atol0*sta) && (tol > tol1*sta)) ||
@@ -3332,7 +3335,7 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
     tol = 0.0;
     atol = 0.0;
     for (i = 0; i < acfg->n_shells; i++) {
-      if (freeze[i]) continue;
+      if (i < acfg->n_cores && freeze[i]) continue;
       k = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
       if (k < 0) {
 	orb_old.energy = 0.0;
@@ -3364,25 +3367,28 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
 	      wp = sta/w;
 	      wp = Min(1.0, wp);
 	      if ((b < atol0*wp && wq < tol0*wp) || wq < tol1*wp) {
-		freeze[i] = 1;
+		if (i < acfg->n_cores) {
+		  freeze[i] = 1;
+		}
 	      }
 	      //printf("wf: %d %d %d %d %d %g %g %g %g %d\n", iter, orb->n, orb->kappa, orb->ilast, _jsi, potential->rad[_jsi], w, orb->energy, orb_old.energy, freeze);
 	    }
 	  }
-	  if (!freeze[i] && orb->energy >= emin && orb->energy < emax) {
+	  if ((i >= acfg->n_cores) ||
+	      (!freeze[i] && orb->energy >= emin && orb->energy < emax)) {
 	    free(orb->wfun);
 	    orb->wfun = NULL;
 	    orb->isol = 0;
 	  } else {
 	    freeze[i] = 1;
-	  }	    
+	  }
 	  no_old = 0;
 	} else {
 	  continue;
 	}
       }
 
-      if (!freeze[i]) {
+      if (i >= acfg->n_cores || !freeze[i]) {
 	ierr = SolveDirac(orb);
 	if (ierr < 0) {
 	  return -1;
@@ -3393,7 +3399,7 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
 	atol = 1e1;
 	continue;
       }
-      if (!freeze[i]) {
+      if (i >= acfg->n_cores || !freeze[i]) {
 	wp = fabs(orb_old.energy);
 	wq = fabs(orb->energy);
 	w = Max(wp, wq);
@@ -3441,7 +3447,7 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
     if (iter > miter) break;
   }
   for (i = 0; i < acfg->n_shells; i++) {
-    if (!freeze[i]) continue;
+    if (i >= acfg->n_cores || !freeze[i]) continue;
     k = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
     orb = GetOrbital(k);
     free(orb->wfun);
@@ -3452,7 +3458,7 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
       return -1;
     }
   }
-  free(freeze);
+  if (freeze) free(freeze);
   if (_print_maxiter) {
     printf("OptimizeLoop Max Iter: %4d\n", iter);
   }
@@ -4208,8 +4214,8 @@ double EffectiveTe(double ne, double ke) {
 void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   char pfn[1024], dfn[1024], sfn[1024];  
   int it, nm, ik, k, k0, k1, idx;
-  double z0, zb0, zb1, a, b, c, d, e, x, y, r, nb, vc, zbr;
-  double v, epsr, epsa, u, u0, u1, ke, km, tm, etf, ex, dn;
+  double z0, zb0, zb1, a, b, c, d, e, x, y, r, nb, nc, vc, zbr, tp, vp;
+  double v, epsr, epsa, u, u0, u1, ke, km, tm, etf, ex, dn, x2, y2;
   ORBITAL *orb;
 
   _aaztol = ztol;
@@ -4307,6 +4313,11 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   } else {
     etf = potential->eth;
   }
+  //double ewd = potential->ewd;
+  //if (ewd > 0) {
+  //  potential->ewd = 0.0;
+  //  SetScreenConfig(potential->miter);
+  //}
   a = FreeElectronDensity(potential, etf, potential->bps, 0.0, 4, 0);
   for (k = 0; k < potential->maxrp; k++) {
     _dwork5[k] = potential->EPS[k];
@@ -4323,7 +4334,9 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
     potential->EPS[k] = _zk[k];    
     _dwork3[k] = 0.0;
     _dwork4[k] = 0.0;
-    _xk[k] = _dwork5[k];
+    _dwork5[k] = 0.0;
+    _dwork6[k] = 0.0;
+    _xk[k] = 0.0;
     _yk[k] = 0.0;
   }
   AVERAGE_CONFIG *ac = &(average_config);
@@ -4331,6 +4344,7 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   char orbf[128];
   k1 = potential->ips;
   nb = 0.0;
+  nc = 0.0;
   vc = potential->VT[0][k1];
   for (ik = 0; ik < ac->n_shells; ik++) {
     idx = OrbitalIndex(ac->n[ik], ac->kappa[ik], 0);
@@ -4347,15 +4361,16 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
       nm++;
       nb += c;
     }
+    nc += c;
     if (orb->ilast < k1) k1 = orb->ilast;
     for (k = 0; k <= orb->ilast; k++) {
       x = Large(orb)[k];
       y = Small(orb)[k];
-      r = x*x;
-      a = (r + y*y);
+      x2 = x*x;
+      y2 = y*y;
+      a = (x2 + y2);
       d = c*a;
       a = ac->nq[ik]*a;
-      r = ac->nq[ik]*r;
       _dwork1[k] += a;
       if (orb->energy < 0) {
 	_dwork3[k] += d*log(-orb->energy);
@@ -4363,8 +4378,9 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
       }
       _dwork4[k] += a;
       _dwork5[k] += a*(orb->energy-potential->VT[0][k]);
-      _xk[k] += r*(orb->energy-potential->VT[0][k]);
-      _yk[k] += r;
+      //_dwork6[k] += d;
+      _xk[k] += x2*ac->nq[ik];
+      _yk[k] += y2*ac->nq[ik];
       if (b > 0) {
 	_dwork7[k] += -a*b*log(b);      
 	if (b < 1.0) {
@@ -4433,9 +4449,9 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   for (k = 0; k <= potential->ips; k++) {
     if (fabs(_dwork4[k]) < 1e-90) _dwork4[k] = 0.0;
     a = (potential->EPS[k]+_dwork4[k]);
-    b = (potential->EPS[k]+_yk[k]);
-    _dwork14[k] = a;
     _dwork15[k] = a;
+    //_dwork14[k] = _dwork4[k];
+    _dwork14[k] = a;
     if (a > 0) {
       _dwork3[k] = exp(2*_dwork3[k]/a)*potential->rad[k]*potential->rad[k];
       if (fabs(_dwork3[k]) < 1e-90) _dwork3[k] = 0.0;
@@ -4469,13 +4485,28 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
       _phase[k] = -XCPotential(potential->tps, c, 20+potential->vxm)*b;
     }
     ex = Simpson(_phase, 0, potential->ips)*HARTREE_EV;
-  }
+  }  
   k = DensityToSZ(potential, _dwork14, _dwork10, _dwork15, &b, 0);
+  for (k = 0; k <= potential->ips; k++) {
+    _zk[k] = potential->rad[k]*potential->VT[0][k];
+    _dwork8[k] = potential->EPS[k]*potential->dr_drho[k];
+    _dwork9[k] = _dwork4[k]*potential->dr_drho[k];
+    _dwork11[k] = _dwork14[k]*potential->dr_drho[k];
+  }
+  a = Simpson(_dwork8, 0, potential->ips);
+  b = Simpson(_dwork9, 0, potential->ips);
+  c = Simpson(_dwork11, 0, potential->ips);
+  Differential(_zk, _dphasep, 0, potential->ips, potential);
   for (k = 0; k <= potential->ips; k++) {
     r = potential->rad[k];
     b = _dwork14[k]*potential->dr_drho[k];
     a = potential->Z[k];
+    if (potential->pvp && potential->mvp) {
+      a += potential->ZVP[k];
+    }
     _xk[k] *= potential->dr_drho[k];
+    _yk[k] *= potential->dr_drho[k];
+    _zk[k] = b*(_dphasep[k]-potential->VT[0][k]);
     _dwork17[k] *= potential->dr_drho[k];
     _dwork8[k] = b*_dwork5[k];
     _dwork9[k] = b*_dwork7[k];
@@ -4488,9 +4519,10 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   y = Simpson(_dwork9, 0, potential->ips)*a;
   u = 0.5*Simpson(_dphase, 0, potential->ips)*a;
   r = Simpson(_dwork11, 0, potential->ips)*a;
-  e = Simpson(_xk, 0, potential->ips)*a;
+  e = Simpson(_yk, 0, potential->ips)*a*2/FINE_STRUCTURE_CONST2;
   c = Simpson(_dwork17, 0, potential->ips)*a;
   b = Simpson(_dwork16, 0, potential->ips)*a;
+  vc = -Simpson(_zk, 0, potential->ips)*a;
   if (potential->vxm == 0) {
     ex = b*0.75;
   }
@@ -4507,6 +4539,11 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   fprintf(f, "#   ze: %15.8E\n", zb1);
   a = z0-zb0;
   a = Max(0.0, a);
+  FERMID(1.5, potential->bps, EPS10, &tp, &k);
+  tp *= 1.32934*pow(2*potential->tps, 2.5)/(6*PI*PI);
+  tp *= 294.21;
+  vp = (x+e+2*c+r+u+3*(b-ex))/3.0/(4*PI/3.*pow(potential->rps,3.0))/HARTREE_EV;
+  vp *= 294.21;
   fprintf(f, "#   zf: %15.8E\n", a);
   fprintf(f, "#   zr: %15.8E\n", zbr);
   fprintf(f, "#   nm: %15d\n", nm);
@@ -4531,14 +4568,36 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   fprintf(f, "#   vx: %15.8E\n", ex);
   fprintf(f, "#   ux: %15.8E\n", b);
   fprintf(f, "#   vn: %15.8E\n", r);
+  fprintf(f, "#   vc: %15.8E\n", vc);
   fprintf(f, "#   vf: %15.8E\n", u+r+ex+x-y);
   fprintf(f, "#   ep: %15.8E\n", e);
-  fprintf(f, "#   vp: %15.8E\n", u+r+2*e+3*(b-ex));
+  fprintf(f, "#   vp: %15.8E\n", vp);
+  fprintf(f, "#   tp: %15.8E\n", tp);
   fprintf(f, "#  rsf: %15.8E\n", SCRSF());
   fprintf(f, "#  rbf: %15.8E\n", SCRBF());
   fprintf(f, "#  bqp: %15.8E\n", SCBQP());
   fprintf(f, "#  vxf: %15d\n", _sc_vxf);
   fprintf(f, "#  vxm: %15d\n", potential->vxm);
+  /*
+  for (k0 = 0; k0 < 6; k0 += 2) {
+    for (k = 0; k <= potential->ips; k++) {
+      _dwork8[k] = 0;
+    }
+    for (k1 = -1; k1 <= 1; k1 += 2) {
+      if (k0+k1 <= 0) continue;
+      for (k = 0; k <= potential->ips; k++) {
+	idx = OrbitalIndex(3, GetKappaFromJL(k0+k1, k0), 0);
+	orb = GetOrbitalSolved(idx);
+	x = Large(orb)[k];
+	y = Small(orb)[k];
+	a = (k0+k1+1.0)*(x*x + y*y);
+	_dwork8[k] += a*(orb->energy - potential->VT[0][k]);
+      }
+    }
+    x = Simpson(_dwork8, 0, potential->ips)*HARTREE_EV/(k0+1.0);
+    fprintf(f, "# ek%d: %15.8E\n", k0/2, x);
+  }
+  */
   fprintf(f, "\n");
   fprintf(f, "## c00: index\n");
   fprintf(f, "## c01: radius\n");
@@ -4609,6 +4668,7 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
     e += d;
   }  
   fclose(f);
+  //potential->ewd = ewd;
 }
 
 static double EnergyFunc(int *n, double *x) {
