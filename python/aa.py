@@ -409,7 +409,7 @@ class AA:
                     self.d = self.d * xp
                     self.run()
                     pn = self.rden(pref, header='tp')
-                    print('iter0: %3d %12.5E %12.5E %12.5E %12.5E'%(biter, d0, p0, pn, xp))
+                    print('iter0: %3d %12.5E %12.5E %12.5E %12.5E %12.5E'%(biter, d0, p0, self.d, pn, xp))
                     if pn >= p:
                         break
                     else:
@@ -422,13 +422,13 @@ class AA:
                 d1 = self.d
                 while (True):
                     biter = biter+1
-                    xp = 2*p/pn
+                    xp = 0.5*p/pn
                     if xp < 0.1:
                         xp = 0.1
                     self.d = self.d * xp
                     self.run()
                     pn = self.rden(pref, header='tp')
-                    print('iter1: %3d %12.5E %12.5E %12.5E %12.5E'%(biter, d0, p0, pn, xp))
+                    print('iter1: %3d %12.5E %12.5E %12.5E %12.5E %12.5E'%(biter, d1, p1, self.d, pn, xp))
                     if pn <= p:
                         break
                     else:
