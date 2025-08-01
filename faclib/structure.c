@@ -2867,7 +2867,7 @@ int AddToULevels(int ng, int *kg) {
     for (j = 0; j < g->n_cfgs; j++) {
       lev.pb = j;
       c = GetConfigFromGroup(kg[i], j);
-      lev.ilev = ((int)(fabs(c ->sweight)+0.25))-1;
+      lev.ilev = ((int)(fabs(c->sweight)+0.25))-1;
       lev.pj = c->sweight < 0;
       c->energy = AverageEnergyConfig(c);
       c->energy += c->delta+c->shift;
@@ -2917,7 +2917,7 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
       for (j = 0; j < g->n_cfgs; j++) {
 	lev.pb = j;
 	c = GetConfigFromGroup(kg[i], j);
-	lev.ilev = ((int)(fabs(c ->sweight)+0.25))-1;
+	lev.ilev = ((int)(fabs(c->sweight)+0.25))-1;
 	lev.pj = c->sweight < 0;
 	c->energy = AverageEnergyConfig(c);
 	c->energy += c->delta+c->shift;

@@ -133,6 +133,7 @@ typedef struct _EN_RECORD_ {
   
 typedef struct _EN_SRECORD_ {
   int p;
+  int k;
   int j;
   int ibase;
   double energy;
@@ -609,6 +610,7 @@ void CEMF2CEFRecord(CEMF_RECORD *mr, CEF_RECORD *r, CEMF_HEADER *mh,
  * the level, depending on whether r.j < 0.
  */
 int JFromENRecord(EN_RECORD *r);
+double WFromENRecord(EN_RECORD *r);
 int IBaseFromENRecord(EN_RECORD *r);
 
 /* these are the write functions, which shouldn't be of much interest.

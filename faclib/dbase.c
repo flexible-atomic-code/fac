@@ -5077,7 +5077,20 @@ EN_SRECORD *GetOrLoadMemENFTable(int *s, char *fn) {
 
 int JFromENRecord(EN_RECORD *r) {
   if (r->j < 0) return r->ibase;
-  else return r->j;
+  return r->j;
+}
+
+double WFromENRecord(EN_RECORD *r) {
+  double w, k;
+  if (r->j >= 0) w = 1.0 + r->j;
+  else {
+    k = (-r->j)/10;
+    w = 1.0 + r->ibase;    
+    if (k > 0) {
+      w += k*0x80000000;
+    }
+  }
+  return w;
 }
 
 int IBaseFromENRecord(EN_RECORD *r) {
@@ -5096,7 +5109,7 @@ int MemENTableWC(char *fn, int k0, int *ifk, short ***nc) {
   NCOMPLEX ncomplex[MAXNCOMPLEX];
   TFILE *f;
   char *s;
-  int n, i, nlevels;
+  int n, i, nlevels, j, k;
   float e0;
   int swp, sr, ic, kk;
 
@@ -5153,13 +5166,17 @@ int MemENTableWC(char *fn, int k0, int *ifk, short ***nc) {
       mem_en_table[r.ilev].energy = r.energy;
       mem_en_table[r.ilev].p = r.p;
       if (r.j < 0) {
+	j = -((-r.j)%10);
+	k = (-r.j)/10;
+	mem_en_table[r.ilev].k = k;
 	mem_en_table[r.ilev].j = r.ibase;
-	if (r.j == -10) {
+	if (j == -2) {
 	  mem_en_table[r.ilev].ibase = -1;
 	} else {
 	  mem_en_table[r.ilev].ibase = -nlevels-1;
 	}
       } else {
+	mem_en_table[r.ilev].k = 0;
 	mem_en_table[r.ilev].j = r.j;
 	mem_en_table[r.ilev].ibase = r.ibase;
       }
@@ -9191,7 +9208,7 @@ int GroupLevels(EN_RECORD *rs, int nr, double ei, double des,
 	memcpy(&rg[i].r, &rs[i], sizeof(EN_RECORD));
 	if (rg[i].r.j >= 0) {
 	  rg[i].r.ibase = rg[i].r.j;
-	  rg[i].r.j = -10;
+	  rg[i].r.j = -2;
 	}
 	rg[i].nlev = 1;
 	rg[i].ilev = malloc(sizeof(int));
@@ -9232,7 +9249,7 @@ int GroupLevels(EN_RECORD *rs, int nr, double ei, double des,
       memcpy(&rg[i].r, &rs[i], sizeof(EN_RECORD));
       if (rg[i].r.j >= 0) {
 	rg[i].r.ibase = rg[i].r.j;
-	rg[i].r.j = -10;
+	rg[i].r.j = -2;
       }
       rg[i].nlev = 1;
       rg[i].ilev = malloc(sizeof(int));
@@ -9255,7 +9272,7 @@ int GroupLevels(EN_RECORD *rs, int nr, double ei, double des,
 	for (k = 0; k < n; k++) {
 	  j = i-n+k;
 	  rg[ng].ilev[k] = j;
-	  w = 1.0+JFromENRecord(&rs[j]);
+	  w = WFromENRecord(&rs[j]);
 	  if (w > w0) {
 	    j0 = j;
 	    w0 = w;
@@ -9264,16 +9281,27 @@ int GroupLevels(EN_RECORD *rs, int nr, double ei, double des,
 	}
 	memcpy(&rg[ng].r, &(rs[j0]), sizeof(EN_RECORD));
 	if (n == 1) {
-	  rg[ng].r.j = -10;
+	  rg[ng].r.j = -2;
 	} else {
 	  rg[ng].r.j = -1;
 	}
-	rg[ng].r.ibase = (int)(wt-0.5);
+	if (wt > 0x80000000) {
+	  w = wt-1;
+	  j = w/0x80000000;
+	  w = j;
+	  w *= 0x80000000;
+	  w = wt-w;
+	  if (j < 0 || j > 3276) j = 3276;
+	  rg[ng].r.j = -(j*10 - rg[ng].r.j);
+	  rg[ng].r.ibase = (int)(w+0.1);
+	} else {
+	  rg[ng].r.ibase = (int)(wt-0.5);
+	}
 	rg[ng].r.energy *= w0;
 	for (k = 0; k < n; k++) {
 	  j = i-n+k;
 	  if (j == j0) continue;
-	  w = 1.0+JFromENRecord(&rs[j]);
+	  w = WFromENRecord(&rs[j]);
 	  rg[ng].r.energy += rs[j].energy*w;
 	}
 	rg[ng].r.energy /= wt;
@@ -9654,7 +9682,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	}
       }
       if (t) {
-	ra[k][j].j = -10;
+	ra[k][j].j = -2;
       }
       if (imin[k] > ra[k][j].ilev) imin[k] = ra[k][j].ilev;
       if (imax[k] < ra[k][j].ilev) imax[k] = ra[k][j].ilev;
