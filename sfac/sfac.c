@@ -3708,7 +3708,11 @@ static int PTestAngular(int argc, char *argv[], int argt[],
 
 static int PTestIntegrate(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
-  TestIntegrate();  
+  //TestIntegrate();
+  double x;
+  x = atof(argv[0]);
+  double r = BESLJN(1,1,x);
+  printf("tif: %15.8E %15.8E\n", x, r);
   return 0;
 }
 

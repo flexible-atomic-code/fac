@@ -2036,7 +2036,6 @@ void DCPQ(int *neq, double *t, double *y, double *yd) {
   yd[0] += (b+a)*y[1];
   yd[1] -= a*y[0];
 }
-FCALLSCSUB4(DCPQ, DCPQ, dcpq, PINT, PDOUBLE, DOUBLEV, DOUBLEV)
 
 void IntegrateDiracCoulomb(double z, int ka, double r, double rt,
 			   double e, double *p, double *q) {
@@ -2062,7 +2061,7 @@ void IntegrateDiracCoulomb(double z, int ka, double r, double rt,
   liw = dcfg.liw;
   rs = rt;
   while (rs != r) {
-    LSODE(C_FUNCTION(DCPQ, dcpq), neq, y, &rs, r,
+    LSODE(DCPQ, &neq, y, &rs, r,
 	  itol, rtol, &atol, itask, &istate, iopt, rwork,
 	  lrw, iwork, liw, NULL, mf);
     if (istate == -1) istate = 2;
@@ -2114,8 +2113,7 @@ void ExtDPQ(int *neq, double *t, double *y, double *ydot) {
     dq[i] -= a*p[i];
   }
 }
-FCALLSCSUB4(ExtDPQ, EXTDPQ, extdpq, PINT, PDOUBLE, DOUBLEV, DOUBLEV)
-    
+
 int IntegrateExternal(RMATRIX *rmx, double r1, double r0) {
   int i, j, k, lrw, liw, itask, iopt, istate, mf, neq, *iwork;
   int itol;
@@ -2143,7 +2141,7 @@ int IntegrateExternal(RMATRIX *rmx, double r1, double r0) {
     liw = dcfg.liw;
     rs = r0;
     while (rs != r1) {
-      LSODE(C_FUNCTION(EXTDPQ, extdpq), neq, y, &rs, r1,
+      LSODE(ExtDPQ, &neq, y, &rs, r1,
 	    itol, rtol, &atol, itask, &istate, iopt, rwork,
 	    lrw, iwork, liw, NULL, mf);
       if (istate == -1) istate = 2;
@@ -2178,7 +2176,7 @@ int IntegrateExternal(RMATRIX *rmx, double r1, double r0) {
     liw = dcfg.liw;
     rs = r0;
     while (rs != r1) {
-      LSODE(C_FUNCTION(EXTDPQ, extdpq), neq, y, &rs, r1,
+      LSODE(ExtDPQ, &neq, y, &rs, r1,
 	    itol, rtol, &atol, itask, &istate, iopt, rwork,
 	    lrw, iwork, liw, NULL, mf);
       if (istate == -1) istate = 2;

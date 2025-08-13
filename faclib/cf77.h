@@ -19,11 +19,18 @@
 #ifndef _CF77_H_
 #define _CF77_H_ 1
 
-#include "cfortran.h"
+#ifdef MOD_F2C
 
+#include "f2c.h"
+
+#else
+
+#include "cfortran.h"
+       
      PROTOCCALLSFFUN1(DOUBLE, ERF, erf, DOUBLE)
 #define ERF(A1)				\
      CCALLSFFUN1(ERF, erf, DOUBLE, A1)
+       
        
      PROTOCCALLSFFUN1(DOUBLE, FM5P, fm5p, DOUBLE)
 #define FM5P(A1)				\
@@ -331,11 +338,11 @@
 		  A1,A2,A3,A4,A5,A6,A7,A8,A9,A10)
 
      /* livermore ode solver */
-     PROTOCCALLSFSUB17(LSODE, lsode, ROUTINE, INT, DOUBLEV, DOUBLEV,\
+     PROTOCCALLSFSUB17(LSODE, lsode, ROUTINE, INTV, DOUBLEV, DOUBLEV,\
 		       DOUBLE, INT, DOUBLE, DOUBLEV, INT, INTV, INT,\
 		       DOUBLEV, INT, INTV, INT, ROUTINE, INT)
 #define LSODE(A1,A2,A3,A4,A5,A6,A7,A8,A9,B1,B2,B3,B4,B5,B6,B7,B8)\
-     CCALLSFSUB17(LSODE, lsode, ROUTINE, INT, DOUBLEV, DOUBLEV,\
+     CCALLSFSUB17(LSODE, lsode, ROUTINE, INTV, DOUBLEV, DOUBLEV,\
 		  DOUBLE, INT, DOUBLE, DOUBLEV, INT, INTV, INT,\
 		  DOUBLEV, INT, INTV, INT, ROUTINE, INT,\
 		  A1,A2,A3,A4,A5,A6,A7,A8,A9,\
@@ -486,12 +493,13 @@
 #define CPYDAT(A1,A2,A3)\
      CCALLSFSUB3(CPYDAT, cpydat, INT, INTV, INT, A1,A2,A3)
      
-     PROTOCCALLSFSUB0(CPYDAT, cpydat)
+     PROTOCCALLSFSUB0(FACTT, factt)
 #define FACTT()        \
      CCALLSFSUB0(FACTT, factt)
 
      PROTOCCALLSFSUB1(NJDBUG, njdbug, INT)
 #define NJDBUG(A1)        \
      CCALLSFSUB1(NJDBUG, njdbug, INT, A1)
-     
+
+#endif
 #endif

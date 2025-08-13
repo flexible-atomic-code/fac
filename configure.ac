@@ -26,6 +26,7 @@ AC_FUNC_MALLOC
 AC_FUNC_MEMCMP
 AC_HEADER_STDC
 
+AC_PROG_FC
 AC_PROG_F77
 AC_F77_LIBRARY_LDFLAGS
 
@@ -120,36 +121,53 @@ fi
 AC_ARG_WITH(cfortran,
 	[  --with-cfortran=xxFortran    Macro to be defined for cfortran.h],
 	[xxFortran="$withval"])
+if test "x$xxFortran" == "xxxFortran"
+then
+  xxFortran=""
+fi
+  
 if test -z "$xxFortran"
 then
-  if test -n "$G77"
+  if test "x$withval" != "xxxFortran"
   then
-    xxFortran=f2cFortran
-  else
-    case "$host_os" in
-      *linux* )
-        xxFortran=f2cFortran
-      ;;
-      *solaris*)
-	xxFortran=sunFortran
-      ;;
-      *sunos*)
-	xxFortran=sunFortran
-      ;;
-      *hpux*)
-	xxFortran=hpuxFortran
-      ;;
-      *)
-        echo "NOTE: F77 known by cfortran.h is not detected."
-        echo "      using default f2cFortran."
-        echo "      if not, change it using --with-cfortran=xxFortran"
-        echo "      see faclib/cfortran.doc for available options."
-        xxFortran=f2cFortran
-      ;;
-    esac
+    AC_FC_FREEFORM([xxFortran=MOD_F2C], [echo "FC does not support MOD_F2C"])
+  fi
+  if test -z "$xxFortran"
+  then
+    if test -n "$G77"
+    then
+      xxFortran=f2cFortran
+    else	
+      case "$host_os" in
+        *linux* )
+          xxFortran=f2cFortran
+        ;;
+        *solaris*)
+	  xxFortran=sunFortran
+        ;;
+        *sunos*)
+	  xxFortran=sunFortran
+        ;;
+        *hpux*)
+	  xxFortran=hpuxFortran
+        ;;
+        *)
+          echo "NOTE: F77 known by cfortran.h is not detected."
+          echo "      using default f2cFortran."
+          echo "      if not, change it using --with-cfortran=xxFortran"
+          echo "      see faclib/cfortran.doc for available options."
+          xxFortran=f2cFortran
+        ;;
+      esac
+    fi
   fi
 fi
 AC_DEFINE_UNQUOTED([$xxFortran])
+if test "x$xxFortran" == "xMOD_F2C"
+then
+  F2C="f2c"
+  AC_SUBST(F2C)
+fi
 
 # MPI
 AC_ARG_WITH(mpi,

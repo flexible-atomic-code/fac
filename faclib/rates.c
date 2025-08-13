@@ -219,7 +219,7 @@ static void ThreeBodyDist(void) {
   }  
 }
 
-static double RateIntegrand(double *e) {
+double RateIntegrand(double *e) {
   double a, b, x;
   double p = 1.46366E-12; /* (h^2/2m)^1.5/(4*pi) cm^3*eV^1.5 */
 
@@ -255,9 +255,6 @@ static double RateIntegrand(double *e) {
   return x;
 }
 
-/* provide fortran access with cfortran.h */
-FCALLSCFUN1(DOUBLE, RateIntegrand, RATEINTEGRAND, rateintegrand, PDOUBLE)
-	    
 double IntegrateRate(int idist, double eth, double bound, 
 		     int np, void *params, int i0, int f0, int type, 
 		     double (*Rate1E)(double, double, int, void *)) { 
@@ -343,7 +340,7 @@ double IntegrateRate(int idist, double eth, double bound,
     if (b < b0) b0 = b;
     r0 = 0.0;
     if (b0 > a0) {
-      DQAGS(C_FUNCTION(RATEINTEGRAND, rateintegrand), 
+      DQAGS(RateIntegrand, 
 	    a0, b0, epsabs, epsrel, &result, 
 	    &abserr, &neval, &ier, limit, lenw, &last, _iwork, _dwork);
       r0 += result;
@@ -363,7 +360,7 @@ double IntegrateRate(int idist, double eth, double bound,
       b0 = a0;
     }
     if (b > b0) {
-      DQAGS(C_FUNCTION(RATEINTEGRAND, rateintegrand), 
+      DQAGS(RateIntegrand,
 	    b0, b, epsabs, epsrel, &result, 
 	    &abserr, &neval, &ier, limit, lenw, &last, _iwork, _dwork);
       r0 += result;
@@ -381,7 +378,7 @@ double IntegrateRate(int idist, double eth, double bound,
     if (r0 < 0.0) r0 = 0.0;
     return r0;
   } else {
-    DQAGS(C_FUNCTION(RATEINTEGRAND, rateintegrand), 
+    DQAGS(RateIntegrand,
 	  a, b, epsabs, epsrel, &result, 
 	  &abserr, &neval, &ier, limit, lenw, &last, _iwork, _dwork);
     r0 = result;

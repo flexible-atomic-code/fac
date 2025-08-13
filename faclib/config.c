@@ -566,7 +566,7 @@ int ShellsFromStringNR(char *scfg, double *dnq, SHELL **shell) {
   }
   if (brkpos >= 0) {
     kl[0] = brkpos/2;
-    if (brkpos == MAX_SPEC_SYMBOLS) {
+    if (kl[0] == MAX_SPEC_SYMBOLS) {
       if (n[nn-1] >= 512) {
 	printf("not all L-terms are allowed for n >= %d\n", 512);
 	exit(1);
