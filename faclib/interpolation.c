@@ -398,8 +398,8 @@ void SVDFit(int np, double *coeff, double *chisq, double tol,
   free(iwork);
 }
 
-static void MinFunc(int *m, int *n, double *x, double *fvec,
-		    double *fjac, int *ldfjac, int *iflag) {
+void MinFunc(int *m, int *n, double *x, double *fvec,
+	     double *fjac, int *ldfjac, int *iflag) {
   int ndy, i, j, k;
 
   if (*iflag == 1) {
@@ -427,9 +427,6 @@ static void MinFunc(int *m, int *n, double *x, double *fvec,
     }
   }
 }
-/* provide fortran access with cfortran.h */
-FCALLSCSUB7(MinFunc, MINFUNC, minfunc, PINT, PINT,
-	    DOUBLEV, DOUBLEV, DOUBLEV, PINT, PINT)
 
 int NLSQFit(int np, double *p, double tol, int *ipvt,
 	    double *fvec, double *fjac, int ldfjac, double *wa, int lwa,
@@ -474,7 +471,7 @@ int NLSQFit(int np, double *p, double tol, int *ipvt,
   nprint = 0;
   factor = 100.0;
   ftol = tol*tol*n;
-  LMDER(C_FUNCTION(MINFUNC, minfunc), n, np, p, fvec, fjac, ldfjac,
+  LMDER(MinFunc, n, np, p, fvec, fjac, ldfjac,
 	ftol, tol, zero, maxfev, diag, mode, factor,
 	nprint, &info, &nfev, &njev, ipvt, qtf, wa1, wa2, wa3, wa4);
 
@@ -601,7 +598,6 @@ double uvip3s(int n, double *x, int i) {
   for (k = 0; k < n; k++) {
     _ncyi[k] = x[k]/da;
   }
-    
   UVIP3I(3, n, _ncxi, _ncyi, i, &c1, &c2, &c3);
   double r=(_ncyi[i-1]+0.5*c1+ONETHIRD*c2+0.25*c3)*da;
   return r;
@@ -3907,4 +3903,4 @@ void ModifyTable(char *fn, char *fn0, char *fn1, char *fnm) {
 void F77Flush(void) {
   fflush(stdout);
 }
-FCALLSCSUB0(F77Flush, F77FLUSH, f77flush);
+

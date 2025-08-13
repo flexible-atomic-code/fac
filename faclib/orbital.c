@@ -2110,9 +2110,7 @@ void DiracODE(int *neq, double *t, double *y, double *yd) {
   yd[0] = a*(y[5] - v + a2)*y[1] - kr*y[0];
   yd[1] = a*(-y[5] + v)*y[0] + kr*y[1];
 }
-
-FCALLSCSUB4(DiracODE, DIRACODE, diracode, PINT, PDOUBLE, DOUBLEV, DOUBLEV)
-
+  
 int RadialFreeZMC(ORBITAL *orb, POTENTIAL *pot) {
   double a, a2, b, z0, e, r, r0;
   int i, j, kl, i2, i2p, i2m, i2p2, i2m2, nodes;
@@ -2204,7 +2202,7 @@ int RadialFreeZMC(ORBITAL *orb, POTENTIAL *pot) {
     y[6] = orb->kappa;
     y[7] = mc;
     while (r0 < r) {
-      LSODE(C_FUNCTION(DIRACODE, diracode), neq, y, &r0, r, itol, rtol, atol,
+      LSODE(DiracODE, &neq, y, &r0, r, itol, rtol, atol,
 	    itask, &istate, iopt, rwork, lrw, iwork, liw, NULL, mf);
       if (istate == -1) istate = 2;
       else if (istate < 0) {
@@ -2713,9 +2711,6 @@ void DerivODE(int *neq, double *t, double *y, double *ydot) {
   ydot[1] = 1.0/(y[0]*y[0]*y[0]) - y[0]*w;
 }
 
-/* provide fortran access with cfortran.h */
-FCALLSCSUB4(DerivODE, DERIVODE, derivode, PINT, PDOUBLE, DOUBLEV, DOUBLEV)
-  
 double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
   // Variables
   // p:   Electron wave function
@@ -2811,7 +2806,7 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
     y[4] = (_dwork1[i]*r - y[3])/(r - r0);
     y[5] = e;
     while (r0 != r) {
-      LSODE(C_FUNCTION(DERIVODE, derivode), neq, y, &r0, r, itol, rtol, atol, 
+      LSODE(DerivODE, &neq, y, &r0, r, itol, rtol, atol, 
 	    itask, &istate, iopt, rwork, lrw, iwork, liw, NULL, mf);
       if (istate == -1) istate = 2;
       else if (istate < 0) {
@@ -2843,7 +2838,7 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
     }
     y[5] = e;
     while (r0 != r) {
-      LSODE(C_FUNCTION(DERIVODE, derivode), neq, y, &r0, r, itol, rtol, atol,
+      LSODE(DerivODE, &neq, y, &r0, r, itol, rtol, atol,
 	    itask, &istate, iopt, rwork, lrw, iwork, liw, NULL, mf);
       if (istate == -1) istate = 2;
       else if (istate < 0) {
@@ -4820,8 +4815,6 @@ void DerivSPY(int *neq, double *t, double *y, double *yd) {
   yd[1] = x*s;
 }
 
-FCALLSCSUB4(DerivSPY, DERIVSPY, derivspy, PINT, PDOUBLE, DOUBLEV, DOUBLEV)
-  
 double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 			    double *eps, double *icf,
 			    double eth, double tps,
@@ -5302,7 +5295,7 @@ double FreeElectronIntegral(POTENTIAL *pot, int i0, int i1, int i2,
 
 static double _fermi_ax = 0.0;
 static double _fermi_ag = 0.0;
-static double FermiIntegrand(double *tp) {
+double FermiIntegrand(double *tp) {
   double et, x, g, t, gt, r;
   t = *tp;
   x = _fermi_ax;
@@ -5330,7 +5323,7 @@ static double FermiIntegrand(double *tp) {
   }
   return r;
 }
-FCALLSCFUN1(DOUBLE, FermiIntegrand, FERMIINTEGRAND, fermiintegrand, PDOUBLE)
+
 double FermiIntegral(double x, double y, double g) {
   double t0, t1;
   double r, s, a, ra;
@@ -5350,7 +5343,7 @@ double FermiIntegral(double x, double y, double g) {
     double dt = Max(_fermi_tmin*t0, 1.0);
     dt = Min(_fermi_tmax, dt);
     t1 = t0 + dt;
-    DQAGS(C_FUNCTION(FERMIINTEGRAND, fermiintegrand),
+    DQAGS(FermiIntegrand,
 	  t0, t1, _fermi_abserr, _fermi_relerr, &s, &a, &n, &ier,
 	  lim, lenw, &last, iwork, dwork);
     r += s;

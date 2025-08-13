@@ -18,6 +18,7 @@
 #undef SXFortran
 #undef pgiFortran
 #undef AbsoftProFortran
+#undef MOD_F2C
 
 #undef USE_MPI
 
