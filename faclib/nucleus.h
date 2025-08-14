@@ -43,8 +43,8 @@ typedef struct _CXTGT_ {
   double z, m, a, b, e, x;
 } CXTGT;
   
-void PrintNucleus();
-int InitNucleus();
+void PrintNucleus(int m, char *fn);
+int InitNucleus(void);
 double GraspRRMS(double z, double m);
 int SetAtom(char *s, double z, double mass, double rn, double a, double rse);
 void SetAtomicChargeDist(double a, double rse);
