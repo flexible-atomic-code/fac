@@ -2861,7 +2861,22 @@ int ReadENRecord(TFILE *f, EN_RECORD *r, int swp) {
   }
   if (swp) SwapEndianENRecord(r);
 
-  if (r->j < 0) iuta = 1;
+  if (r->j < 0) {
+    if (r->ibase < 32767) {
+      int i;
+      for (i = 0; i < LNAME; i++) {
+	if (r->name[i] == '\0') break;
+	if (r->name[i] == '.') break;
+	if (r->name[i] == '(') {
+	  i = r->j;
+	  r->j = r->ibase;
+	  r->ibase = i;
+	  break;
+	}
+      }
+    }
+    iuta = 1;
+  }
   //else iuta = 0;
   
   if (_remove_closed) RemoveClosedShell(r);
@@ -7834,7 +7849,6 @@ int FindLevelBlock(int n0, EN_RECORD *r0, EN_RECORD **r1p,
     }
     if (_cmpnbm >= 0 && k > 0 && nb-nb0+1 >= _cmpnbm) break;
   }
-
   FCLOSE(f);
   free(r0c);
   if (n0 <= 0 || k <= 0) {
@@ -8697,7 +8711,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	  }
 	  sprintf(ifn, "%s%02db.en", pref, k-1);
 	  nim = FindLevelBlock(ni0, ri0, &ri1, k-1, ifn);
-	  //printf("ionized match: %d %d %d %d\n", k, nb, ni0, nim);
+	  printf("ionized match: %d %d %d %d\n", k, nb, ni0, nim);
 	  for (i = 0; i < nim; i++) {
 	    im[ri0[i].ilev] = -10-ri1[i].ilev;
 	  }
