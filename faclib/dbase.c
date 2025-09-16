@@ -256,6 +256,7 @@ int IsUTARecord(EN_RECORD *r) {
   int i;
 
   for (i = 0; i < 10; i++) {
+    if (r->name[i] == '.') return 1;
     if (r->name[i] == '\0') return 1;
     if (r->name[i] == '(') return 0;
   }
@@ -5437,7 +5438,11 @@ int PrintTRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
       if (n == 0) break;
       if (iuta) {
 	if (v) {
-	  e = rx.energy;
+	  if (rx.energy <= 0 || rx.sdev <= 0) {
+	    e = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
+	  } else {
+	    e = rx.energy;
+	  }
 	  gf = OscillatorStrength(h.multipole, e, r.strength, &a);
 	  a /= (mem_en_table[r.upper].j + 1.0);
 	  a *= RATE_AU;
@@ -7766,7 +7771,7 @@ int MatchLevelsPJ(int n0, EN_RECORD *r0, int n2, EN_RECORD *r1) {
 }
   
 int FindLevelBlock(int n0, EN_RECORD *r0, EN_RECORD **r1p, 
-		   int nele, char *ifn) {
+		   int nele, char *ifn, int *nbs) {
   F_HEADER fh;
   EN_HEADER h;
   EN_RECORD g, *r1, *r0r, *r0c, *r1r;
@@ -7817,7 +7822,7 @@ int FindLevelBlock(int n0, EN_RECORD *r0, EN_RECORD **r1p,
   nb0 = -1;
   for (nb = 0; nb < fh.nblocks; nb++) {
     nr = ReadENHeader(f, &h, swp);
-    if (h.nele != nele) {
+    if (h.nele != nele || nb < *nbs) {
       FSEEK(f, h.length, SEEK_CUR);
       continue;
     }
@@ -7848,7 +7853,9 @@ int FindLevelBlock(int n0, EN_RECORD *r0, EN_RECORD **r1p,
       }
     }
     if (_cmpnbm >= 0 && k > 0 && nb-nb0+1 >= _cmpnbm) break;
+    if (k >= n0) break;
   }
+  *nbs = nb0 + 1;
   FCLOSE(f);
   free(r0c);
   if (n0 <= 0 || k <= 0) {
@@ -7864,6 +7871,7 @@ int FindLevelBlock(int n0, EN_RECORD *r0, EN_RECORD **r1p,
   for (i = 0; i < n1; i++) {
     r1r[i].ilev = i;
   }
+  //printf("flb: %d %d %d\n", utalev, n0, n1);
   if (utalev) {
     qsort(r0r, n0, sizeof(EN_RECORD), CompareENName);
     qsort(r1r, n1, sizeof(EN_RECORD), CompareENName);
@@ -8674,6 +8682,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	im[i] = -2;
       }
     }
+    int nbs = 0;
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = ReadENHeader(f0, &h0, swp);
       if (n == 0) break;
@@ -8710,8 +8719,12 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	    if (n == 0) break;
 	  }
 	  sprintf(ifn, "%s%02db.en", pref, k-1);
-	  nim = FindLevelBlock(ni0, ri0, &ri1, k-1, ifn);
-	  printf("ionized match: %d %d %d %d\n", k, nb, ni0, nim);
+	  nim = FindLevelBlock(ni0, ri0, &ri1, k-1, ifn, &nbs);
+	  if (nim != ni0) {
+	    printf("\nionized mismatch: %d %d %d %d %d ... ",
+		   k, nb, ni0, nim, nbs);
+	    Abort(1);
+	  }
 	  for (i = 0; i < nim; i++) {
 	    im[ri0[i].ilev] = -10-ri1[i].ilev;
 	  }
@@ -9298,6 +9311,18 @@ int GroupLevels(EN_RECORD *rs, int nr, double ei, double des,
 	  rg[ng].r.j = -2;
 	} else {
 	  rg[ng].r.j = -1;
+	  j = 0;
+	  for (k = 0; k < LNAME; k++) {	    
+	    if (rs[j0].name[k] == '(') {
+	      k++;
+	      while (rs[j0].name[k] != ')') k++;
+	      while (rs[j0].name[k] != '.' && rs[j0].name[k] != '\0') k++;
+	    }
+	    rg[ng].r.name[j] = rs[j0].name[k];
+	    j++;
+	    if (rs[j0].name[k] == '\0') break;
+	  }
+	  for (; j < LNAME; j++) rg[ng].r.name[j] = '\0';
 	}
 	if (wt > 0x80000000) {
 	  w = wt-1;
@@ -9938,7 +9963,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 		  e = r1x.energy;
 		  double gf = r1.strength;
 		  double uw = 0.0;
-		  if (e <= 0) {
+		  if (e <= 0 || r1x.sdev <= 0) {
 		    e = mem_en_table[r1.upper].energy -
 		      mem_en_table[r1.lower].energy;
 		  }
@@ -10950,7 +10975,11 @@ int PreloadEN(char *fn, int i0, int i1, int j0, int j1) {
     if (1+e==1 && im > 0) continue;
     e /= HARTREE_EV;
     d.i = im;
-    d.e = e;
+    if (im == 0) {
+      d.e = 0.0;
+    } else {
+      d.e = e;
+    }
     if (i > 0 || im == 0) {
       ArraySet(_idxmap.imap, i, &d, InitIdxDat);
       if (_idxmap.i1 < i) _idxmap.i1 = i;

@@ -770,7 +770,7 @@ int CompareENName(const void *c1, const void *c2);
 int CompareENSName(const void *c1, const void *c2);
 int SortUniqSName(int n, EN_RECORD *a);
 int FindLevelBlock(int n0, EN_RECORD *r0, EN_RECORD **r1, 
-		   int nele, char *ifn);
+		   int nele, char *ifn, int *nbs);
 int MatchLevelsPJ(int n0, EN_RECORD *r0, int n1, EN_RECORD *r1);
 int JoinDBase(char *pref, int nk, int *ks, int ic);
 void CombineDBase(char *pref, int k0, int k1, int kic, int nexc, int ic);
