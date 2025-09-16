@@ -1058,6 +1058,7 @@ int SetBlocks(double ni, char *ifn) {
       ion0.imax[0] = 0;
       ion0.imax[1] = 0;
     }
+    int nbs = 0;
     for (nb = 0; nb < fh.nblocks; nb++) {
       n = ReadENHeader(f, &h, swp);
       if (h.nele == ion->nele) {
@@ -1120,14 +1121,14 @@ int SetBlocks(double ni, char *ifn) {
 	}
 	int nilev = h.nlevels;
 	if (ifn) {
-	  nilev = FindLevelBlock(h.nlevels, r0, &r1, ion->nele-1, ifn); 
+	  nilev = FindLevelBlock(h.nlevels, r0, &r1, ion->nele-1, ifn, &nbs); 
 	  if (nilev <= 0) {
 	    printf("Ionized block %d of ion %d ", nb, ion->nele);
 	    printf("does not match a block in file %s\n", ifn);
 	    printf("nlevels = %d VS %d\n", h.nlevels, nilev);
 	    //Abort(1);
 	  }
-	  printf("ionized match: %d %d %d %d %d\n", ion->nele, h.nele, nb, h.nlevels, nilev);	  
+	  printf("ionized match: %d %d %d %d %d %d\n", ion->nele, h.nele, nb, h.nlevels, nilev, nbs);	  
 	}
 	if (k > 0) {
 	  for (i = 0; i < h.nlevels; i++) {
