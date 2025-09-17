@@ -9308,7 +9308,9 @@ int GroupLevels(EN_RECORD *rs, int nr, double ei, double des,
 	}
 	memcpy(&rg[ng].r, &(rs[j0]), sizeof(EN_RECORD));
 	if (n == 1) {
-	  rg[ng].r.j = -2;
+	  if (rg[ng].r.j >= 0) {
+	    rg[ng].r.j = -2;
+	  }
 	} else {
 	  rg[ng].r.j = -1;
 	  j = 0;

@@ -1121,6 +1121,7 @@ int SetBlocks(double ni, char *ifn) {
 	}
 	int nilev = h.nlevels;
 	if (ifn) {
+	  nbs = 0;
 	  nilev = FindLevelBlock(h.nlevels, r0, &r1, ion->nele-1, ifn, &nbs); 
 	  if (nilev <= 0) {
 	    printf("Ionized block %d of ion %d ", nb, ion->nele);
