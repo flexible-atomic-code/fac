@@ -10134,7 +10134,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
       for (i = 0; i < z; i++) {
 	k = i+1;
 	if (ngrp[k] <= 1) continue;
-	if (sd[i].nde > 0) {
+	if (sd && sd[i].nde > 0) {
 	  if (f) {
 	    for (ilo = sd[i].minlo; ilo <= sd[i].maxlo; ilo++) {
 	      for (iup = sd[i].minup; iup <= sd[i].maxup; iup++) {
@@ -10733,8 +10733,10 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	    wt0 = WallTime();
 	    printf("collapse RC: %d %d %d %d ...", k, irc, nte, nde);
 	    fflush(stdout);
-	    if (irc == RC_CE || irc == RC_RE) {
+	    if (irc == RC_CE) {
 	      ng2 = ngrp[k]*ngrp[k];
+	    } else if (irc == RC_RE) {
+	      ng2 = ngrp[k-1]*ngrp[k-1];
 	    } else {
 	      ng2 = ngrp[k]*ngrp[k-1];
 	    }
@@ -10761,22 +10763,32 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 		  if (n == 0) break;
 		  ilo = im[r6.lower];
 		  iup = im[r6.upper];
-		  if (irc == RC_CE || irc == RC_RE) {
+		  if (irc == RC_CE) {
 		    if (rg[k][iup].r.energy <= rg[k][ilo].r.energy) continue;
+		  } else if (irc == RC_RE) {
+		    if (rg[k-1][iup].r.energy <= rg[k-1][ilo].r.energy) continue;
 		  } else {
 		    if (rg[k-1][iup].r.energy <= rg[k][ilo].r.energy) continue;
 		  }
-		  j = iup*ngrp[k] + ilo;
+		  if (irc == RC_RE) {
+		    j = iup*ngrp[k-1] + ilo;
+		  } else {
+		    j = iup*ngrp[k] + ilo;
+		  }
 		  if (rt[j] == NULL) {
 		    rt[j] = malloc(sizeof(RC_RECORD));
 		    rt[j]->rc = malloc(sizeof(float)*ntd);
 		    for (t = 0; t < ntd; t++) {
 		      rt[j]->rc[t] = 0.0;
 		    }
-		    rt[j]->lower = rg[k][ilo].r.ilev;
-		    if (irc == RC_CE || irc == RC_RE) {
+		    if (irc == RC_CE) {
+		      rt[j]->lower = rg[k][ilo].r.ilev;
 		      rt[j]->upper = rg[k][iup].r.ilev;
+		    } else if (irc == RC_RE) {
+		      rt[j]->lower = rg[k-1][ilo].r.ilev;
+		      rt[j]->upper = rg[k-1][iup].r.ilev;
 		    } else {
+		      rt[j]->lower = rg[k][ilo].r.ilev;
 		      rt[j]->upper = rg[k-1][iup].r.ilev;
 		    }		      
 		  }
