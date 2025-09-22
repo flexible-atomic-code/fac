@@ -8459,6 +8459,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 
   tt0 = WallTime();
   ncap = 0;
+  nexc = nexc0;
   nt = 0;
   nd = 0;
   d0 = 0.0;
@@ -8641,22 +8642,27 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 == NULL) {
       printf("cannot open file %s\n", ifn);
-      continue;
+    } else {
+      if (fh.type != DB_RC) {
+	printf("%s is not of type DB_RC\n", ifn);
+	f0 = NULL;
+      }
     }
-    if (fh.type != DB_RC) {
-      printf("%s is not of type DB_RC\n", ifn);
-      continue;
-    }
-    n = ReadRCHeader(f0, &h6, swp);
-    if (n > 0) {
-      ncap = h6.ncap;
-      nexc = Min(nexc0, h6.nexc);
+    if (f0) {
+      n = ReadRCHeader(f0, &h6, swp);
+      if (n > 0) {
+	ncap = h6.ncap;
+	nexc = Min(nexc0, h6.nexc);
+      } else {
+	ncap = 0;
+	nexc = nexc0;
+      }
+      FCLOSE(f0);
     } else {
       ncap = 0;
       nexc = nexc0;
     }
-    FCLOSE(f0);
-
+    
     wt0 = WallTime();
     sprintf(ifn, "%s%02db.en", pref, k);
     printf("rebuild level indices %d %d %s %d %d ...",
