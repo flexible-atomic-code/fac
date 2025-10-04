@@ -2919,9 +2919,22 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
 	c = GetConfigFromGroup(kg[i], j);
 	lev.ilev = ((int)(fabs(c->sweight)+0.25))-1;
 	lev.pj = c->sweight < 0;
-	c->energy = AverageEnergyConfig(c);
-	c->energy += c->delta+c->shift;
-	lev.energy = c->energy+_eoffset;
+	if (ci_level < -1) {
+	  lev.energy = 0.0;
+	  for (k = 0; k < c->n_shells; k++) {
+	    t = OrbitalIndex((c->shells[k]).n, (c->shells[k]).kappa, 0.0);
+	    a = c->shells[k].nq*(GetOrbital(t)->energy + QED1E(t,t));
+	    lev.energy += a;
+	  }
+	} else {
+	  if (ci_level < 0) {
+	    c->energy = AverageEnergyConfigMode(c, -1);
+	  } else {
+	    c->energy = AverageEnergyConfig(c);
+	  }
+	  c->energy += c->delta+c->shift;
+	  lev.energy = c->energy+_eoffset;
+	}
 	if (ArrayAppend(levels, &lev, InitLevelData) == NULL) {
 	  printf("Not enough memory for levels array\n");
 	  exit(1);

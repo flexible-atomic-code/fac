@@ -154,6 +154,9 @@ static int _intscm = 0;
 static double _intscp1 = 0.025;
 static double _intscp2 = 0.5;
 static double _intscp3 = 0.025;
+static int _scb_ke = 0;
+static double _scb_uf = 0.05;
+static double _scb_mte = 0.1;
 
 static struct {
   int nr, md, jmax;
@@ -252,7 +255,7 @@ static int _print_maxiter = 0;
 static double _aaztol = 0.0;
 static int _sc_print = 0;
 static int _sc_niter = 12;
-static int _sc_miter = 128;
+static int _sc_miter = 1028;
 static double _sc_wmin = 0.25;
 static double _hx_wmin = 0.1;
 static double _maxsta = 0.75;
@@ -2262,7 +2265,9 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
     jmax = DensityToSZ(potential, potential->NPS, u, ue1, &jps0, 0);
   } 
 
-  if (acfg->n_cores <= 0 && potential->mps < 0 && _scpot.nr == 0) return 0;
+  if (acfg->n_cores <= 0 &&
+      potential->mps < 0 &&
+      _scpot.nr == 0) return 0;
   
   w = potential->NPS;
   if (potential->N+potential->nqf > 1 && _csi <= -1) {
@@ -2739,6 +2744,13 @@ int GetPotential(char *s, int m) {
   fprintf(f, "#    ips = %d\n", potential->ips);
   fprintf(f, "#    sps = %d\n", potential->sps);
   fprintf(f, "#  sturm = %15.8E\n", potential->sturm_idx);
+  double ea = AverageEnergyAvgConfig(&average_config);
+  double ec = ea;
+  if (average_config.ng > 0) {
+    ec = TotalEnergyGroups(average_config.ng, average_config.kg, NULL);
+  }
+  fprintf(f, "#     ea = %15.8E\n", ea);
+  fprintf(f, "#     ec = %15.8E\n", ec);
   fprintf(f, "#   nmax = %d\n", potential->nmax);
   fprintf(f, "#  maxrp = %d\n", potential->maxrp);
   PrintLepton(f);
@@ -2859,14 +2871,19 @@ void SetScreenConfig(int iter) {
   int na = 2000;
   double e0, ef0, tps, etf;
   double *nq, *nqc, *et;
-  int *np, *kp, it, iti;
+  int *np, *kp, it, iti, n_cores;
   double nb, nbt, nqt, nb0, nb1, u, du, u0, u1, x, nqf, nqf0, eth;
 
-  if (potential->mps < 0 || potential->nbt < 0) return;
-  if (potential->mps >= 3 && potential->nbt < 1e-10) {
-    potential->nqf = 0.0;
-    potential->nbs = 0.0;
-    return;
+  if (_scb_ke <= 0) {
+    if (potential->mps < 0 || potential->nbt < 0) return;
+    if (potential->mps >= 3 && potential->nbt < 1e-10) {
+      potential->nqf = 0.0;
+      potential->nbs = 0.0;
+      return;
+    }
+    n_cores = a->n_cores;
+  } else {
+    n_cores = 0;
   }
   eth = 0.0;
   if (potential->rps > 0 && fabs(_free_threshold) > EPS10) {
@@ -2876,17 +2893,22 @@ void SetScreenConfig(int iter) {
   nbt = potential->nbt;
   k = 0;
   n = 0;
-  m = a->n_cores;
+  m = n_cores;
   nf = 0;
   ef0 = potential->eth;
   nqf0 = potential->nqf;
-  tps = potential->tps;
-  if (SCEWM() <= 0) {
-    etf = -1E31;
+  if (_scb_ke <= 0) {
+    if (SCEWM() <= 0) {
+      etf = -1E31;
+    } else {
+      etf = eth;
+    }
+    etf = 1.1E31;
+    tps = potential->tps;
   } else {
-    etf = eth;
+    tps = 1.0;
   }
-  if (SCEWM() < 0) {
+  if (SCEWM() < 0 && _scb_ke <= 0) {
     a->n_shells = m;
     for (m = 0; m < a->n_shells; m++) {
       orb = GetOrbitalSolved(OrbitalIndex(a->n[m], a->kappa[m], 0));
@@ -2904,7 +2926,7 @@ void SetScreenConfig(int iter) {
     int mb = 0;
     int nqm = 0;
     nqt = 0.0;
-    for (i = 0; i < a->n_cores; i++) {
+    for (i = 0; i < n_cores; i++) {
       nqt += a->nq[i];
     }
     while (1) {
@@ -2923,7 +2945,7 @@ void SetScreenConfig(int iter) {
 	nfk = 0;
 	n0 = 1000000000;
 	n1 = 0;
-	for (i = 0; i < a->n_cores; i++) {
+	for (i = 0; i < n_cores; i++) {
 	  if (a->nq[i] < nqm) continue;
 	  if (a->kappa[i] != ka) continue;
 	  if (a->n[i] > n1) n1 = a->n[i];
@@ -2940,48 +2962,52 @@ void SetScreenConfig(int iter) {
 	    Abort(1);
 	  }
 	  if (n >= n0 && n <= n1) {
-	    for (i = 0; i < a->n_cores; i++) {
+	    for (i = 0; i < n_cores; i++) {
 	      if (a->nq[i] < nqm) continue;
 	      if (a->kappa[i] != ka) continue;
 	      if (a->n[i] == n) break;
 	    }
-	    if (i < a->n_cores) {
+	    if (i < n_cores) {
 	      n++;
 	      continue;
 	    }
 	  }
 	  orb = GetOrbitalSolved(OrbitalIndex(n, ka, 0));
-	  if (potential->mps >= 3 && _psemax > 0 && iter > 1) {
-	    if (k == 0 && orb->energy > eth) {
-	      if (_psnfmax > 0 && nf > _psnfmax) {
-		e0 = 0.5*(ef0+orb->energy);
-		mb = 1;
-		break;
+	  if (_scb_ke > 0) {
+	    if (n > 8) done = 1;
+	  } else {
+	    if (potential->mps >= 3 && _psemax > 0 && iter > 1) {
+	      if (k == 0 && orb->energy > eth) {
+		if (_psnfmax > 0 && nf > _psnfmax) {
+		  e0 = 0.5*(ef0+orb->energy);
+		  mb = 1;
+		  break;
+		}
+		ef0 = orb->energy;
+		if (nf <= _psnfmin) {
+		  e0 = ef0 + _psemax*potential->ewd;
+		}
 	      }
-	      ef0 = orb->energy;
-	      if (nf <= _psnfmin) {
-		e0 = ef0 + _psemax*potential->ewd;
+	    } else {	    
+	      if (orb->energy > eth) done = 1;
+	      if (iter == 0) {
+		if (n > 5) {
+		  done = 1;
+		} else if ((_psnfmin < 0 || nf > _psnfmin || nf > _psnfmax) &&
+			   (orb->energy > e0 || nqt > nbt+1)) {
+		  done = 1;
+		}
 	      }
 	    }
-	  } else {	    
-	    if (orb->energy > eth) done = 1;
-	    if (iter == 0) {
-	      if (n > 5) {
-		done = 1;
-	      } else if ((_psnfmin < 0 || nf > _psnfmin || nf > _psnfmax) &&
-			 (orb->energy > e0 || nqt > nbt+1)) {
-		done = 1;
-	      }
+	    if ((_psnfmin < 0 || nfk >= _psnfmin) &&
+		orb->energy > eth+_psemax*potential->ewd) {
+	      mb = 2;
+	      break;
 	    }
-	  }
-	  if ((_psnfmin < 0 || nfk >= _psnfmin) &&
-	      orb->energy > eth+_psemax*potential->ewd) {
-	    mb = 2;
-	    break;
-	  }
-	  if (_psnmax > 0 && n > _psnmax) {
-	    mb = 4;
-	    break;
+	    if (_psnmax > 0 && n > _psnmax) {
+	      mb = 4;
+	      break;
+	    }
 	  }
 	  if (m == a->n_allocs) {
 	    if (a->n_allocs == 0) {
@@ -3008,9 +3034,11 @@ void SetScreenConfig(int iter) {
 	  if (done) break;
 	  n++;
 	}
-	if (n <= k+1+_psnfmin) {
-	  if (j < 0) donem = 1;
-	  else donep = 1;
+	if (_scb_ke > 0) {
+	  if (n <= k+1+_psnfmin) {
+	    if (j < 0) donem = 1;
+	    else donep = 1;
+	  }
 	}
       }
       if (donem && donep) break;
@@ -3030,20 +3058,22 @@ void SetScreenConfig(int iter) {
   if (potential->mps <= 3) e0 = -1E31;
   nqf = 0;
   u = potential->bps;
-  int ns = a->n_shells - a->n_cores;
+  
+  int ns = a->n_shells - n_cores;
+  if (_scb_ke > 0) a->n_cores = a->n_shells;
   if (ns <= 0 && e0 < eth) return;
   if (ns > 0) {
     nqc = malloc(sizeof(double)*ns);
   } else {
     nqc = NULL;
   }
-  np = a->n + a->n_cores;
-  kp = a->kappa + a->n_cores;
-  nq = a->nq + a->n_cores;
-  et = a->e + a->n_cores;
+  np = a->n + n_cores;
+  kp = a->kappa + n_cores;
+  nq = a->nq + n_cores;
+  et = a->e + n_cores;
   for (i = 0; i < ns; i++) {
     nqc[i] = 0.0;
-    for (m = 0; m < a->n_cores; m++) {
+    for (m = 0; m < n_cores; m++) {
       if (np[i] == a->n[m] && kp[i] == a->kappa[m]) {
 	nqc[i] = a->nq[m];
 	break;
@@ -3097,9 +3127,8 @@ void SetScreenConfig(int iter) {
       free(ik);
     } else {
       x = potential->nps;
-      u = FermiDegeneracy(0.1*x, potential->tps, &nqf);
-      du = FermiDegeneracy(potential->atom->atomic_number*x,
-			   potential->tps, &nqf);
+      u = FermiDegeneracy(0.1*x, tps, &nqf);
+      du = FermiDegeneracy(potential->atom->atomic_number*x, tps, &nqf);
       du = fabs(du-u);
       du = Max(1.0, du);
     }
@@ -3117,7 +3146,7 @@ void SetScreenConfig(int iter) {
 	  u -= du;
 	  nb = NBoundAA(ns, np, kp, nq, et, nqc, u, tps, etf, &nqf);	
 	  it++;
-	  if (it > optimize_control.maxiter-5) {
+	  if (it > _sc_miter-5) {
 	    printf("maxiter reached in sc0: %d %d %g %g %g %g %g %g %g\n", it, ns, nbt, nb, u, nb1, u1, du, nqf);
 	    if (it > optimize_control.maxiter) {
 	      Abort(1);
@@ -3146,7 +3175,7 @@ void SetScreenConfig(int iter) {
 	  u += du;
 	  nb = NBoundAA(ns, np, kp, nq, et, nqc, u, tps, etf, &nqf);
 	  it++;
-	  if (it > optimize_control.maxiter-5) {	      
+	  if (it > _sc_miter-5) {	      
 	    printf("maxiter reached in sc1: %d %d %g %g %g %g %g %g %g\n", it, ns, nbt, nb, u, nb0, u0, du, nqf);
 	    if (it > optimize_control.maxiter) {
 	      Abort(1);
@@ -3201,7 +3230,7 @@ void SetScreenConfig(int iter) {
 	nb1 = nb;
       }
       it++;
-      if (it > optimize_control.maxiter) {
+      if (it > _sc_miter) {
 	printf("maxiter reached in sc2: %d %g %g %g %g %g %g %g\n", it, nb, nbt, nqf, u, u0, u1, nb1-nb0);
 	Abort(1);
       }
@@ -3221,8 +3250,12 @@ void SetScreenConfig(int iter) {
   SetPotentialN();
   if (optimize_control.iset == 0) {
     double z0 = potential->atom->atomic_number;
-    double zr = z0-potential->N;    
-    optimize_control.stabilizer = 0.25 + 0.5*(zr/z0);
+    double zr = z0-potential->N;
+    if (_scb_ke <= 0) {
+      optimize_control.stabilizer = 0.25 + 0.5*(zr/z0);
+    } else {
+      optimize_control.stabilizer = 0.25;
+    }
   }
   if (ns > 0) {
     free(nqc);
@@ -3335,7 +3368,7 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
     tol = 0.0;
     atol = 0.0;
     for (i = 0; i < acfg->n_shells; i++) {
-      if (i < acfg->n_cores && freeze[i]) continue;
+      if (_scb_ke <= 0 && i < acfg->n_cores && freeze[i]) continue;
       k = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
       if (k < 0) {
 	orb_old.energy = 0.0;
@@ -3367,14 +3400,14 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
 	      wp = sta/w;
 	      wp = Min(1.0, wp);
 	      if ((b < atol0*wp && wq < tol0*wp) || wq < tol1*wp) {
-		if (i < acfg->n_cores) {
+		if (_scb_ke <= 0 && i < acfg->n_cores) {
 		  freeze[i] = 1;
 		}
 	      }
 	      //printf("wf: %d %d %d %d %d %g %g %g %g %d\n", iter, orb->n, orb->kappa, orb->ilast, _jsi, potential->rad[_jsi], w, orb->energy, orb_old.energy, freeze);
 	    }
 	  }
-	  if ((i >= acfg->n_cores) ||
+	  if (_scb_ke > 0 || (i >= acfg->n_cores) ||
 	      (!freeze[i] && orb->energy >= emin && orb->energy < emax)) {
 	    free(orb->wfun);
 	    orb->wfun = NULL;
@@ -3388,7 +3421,7 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
 	}
       }
 
-      if (i >= acfg->n_cores || !freeze[i]) {
+      if (i >= acfg->n_cores || !freeze[i] || _scb_ke > 0) {
 	ierr = SolveDirac(orb);
 	if (ierr < 0) {
 	  return -1;
@@ -3428,7 +3461,7 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
       if (imx > 5*NDPH) imx = 5*NDPH;
       if (_scpot.md >= 0) imx = 0;
       sta = optimize_control.sta[1];
-      double sta01 = sta*0.01;
+      double sta01 = 0.01*sta;
       muconv = fabs(potential->bps-au0)/Max(fabs(au0),0.5) < sta01;
       if (ahx < 1e-5 && _aaztol > 0 && iter > imx && tol < sta01 &&
 	  ((dz < _aaztol*sta01) ||
@@ -3764,8 +3797,8 @@ int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
 		     optimize_control.n_screen,
 		     optimize_control.screened_n,
 		     optimize_control.screened_charge,
-		     optimize_control.screened_kl, acfg); 
-  } else if (potential->mps < 0 && _scpot.nr == 0) {
+		     optimize_control.screened_kl, acfg);
+  } else if (potential->mps < 0 && _scpot.nr == 0 && _scb_ke <= 0) {
     if (acfg->n_shells <= 0) {
       printf("No average configuation exist. \n");
       printf("Specify with AvgConfig, ");
@@ -3774,7 +3807,9 @@ int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
       return -1;
     }
   }
-  
+  if (_scb_ke > 0) {
+    potential->nbt = _scb_ke;
+  }
   SetPotentialN();
   /* setup the radial grid if not yet */
   if (potential->flag == 0) {
@@ -4174,7 +4209,14 @@ double NBoundAA(int ns, int *n, int *ka, double *nq, double *et, double *nqc,
       nq[ik] = 0.0;
       continue;
     }
-    x = et[ik]-u;
+    if (_scb_ke > 0) {
+      tps = _scb_uf*fabs(u);
+      if (tps > _scb_mte) tps = _scb_mte;
+      x = (et[ik]-u)/tps;
+      potential->tps = tps;
+    } else {
+      x = et[ik]-u;
+    }
     if (x > 0) {
       y = exp(-x);
       y /= 1+y;
@@ -4183,13 +4225,15 @@ double NBoundAA(int ns, int *n, int *ka, double *nq, double *et, double *nqc,
     }
     j2 = GetJFromKappa(ka[ik]);
     nq[ik] = (j2+1.0-nqc[ik])*y;
-    ek = et[ik]*tps;    
-    y = BoundFactor(ek, potential->eth, potential->ewd, potential->mps);
-    nq[ik] *= y;    
+    if (_scb_ke <= 0) {      
+      ek = et[ik]*tps;
+      y = BoundFactor(ek, potential->eth, potential->ewd, potential->mps);
+      nq[ik] *= y;
+    }
     if (nq[ik] < 1e-50) nq[ik] = 0.0;
     nb += nq[ik];
   }
-  if (nqf) {
+  if (nqf && _scb_ke <= 0) {
     if (e0 < 1E31) {
       *nqf = FreeElectronDensity(potential, e0, u, 0.0, 2, 0);
     }
@@ -6548,8 +6592,12 @@ double AverageEnergyConfigMode(CONFIG *cfg, int md) {
 	  y *= _slater_scale[1][k][kp];
 	}
 	t += nqp * (y - a);
-      }    
-      ResidualPotential(&y, k, k);
+      }
+      if (md >= 0) {
+	ResidualPotential(&y, k, k);
+      } else {
+	y = 0;
+      }
       e = GetOrbital(k)->energy;
       a = QED1E(k, k);
       r = nq * (b + t + e + a + y);      
@@ -6693,8 +6741,12 @@ void DiExAvgConfig(AVERAGE_CONFIG *cfg, double *d0, double *d1) {
   }
 }
 
-/* calculate the average energy of an average configuration */
 double AverageEnergyAvgConfig(AVERAGE_CONFIG *cfg) {
+  return AverageEnergyAvgConfigMode(cfg, 0);
+}
+
+/* calculate the average energy of an average configuration */
+double AverageEnergyAvgConfigMode(AVERAGE_CONFIG *cfg, int md) {
   int i, j, n, kappa, np, kappap;
   int k, kp, kk, kl, klp, kkmin, kkmax, j2, j2p;
   double x, y, t, q, a, b, r, nq, nqp, r0, r1;
@@ -6754,8 +6806,11 @@ double AverageEnergyAvgConfig(AVERAGE_CONFIG *cfg) {
 
       t += nqp * (y - a);
     }
-
-    ResidualPotential(&y, k, k);
+    if (md >= 0) {
+      ResidualPotential(&y, k, k);
+    } else {
+      y = 0.0;
+    }
     a = GetOrbital(k)->energy;
     r = nq * (b + t + a + y);
     r0 += nq*y;
@@ -13031,6 +13086,10 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
     _sc_niter = ip;
     return;
   }
+  if (0 == strcmp(s, "radial:sc_miter")) {
+    _sc_miter = ip;
+    return;
+  }
   if (0 == strcmp(s, "radial:sc_wmin")) {
     _sc_wmin = dp;
     return;
@@ -13081,6 +13140,10 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "radial:sc_maxiter")) {
     _sc_maxiter = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:aaztol")) {
+    _aaztol = dp;
     return;
   }
   if (0 == strcmp(s, "radial:sc_mass")) {
@@ -13166,6 +13229,14 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "radial:intscp3")) {
     _intscp3 = dp;
+    return;
+  }
+  if (0 == strcmp(s, "radial:scb_ke")) {
+    _scb_ke = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:scb_uf")) {
+    _scb_uf = dp;
     return;
   }
 }

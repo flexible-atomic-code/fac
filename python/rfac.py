@@ -68,10 +68,14 @@ def cfgnr(nq):
     if len(nq) == 0:
         return s
     for n,k,q in nq:
+        if q <= 0:
+            continue
         if type(q) == int:
             s += ' %d%s%d'%(n,fac.SPECSYMBOL[k],q)
         else:
             s += ' %d%s%g'%(n,fac.SPECSYMBOL[k],q)
+    if len(s) == 0:
+        return s
     return s[1:]
 
 def nlq(s):
@@ -93,7 +97,10 @@ def nlq(s):
             except:
                 l = -1
             if i < len(s)-1:
-                q = int(s[i+1:])
+                try:
+                    q = int(s[i+1:])
+                except:
+                    q = float(s[i+1:])
             else:
                 q = 1
             break
@@ -104,7 +111,10 @@ def nlq(s):
             except:
                 l = -1
             if i < len(s)-1:
-                q = int(s[i+1:])
+                try:
+                    q = int(s[i+1:])
+                except:
+                    q = float(s[i+1:])
             else:
                 q = 1
             break
@@ -114,9 +124,17 @@ def nlq(s):
     return n,l,q
 
 def nlqs(s):
-    r = np.array([nlq(x) for x in s.split(' ')])
+    r = np.array([nlq(x) for x in s.split(' ')])    
     i = np.argsort(r[:,0]*100 + r[:,1])
-    return r[i,:]
+    a = []
+    for x in i:
+        q = int(r[x,2])
+        if r[x,2] == q:
+            if q > 0:
+                a.append((int(r[x,0]),int(r[x,1]),q))
+        else:
+            a.append((int(r[x,0]),int(r[x,1]),r[x,2]))
+    return a
 
 def voigt_fwhm(gw, lw):
     return 0.5346*lw + np.sqrt(0.2166*lw**2 + gw**2)
@@ -952,7 +970,7 @@ def read_pot(fn, cfg=None, header=None):
                    max_rows=nc, usecols=range(1,10))
     if len(cfg) == 0:
         return d
-    if cfg == 'bnd':
+    if cfg == 'bnd' or cfg == 'ac':
         ns = np.int32(d[1])
         ks = np.int32(d[2])
         nlq = []
@@ -961,10 +979,18 @@ def read_pot(fn, cfg=None, header=None):
                 w = np.where((ns==n)&((ks==k)|(ks==-(k+1))))[0]
                 if len(w) == 0:
                     continue
-                if np.mean(d[-1][w]) >= 0:
+                if cfg == 'bnd' and np.mean(d[-1][w]) >= 0:
                     continue
-                nlq.append((n,k,round(np.sum(d[3][w]),2)))
-        return cfgnr(nlq)
+                nq = np.sum(d[3][w])
+                if nq >= 1e-4:
+                    if cfg == 'bnd':                    
+                        nlq.append((n,k,round(nq,4)))
+                    else:
+                        nlq.append((n,k,nq))
+        if cfg == 'bnd':
+            return cfgnr(nlq)
+        else:
+            return nlq
     if (cfg[-1] == '+'):
         j = 1
     elif (cfg[-1] == '-'):

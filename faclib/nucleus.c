@@ -21,6 +21,7 @@
 #include "coulomb.h"
 #include "errms.h"
 #include "grdcfg.h"
+#include "grdcfg1.h"
 
 static char *rcsid="$Id: nucleus.c,v 1.14 2005/01/17 05:39:41 mfgu Exp $";
 #if __GNUC__ == 2
@@ -123,6 +124,7 @@ static double _mserms[N_ELEMENTS] = {
 static double _errms[N_ELEMENTS][NISO];
 
 SETUPGROUND
+SETUPGROUND1
 
 static double _xfermi0 = XFERMI0;
 static double _xfermi1 = XFERMI1;
@@ -965,24 +967,78 @@ void SetOptionNucleus(char *s, char *sp, int ip, double dp) {
   }
 }
 
-int IdxGround(int z, int k) {
-  int i;
+int IdxGround(int z, int k, int *c, int md) {
+  int i;  
   i = (z*(z-1))/2 + k-1;
+  if (md == -10) {
+    *c = 0;
+    return i;
+  }
+  if (md == -11) {
+    *c = 1;
+    return i;
+  }
+  if (md < 0) md = 2;
+  double e = _ipot[i];
+  if (e < 1e-6 || ((e-(int)e) < 0.001 && z-k >= md)) {
+    *c = 1;
+  } else {
+    *c = 0;
+  }
   return i;
 }
 
-int GetGround2J(int z, int k) {
-  return _jlev[IdxGround(z, k)];
+int GetGround2J(int z, int k, int md) {
+  int i, c;
+  i = IdxGround(z, k, &c, md);
+
+  if (c) {
+    return _jlev1[i];
+  } else {
+    return _jlev[i];
+  }
 }
 
-double GetGroundIP(int z, int k) {
-  return _ipot[IdxGround(z, k)];
+double GetGroundIP(int z, int k, int md) {
+  int i, c;
+  i = IdxGround(z, k, &c, md);
+
+  if (c) {
+    return _ipot1[i];
+  } else {
+    return _ipot[i];
+  }
 }
 
-char *GetGroundLev(int z, int k) {
-  return _glev[IdxGround(z, k)];
+char *GetGroundLev(int z, int k, int md) {
+  int i, c;
+  i = IdxGround(z, k, &c, md);
+
+  if (c) {
+    return _glev1[i];
+  } else {
+    return _glev[i];
+  }
 }
 
-char *GetGroundCfg(int z, int k) {
-  return _gcfg[IdxGround(z, k)];
+int GetGroundParity(int z, int k, int md) {
+  int i, c;
+  i = IdxGround(z, k, &c, md);
+
+  if (c) {
+    return _plev1[i];
+  } else {
+    return _plev[i];
+  }
+}
+
+char *GetGroundCfg(int z, int k, int md) {
+  int i, c;
+  i = IdxGround(z, k, &c, md);
+
+  if (c) {
+    return _gcfg1[i];
+  } else {
+    return _gcfg[i];
+  }
 }

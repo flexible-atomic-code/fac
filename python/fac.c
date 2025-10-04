@@ -6754,21 +6754,23 @@ static PyObject *PRemoveClosedShell(PyObject *self, PyObject *args) {
 
 static PyObject *PGetGroundProp(PyObject *self, PyObject *args) {
   double ipot;
-  int j2, z, k;
+  int j2, p, z, k, md;
   char glev[16];
   char gcfg[128];
 
-  if (!PyArg_ParseTuple(args, "ii", &z, &k)) return NULL;
+  md = -1;
+  if (!PyArg_ParseTuple(args, "ii|i", &z, &k, &md)) return NULL;
   if (z > N_ELEMENTS) return NULL;
   if (z < 1) return NULL;
   if (k > z) return NULL;
   if (k < 1) return NULL;
-  ipot = GetGroundIP(z, k);
-  j2 = GetGround2J(z, k);
-  strncpy(glev, GetGroundLev(z, k), 16);
-  strncpy(gcfg, GetGroundCfg(z, k), 128);
+  ipot = GetGroundIP(z, k, md);
+  j2 = GetGround2J(z, k, md);
+  p = GetGroundParity(z, k, md);
+  strncpy(glev, GetGroundLev(z, k, md), 16);
+  strncpy(gcfg, GetGroundCfg(z, k, md), 128);
 
-  return Py_BuildValue("ssid", gcfg, glev, j2, ipot);
+  return Py_BuildValue("ssidi", gcfg, glev, j2, ipot, p);
 }
 
 static struct PyMethodDef fac_methods[] = {

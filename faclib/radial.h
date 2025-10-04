@@ -147,6 +147,7 @@ double ConfigHamilton(CONFIG *cfg, ORBITAL *orb0, ORBITAL *orb1, double xdf);
 double AverageEnergyConfig(CONFIG *cfg);
 double AverageEnergyConfigMode(CONFIG *cfg, int md);
 double AverageEnergyAvgConfig(AVERAGE_CONFIG *cfg);
+double AverageEnergyAvgConfigMode(AVERAGE_CONFIG *cfg, int md);
 void DiExAvgConfig(AVERAGE_CONFIG *cfg, double *d0, double *d1);
 void DiExConfig(CONFIG *cfg, double *d0, double *d1);
 
