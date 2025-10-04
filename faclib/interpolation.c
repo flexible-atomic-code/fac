@@ -2358,8 +2358,7 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
     egy[i] /= HARTREE_EV;
   }
 
-  if (imin < 0) imin = 0;
-  if (imax < 0) imax = mem_en_table_size - 1;
+  if (imax == -1) imax = mem_en_table_size - 1;
 
   while(1) {
     n = ReadRRHeader(f1, &h, swp);
@@ -2375,7 +2374,10 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
 	e = *((float *)&r.kl);
 	r.kl = -r.f;
       }
-      if (r.b != ilev || (r.f >= 0 && (r.f < imin || r.f > imax))) {
+      if (r.b != ilev ||
+	  (imin >= 0 && imax >= imin &&
+	   (r.f < imin || r.f > imax)) ||
+	  (imin < 0 && imax < 0 && r.f >= 0)) {
 	if (h.qk_mode == QK_FIT) free(r.params);
 	free(r.strength);
 	continue;
@@ -2391,13 +2393,12 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
 	  xusr[t] = log(1.0 + h.usr_egrid[t]/e);
 	}
       }
-
       for (t = 0; t < negy; t++) {
 	eph = egy[t];
 	ee = eph - e;
 	if (ee <= 0.0) continue;
-	if (h.qk_mode != QK_FIT || ee <= emax) {
-	  x = log(eph/e);
+	x = log(eph/e);
+	if (h.qk_mode != QK_FIT || x <= xusr[h.n_usr-1]) {
 	  UVIP3P(np, h.n_usr, xusr, dstrength, one, &x, &tc);
 	  tc = exp(tc);
 	} else {

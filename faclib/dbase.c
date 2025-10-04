@@ -8423,9 +8423,9 @@ int JoinDBase(char *pref, int nk, int *ks, int ic) {
 }
 
 void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
-  int k, i, j, n, nb, nlevs, clevs, ni0, ni1, vn, vni, vn0, z;
+  int k, i, j, t, n, nb, nlevs, clevs, ni0, ni1, vn, vni, vn0, z;
   char ifn[1024], ofn[1024], buf[1024];
-  char a[8];
+  char a[8], nc0[10*LNCOMPLEX], sn0[10*LSNAME], nm0[10*LNAME];
   F_HEADER fh, fh1[7];
   EN_HEADER h0;
   EN_RECORD r0, *ri0, *ri1;
@@ -8444,7 +8444,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
   RC_RECORD r6;
   char ext[7][3] = {"en", "tr", "ce", "rr", "ci", "ai", "rc"};
   int types[7] = {DB_EN, DB_TR, DB_CE, DB_RR, DB_CI, DB_AI, DB_RC};
-  TFILE *f0, *fr, *f1[7];
+  TFILE *f0, *fr, *f1[7], *f0u, *f1u;
   int swp, *im, *imp, **ima, nim, nk, nilevs, *nplevs, nth;
   double e0, e1, e0p, e1p, tde, *de, *ei, **eai;
   float fde;
@@ -8453,9 +8453,11 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
   int nexc, ncap, nt, nd, ix, ibx, ifx, ib, cn0, cn1, cn2;
   int ia, *nm, *nklevs, *igk, *ifk, kk, kk1;
   short ***nc;
-  double t0, dt, d0, dd, *egk, eip, wt0, wt1, tt0, tt1;
+  double zh, t0, dt, d0, dd, *egk, **eo, eip, wt0, wt1, tt0, tt1;
   float ***pai;
-  int nt1, nt2, nt3, nt4, nt5, nt6;
+  int nt1, nt2, nt3, nt4, nt5, nt6, nt3a, nt3b;
+  int nbk, kbk, ibk, mbk, sbk, nq, i0, i1, i2, i3;
+  unsigned char *rrq;
 
   tt0 = WallTime();
   ncap = 0;
@@ -8480,9 +8482,16 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
   de = malloc(sizeof(double)*nk);
   ei = malloc(sizeof(double)*nk);
   nplevs = malloc(sizeof(int)*nk);
-  FILE *frp0, *frp1;    
+  FILE *frp0, *frp1;
   sprintf(ofn, "%s%02d%02db.rp", pref, k0, k1);
   frp1 = fopen(ofn, "w");
+  mbk = 10;
+  sbk = mbk*(mbk+1);
+  eo = malloc(sizeof(double *)*nk);
+  for (k = k0; k <= k1; k++) {
+    eo[k-k0] = malloc(sizeof(double)*sbk);  
+    for (i = 0; i < sbk; i++) eo[k-k0][i] = 0;
+  }
   if (frp1 != NULL) {
     for (k = k1; k >= k0; k--) {
       sprintf(ifn, "%s%02db.rp", pref, k);
@@ -8490,6 +8499,15 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
       if (frp0 != NULL) {
 	while(NULL != fgets(buf, 1024, frp0)) {
 	  fprintf(frp1, "%s", buf);
+	  ibk = sscanf(buf, "%d %d %d %d %d %s %lg",
+		       &i0, &i1, &nbk, &kbk, &j, nm0, &tde);
+	  ibk = 2*((nbk-1)*nbk/2 + kbk);
+	  if (j < 0) ibk++;
+	  if (ibk < sbk) {
+	    eo[k-k0][ibk] = -tde;
+	  }
+	  //printf("eo: %d %d %d %d %s %d %d %g\n",
+	  //	 k, nbk, kbk, j, nm0, ibk, sbk, tde);
 	}
 	fclose(frp0);
       }      
@@ -8579,7 +8597,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
       nlevs += h0.nlevels;
     }
     if (_adj_ip) {
-      eip = GetGroundIP(z, k)/HARTREE_EV;
+      eip = GetGroundIP(z, k, 0)/HARTREE_EV;
       if (eip > 0) {
 	e1 = e0 + eip;
       } else {
@@ -8781,7 +8799,8 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
     wt1 = WallTime();
     printf(" %d %.3e\n", clevs, wt1-wt0);
   }
-
+  rrq = malloc(sbk*clevs);
+  for (i = 0; i < sbk*clevs; i++) rrq[i] = 0;
   for (k = k1; k >= k0; k--) {
     sprintf(ifn, "%s%02db.en", pref, k);
     f0 = OpenFileRO(ifn, &fh, &swp);
@@ -8825,6 +8844,40 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	    }
 	  }
 	  nklevs[k-k0]++;
+	  if (k > 1) {
+	    if (0 == FillClosedShell(k, &r0, nc0, sn0, nm0)) {
+	      n = StrSplit(nm0, '.');
+	      i0 = 0;
+	      for (t = 0; t < n; t++) {
+		i1 = i0;
+		while(isdigit(nm0[i1])) i1++;
+		i2 = i1;
+		while(nm0[i2] != '-' && nm0[i2] != '+') i2++;
+		i2++;
+		i3 = i2;
+		while(isdigit(nm0[i3])) i3++;
+		char c3 = nm0[i3];
+		nm0[i3] = '\0';
+		nq = atoi(nm0+i2);
+		nm0[i2] = '\0';		
+		ibk = GetJLFromSymbol(nm0+i1, &j, &kbk);
+		if (ibk >= 0) {
+		  nm0[i1] = '\0';
+		  nbk = atoi(nm0+i0);
+		  ibk = 2*((nbk-1)*nbk/2+kbk)+(j>0);
+		  if (ibk < sbk) {
+		    rrq[sbk*r0.ilev+ibk] = (unsigned char) nq;
+		  }
+		  //printf("rq: %d %d %d, %d %d %d %d, %d %d %d %d\n", r0.ilev, t, ibk, nbk, kbk, j, nq, i0, i1, i2, i3);
+		}
+		if (c3) {
+		  i3++;
+		  while(nm0[i3]) i3++;
+		}
+		i0 = i3 + 1;
+	      }
+	    }
+	  }
 	}
 	DeinitFile(f1[0], &fh1[0]);
       } else {
@@ -8918,6 +8971,8 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
     nt4 = 0;
     nt5 = 0;
     nt6 = 0;
+    nt3a = 0;
+    nt3b = 0;
     if (f0 != NULL && fh.type == DB_TR) {
       for (nb = 0; nb < fh.nblocks; nb++) {
 	n = ReadTRHeader(f0, &h1, swp);
@@ -9010,17 +9065,33 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	      tde = metable[r3.f].energy - metable[r3.b].energy;
 	      if (tde > 0) {
 		WriteRRRecord(f1[3], &r3);
+		nbk = r3.kl/1000;
+		kbk = r3.kl%1000;
+		ibk = 2*(nbk*(nbk-1)/2 + kbk);
+		if (ibk < sbk) {
+		  i0 = r3.b*sbk + ibk;
+		  rrq[i0] = 0;
+		  rrq[i0+1] = 0;		  
+		}
 		nt3++;
 	      }
 	    } else {
 	      tde = mem_en_table[r3.f].energy - mem_en_table[r3.b].energy;
 	      if (tde > 0) {
 		r3.b = im[r3.b];
+		nbk = r3.kl/1000;
+		kbk = r3.kl%1000;
+		ibk = 2*(nbk*(nbk-1)/2 + kbk);
+		if (ibk < sbk) {
+		  i0 = r3.b*sbk + ibk;
+		  rrq[i0] = 0;
+		  rrq[i0+1] = 0;
+		}
 		r3.f = -r3.kl;
 		fde = tde;
 		r3.kl = *((int *) &fde);
 		WriteRRRecord(f1[3], &r3);
-		nt3++;
+		nt3a++;
 	      }
 	    }
 	  }
@@ -9034,7 +9105,149 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
       }
       FCLOSE(f0);
     }
-
+    
+    // add type 10 pi trans
+    sprintf(ifn, "%s%02db.uen", pref, k);
+    f0 = OpenFileRO(ifn, &fh, &swp);
+    int *ium = NULL;
+    int *uim = NULL;
+    if (f0) {
+      ium = malloc(sizeof(int)*sbk);
+      for (i = 0; i < sbk; i++) {
+	ium[i] = -1;
+      }
+      nlevs = 0;
+      for (nb = 0; nb < fh.nblocks; nb++) {
+	n = ReadENHeader(f0, &h0, swp);
+	nlevs += h0.nlevels;
+	if (n == 0) break;
+	if (h0.nele == 0) break;
+	for (i = 0; i < h0.nlevels; i++) {
+	  n = ReadENRecord(f0, &r0, swp);	  
+	  if (h0.nele == 1) {
+	    i0 = 0;
+	    i1 = 0;
+	    while(isdigit(r0.name[i1])) i1++;
+	    i2 = i1;
+	    while(r0.name[i2] != '-' && r0.name[i2] != '+') i2++;
+	    i3 = i2;
+	    while(isdigit(r0.name[i3])) i3++;
+	    r0.name[i3] = '\0';
+	    nq = atoi(r0.name+i2);
+	    r0.name[i2] = '\0';
+	    ibk = GetJLFromSymbol(r0.name+i1, &j, &kbk);
+	    if (ibk >= 0) {
+	      r0.name[i1] = '\0';
+	      nbk = atoi(r0.name+i0);
+	      ibk = 2*((nbk-1)*nbk/2 + kbk) + (j>0);
+	      if (ibk < sbk) {
+		ium[ibk] = r0.ilev;
+		eo[k-k0][ibk] = -r0.energy;
+	      }
+	    }
+	  }
+	}	
+      }
+      FCLOSE(f0);
+      uim = malloc(sizeof(int)*nlevs);
+      for (i = 0; i < nlevs; i++) uim[i] = -1;
+      for (ibk = 0; ibk < sbk; ibk++) {
+	if (ium[ibk] >= 0) {
+	  uim[ium[ibk]] = ibk;
+	}
+      }
+      sprintf(ifn, "%s%02db.urr", pref, k);
+      f0 = OpenFileRO(ifn, &fh, &swp);
+      RR_RECORD *r3u = NULL;
+      if (f0) {
+	r3u = malloc(sizeof(RR_RECORD)*sbk);
+	for (i = 0; i < sbk; i++) {
+	  r3u[i].params = NULL;
+	  r3u[i].strength = NULL;
+	}
+	float *tpar, *tstr;
+	tpar = malloc(sizeof(float)*h3.nparams);
+	tstr = malloc(sizeof(float)*h3.n_usr);
+	int ibmin, ibmax;
+	for (nb = 0; nb < fh.nblocks; nb++) {
+	  n = ReadRRHeader(f0, &h3, swp);
+	  if (n == 0) break;
+	  ibmin = sbk;
+	  ibmax = 0;
+	  for (i = 0; i < h3.ntransitions; i++) {
+	    n = ReadRRRecord(f0, &r3, swp, &h3);
+	    ibk = uim[r3.b];
+	    if (ibk >= 0) {
+	      memcpy(&r3u[ibk], &r3, sizeof(RR_RECORD));
+	      r3u[ibk].f = -r3.kl;
+	      fde = eo[k-k0][ibk];
+	      r3u[ibk].kl = *((int *) &fde);
+	      r3u[ibk].params = malloc(sizeof(float)*h3.nparams);
+	      r3u[ibk].strength = malloc(sizeof(float)*h3.n_usr);
+	      memcpy(r3u[ibk].params, r3.params, sizeof(float)*h3.nparams);
+	      memcpy(r3u[ibk].strength, r3.strength, sizeof(float)*h3.n_usr);
+	      if (ibmin > ibk) ibmin = ibk;
+	      if (ibmax < ibk) ibmax = ibk;
+	    }
+	    free(r3.params);
+	    free(r3.strength);
+	  }
+	  h3.nele = k;
+	  InitFile(f1[3], &fh1[3], &h3);
+	  for (i = 0; i < nklevs[k-k0]; i++) {
+	    i1 = i + ifk[k-k0];
+	    for (nbk = 1; nbk <= mbk; nbk++) {
+	      for (kbk = 0; kbk < nbk; kbk++) {
+		ibk = 2*((nbk-1)*nbk/2 + kbk);
+		if (ibk >= ibmin && ibk <= ibmax) {
+		  if (kbk == 0) j = 1;
+		  else j = 0;
+		  for (; j <= 1; j++) {
+		    i0 = i1*sbk + ibk + j;
+		    if (rrq[i0] > 0) {		    
+		      //e1 = (1.0/(kbk+j) - 0.75/nbk)*nbk;	      
+		      //e0 = 2*eo[k-k0][ibk+j]*FINE_STRUCTURE_CONST2;
+		      //zh = nbk*sqrt((sqrt(1.0+4*e1*e0) - 1.0)/(2*e1));
+		      //zh /= FINE_STRUCTURE_CONST;
+		      memcpy(&r3, &r3u[ibk], sizeof(RR_RECORD));
+		      r3.b = i1;
+		      r3.params = tpar;
+		      r3.strength = tstr;
+		      memcpy(r3.params, r3u[ibk].params, sizeof(float)*h3.nparams);
+		      memcpy(r3.strength, r3u[ibk].strength, sizeof(float)*h3.n_usr);
+		      tde = rrq[i0]*(metable[r3.b].j+1.0);
+		      if (j == 0) tde /= (2*kbk-1.0);
+		      else tde /= (2*kbk+1.0);
+		      r3.params[0] *= tde;
+		      for (t = 0; t < h3.n_usr; t++) {
+			r3.strength[t] *= tde;
+		      }
+		      WriteRRRecord(f1[3], &r3);
+		      nt3b++;
+		    }
+		  }	      
+		}
+	      }
+	    }
+	  }       
+	  DeinitFile(f1[3], &fh1[3]);
+	  free(h3.tegrid);
+	  free(h3.egrid);
+	  free(h3.usr_egrid);
+	}
+	FCLOSE(f0);
+	free(tpar);
+	free(tstr);
+	for (i = 0; i < sbk; i++) {
+	  free(r3u[i].params);
+	  free(r3u[i].strength);
+	}
+	free(r3u);
+	free(ium);
+	free(uim);
+      }
+    }
+    
     sprintf(ifn, "%s%02db.ci", pref, k);
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 != NULL && fh.type == DB_CI) {
@@ -9137,7 +9350,8 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
     }
     if (im) free(im);
     wt1 = WallTime();
-    printf(" %d %d %d %d %d %d %.3e\n", nt1, nt2, nt3, nt4, nt5, nt6, wt1-wt0);
+    printf(" %d %d %d %d %d %d %d %d %.3e\n",
+	   nt1, nt2, nt3, nt3a, nt3b, nt4, nt5, nt6, wt1-wt0);
   }
 
   if (_nc_iai > 0) {
@@ -9203,6 +9417,11 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
   free(egk);
   free(metable);
   FreeMemENTable();
+  for (k = k0; k <= k1; k++) {
+    if (eo[k-k0]) free(eo[k-k0]);
+  }
+  if (eo) free(eo);
+  free(rrq);
   if (ic > 0) {
     n = ic;
     k = 0;    
@@ -9439,14 +9658,20 @@ int LoadSFU(char *ipr, int ke, double **efu) {
   return nmx;
 }
 
-int LoadGroupMod(char *fn, int z, GROUPMOD *gd) {
+int LoadGroupMod(char *fn, int z0, GROUPMOD *gd) {
   FILE *f;
   char buf[1024], *p;
 
-  printf("load groupmod data from %s\n", fn);
-  int i, j, n, zi, ki, k0, k1, n0, n1;
+  printf("load groupmod data from %s for z=%d ... ", fn, z0);
+  int i, j, n, zi, ki, k0, k1, n0, n1, z;
   double d0, d1;
 
+  if (z0 > 0) {
+    z = z0;
+  } else {
+    z = -z0;
+    z0 = 0;
+  }
   for (i = 0; i <= z; i++) {
     gd[i].minlevs = 0;
     gd[i].maxlevs = 0;
@@ -9467,7 +9692,7 @@ int LoadGroupMod(char *fn, int z, GROUPMOD *gd) {
     n = sscanf(p, "%d %d %d %d %lg %lg",
 	       &zi, &ki, &n0, &n1, &d0, &d1);
     if (n != 6) continue;
-    if (z != zi) continue;
+    if (z0 != zi) continue;
     if (ki <= 0) continue;
     if (ki > 1000) {
       k0 = ki/1000;
@@ -9486,16 +9711,24 @@ int LoadGroupMod(char *fn, int z, GROUPMOD *gd) {
     }
   }
   fclose(f);
+  printf("%d\n", j);
   return j;
 }
 
-int LoadTransMod(char *fn, int z, TRANSMOD *sd) {
+int LoadTransMod(char *fn, int z0, TRANSMOD *sd) {
   FILE *f;
   char buf[1024], *p;
 
-  printf("load transmod data from %s\n", fn);
-  int i, j, n, ns, zi, ki, n0, n1, k0, k1;
+  printf("load transmod data from %s for z=%d ... ", fn, z0);
+  int i, j, n, ns, z, zi, ki, n0, n1, k0, k1;
   double e0, e1, d0, d1, f0, f1, w0;
+  
+  if (z0 > 0) {
+    z = z0;
+  } else {
+    z = -z0;
+    z0 = 0;
+  }
   for (i = 0; i < z; i++) {
     sd[i].minlo = 1000000;
     sd[i].maxlo = 0;
@@ -9532,7 +9765,7 @@ int LoadTransMod(char *fn, int z, TRANSMOD *sd) {
     n = sscanf(p, "%d %d %d %d %lg %lg %lg %lg %lg %lg %lg",
 	       &zi, &ki, &n0, &n1, &e0, &e1, &d0, &d1, &f0, &f1, &w0);
     if (n != 11) continue;
-    if (z != zi) continue;
+    if (z0 != zi) continue;
     if (ki <= 0) continue;
     if (ki > 1000) {
       k0 = ki/1000;
@@ -9591,39 +9824,41 @@ int LoadTransMod(char *fn, int z, TRANSMOD *sd) {
     }
   }
 
-  if (ns == 0) return ns;
-  fseek(f, 0, SEEK_SET);
-  while (1) {
-    if (NULL == fgets(buf, 1024, f)) break;
-    p = buf;
-    while(isspace(*p)) p++;
-    if (p[0] == '#') continue;
-    n = sscanf(buf, "%d %d %d %d %lg %lg %lg %lg %lg %lg %lg",
-	       &zi, &ki, &n0, &n1, &e0, &e1, &d0, &d1, &f0, &f1, &w0);
-    if (n != 11) continue;
-    if (z != zi) continue;
-    if (ki <= 0) continue;
-    if (ki > 1000) {
-      k0 = ki/1000;
-      k1 = ki%1000;
-    } else {
-      k0 = ki;
-      k1 = ki;
-    }
-    for (ki = k0; ki <= k1; ki++) {      
-      if (ki < 1 || ki > z) continue;
-      i = ki-1;
-      j = (n1-sd[i].minup)*sd[i].nlo + n0-sd[i].minlo;
-      sd[i].emin[j] = e0/HARTREE_EV;
-      sd[i].emax[j] = e1/HARTREE_EV;
-      sd[i].fde[j] = d0/HARTREE_EV;
-      sd[i].ude[j] = d1/HARTREE_EV;
-      sd[i].fmf[j] = f0;
-      sd[i].umf[j] = f1;
-      sd[i].uwf[j] = w0;
+  if (ns > 0) {
+    fseek(f, 0, SEEK_SET);
+    while (1) {
+      if (NULL == fgets(buf, 1024, f)) break;
+      p = buf;
+      while(isspace(*p)) p++;
+      if (p[0] == '#') continue;
+      n = sscanf(buf, "%d %d %d %d %lg %lg %lg %lg %lg %lg %lg",
+		 &zi, &ki, &n0, &n1, &e0, &e1, &d0, &d1, &f0, &f1, &w0);
+      if (n != 11) continue;
+      if (z0 != zi) continue;
+      if (ki <= 0) continue;
+      if (ki > 1000) {
+	k0 = ki/1000;
+	k1 = ki%1000;
+      } else {
+	k0 = ki;
+	k1 = ki;
+      }
+      for (ki = k0; ki <= k1; ki++) {      
+	if (ki < 1 || ki > z) continue;
+	i = ki-1;
+	j = (n1-sd[i].minup)*sd[i].nlo + n0-sd[i].minlo;
+	sd[i].emin[j] = e0/HARTREE_EV;
+	sd[i].emax[j] = e1/HARTREE_EV;
+	sd[i].fde[j] = d0/HARTREE_EV;
+	sd[i].ude[j] = d1/HARTREE_EV;
+	sd[i].fmf[j] = f0;
+	sd[i].umf[j] = f1;
+	sd[i].uwf[j] = w0;
+      }
     }
   }
-  fclose(f);
+  fclose(f);  
+  printf("%d\n", ns);
   return ns;
 }
 
@@ -9654,14 +9889,15 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
   int k, i, j, n, nb, nlevs, vn, swp, z, nth;
   int ng0, ng1, ng, dm, ng2, ilo, iup, m, t, s;
   int klev[N_ELEMENTS1], ngrp[N_ELEMENTS1];
-  int imin[N_ELEMENTS1], imax[N_ELEMENTS1];
+  int imin[N_ELEMENTS1], imax[N_ELEMENTS1], igrd[N_ELEMENTS1];
   LEVGRP *rg[N_ELEMENTS1];
   EN_RECORD *ra[N_ELEMENTS1];  
   TFILE *f0, *f1[7];
-  double ei, des, te, e, cs, des0, des1;
+  double ei, des, te, e, cs, des0, des1, egrd[N_ELEMENTS1];
   float fte;
   int *im, tlevs, nt0, nt1, nt2, minlevs, maxlevs;
   double wt0, wt1, tt0, tt1;
+  int nbk, kbk, n2, nm2;
 
   sprintf(ifn, "%sb.en", ipr);
   wt0 = WallTime();
@@ -9684,6 +9920,8 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
     klev[k] = 0;
     imin[k] = 0;
     imax[k] = 0;
+    igrd[k] = 0;
+    egrd[k] = 1e30;
     ra[k] = NULL;
   }
   tlevs = 0;
@@ -9733,6 +9971,10 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
       }
       if (imin[k] > ra[k][j].ilev) imin[k] = ra[k][j].ilev;
       if (imax[k] < ra[k][j].ilev) imax[k] = ra[k][j].ilev;
+      if (ra[k][j].energy < egrd[k]) {
+	egrd[k] = ra[k][j].energy;
+	igrd[k] = ra[k][j].ilev;
+      }
       klev[k]++;
     }
   }
@@ -9744,6 +9986,9 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
   int ngm = 0;
   if (strlen(_groupmod_file) > 0) {
     ngm = LoadGroupMod(_groupmod_file, z, gd);
+    if (ngm <= 0) {
+      ngm = LoadGroupMod(_groupmod_file, -z, gd);
+    }
   }
   for (k = z; k >= 0; k--) {
     if (gd[k].minlevs > 0 && gd[k].maxlevs > 0) {
@@ -9764,7 +10009,14 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	   des0*HARTREE_EV, des1*HARTREE_EV);
     fflush(stdout);
     if (klev[k] > 1) {
+      j = igrd[k]-imin[k];
+      if (ra[k][j].j == -1) {
+	ra[k][j].j = -1000;
+      }
       qsort(ra[k], klev[k], sizeof(EN_RECORD), CompareENRecordEnergySU);
+      if (ra[k][0].j == -1000) {
+	ra[k][0].j = -1;
+      }
     }
     if (k > 0 && klev[k-1] > 0) {
       ei = ra[k-1][0].energy;
@@ -9853,6 +10105,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	}
       }
     }
+    
     if (f1[1]) {
       TR_ALL **rt;
       int gauges[3] = {1, 2, 10};
@@ -9869,8 +10122,11 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	sd = malloc(sizeof(TRANSMOD)*z);
 	nb = LoadTransMod(_transmod_file, z, sd);
 	if (nb == 0) {
-	  free(sd);
-	  sd = NULL;
+	  nb = LoadTransMod(_transmod_file, -z, sd);
+	  if (nb == 0) {
+	    free(sd);
+	    sd = NULL;
+	  }
 	}
       }
       for (k = z; k >= 0; k--) {	
@@ -10317,11 +10573,8 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
       for (k = z; k > 0; k--) {
 	if (ngrp[k] == 0 || ngrp[k-1] == 0) continue;		
 	short *nrmin, *nrmax;
-	int nj = 1 + imax[k]-imin[k];	
-	int *ij = malloc(sizeof(int)*nj);
-	for (i = 0; i < nj; i++) ij[i] = -1;
-	nrmin = malloc(sizeof(short)*klev[k]);
-	nrmax = malloc(sizeof(short)*klev[k]);	
+	nrmin = malloc(sizeof(short)*ngrp[k]);
+	nrmax = malloc(sizeof(short)*ngrp[k]);	
 	wt0 = WallTime();
 	printf("collapse RR: %d ...", k);
 	fflush(stdout);
@@ -10331,11 +10584,9 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	for (i = 0; i < ng2; i++) {
 	  rt[i] = NULL;
 	}
-	for (i = 0; i < klev[k]; i++) {
+	for (i = 0; i < ngrp[k]; i++) {
 	  nrmin[i] = 1000;
 	  nrmax[i] = 0;
-	  s = ra[k][i].ilev - imin[k];
-	  ij[s] = i;
 	}
 	nt0 = 0;
 	nt10 = 0;
@@ -10395,7 +10646,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	      nt0++;
 	    } else {
 	      n = (-r3.f)/1000;
-	      t = ij[r3.b - imin[k]];
+	      t = im[r3.b];
 	      if (n < nrmin[t]) nrmin[t] = n;
 	      if (n > nrmax[t]) nrmax[t] = n;
 	      nt10++;
@@ -10435,8 +10686,8 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	fflush(stdout);
 	wt0 = wt1;
 	if (nt10 > 0) {
-	  rt = malloc(sizeof(RR_ALL *)*klev[k]);
-	  for (i = 0; i < klev[k]; i++) {
+	  rt = malloc(sizeof(RR_ALL *)*ngrp[k]);
+	  for (i = 0; i < ngrp[k]; i++) {
 	    rt[i] = NULL;
 	  }
 	  nt2 = 0;
@@ -10458,27 +10709,36 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 		ilo = im[r3.b];
 		int kl = -r3.f;
 		fte = *((float *)(&(r3.kl)));
-		s = ij[r3.b - imin[k]];
+		s = ilo;
+		nm2 = (nrmin[s]-1)*nrmin[s]/2;
 		if (rt[s] == NULL) {
 		  n = 1 + nrmax[s] - nrmin[s];
-		  rt[s] = malloc(sizeof(RR_ALL)*n);		  
-		  for (t = 0; t < n; t++) {
-		    rt[s][t].r.strength = malloc(sizeof(float)*neg);
-		    if (nqk > 0) rt[s][t].r.params = malloc(sizeof(float)*nqk);
-		    for (j = 0; j < neg; j++) {
-		      rt[s][t].r.strength[j] = 0.0;
+		  n2 = n*(nrmax[s]+nrmin[s])/2;
+		  rt[s] = malloc(sizeof(RR_ALL)*n2);
+		  for (nbk = nrmin[s]; nbk <= nrmax[s]; nbk++) {
+		    for (kbk = 0; kbk < nbk; kbk++) {
+		      t = (nbk-1)*nbk/2 + kbk - nm2;
+		      rt[s][t].r.strength = malloc(sizeof(float)*neg);
+		      if (nqk > 0) {
+			rt[s][t].r.params = malloc(sizeof(float)*nqk);
+		      }
+		      for (j = 0; j < neg; j++) {
+			rt[s][t].r.strength[j] = 0.0;
+		      }
+		      for (j = 0; j < nqk; j++) {
+			rt[s][t].r.params[j] = 0.0;
+		      }
+		      rt[s][t].r.kl = 0;
+		      rt[s][t].r.b = rg[k][ilo].r.ilev;
+		      rt[s][t].r.f = -(nbk*1000 + kbk);
+		      rt[s][t].dk = 0.0;
+		      rt[s][t].dn = 0.0;
 		    }
-		    for (j = 0; j < nqk; j++) {
-		      rt[s][t].r.params[j] = 0.0;
-		    }
-		    rt[s][t].r.kl = 0;
-		    rt[s][t].r.b = rg[k][ilo].r.ilev;
-		    rt[s][t].r.f = -1;
-		    rt[s][t].dk = 0.0;
-		    rt[s][t].dn = 0.0;
 		  }
 		}
-		j = (kl/1000) - nrmin[s];
+		nbk = kl/1000;
+		kbk = kl%1000;
+		j = (nbk-1)*nbk/2 + kbk - nm2;
 		te = fte;
 		for (t = 0; t < neg; t++) {
 		  e = te*ht.egrid[t];
@@ -10509,25 +10769,29 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	  FCLOSE(f0);
 	  nt2 = 0;
 	  InitFile(f1[3], &fh1[3], &ht);
-	  for (i = 0; i < klev[k]; i++) {
+	  for (i = 0; i < ngrp[k]; i++) {
 	    if (rt[i] == NULL) continue;
 	    n = nrmax[i] - nrmin[i] + 1;
-	    for (j = 0; j < n; j++) {
-	      if (nqk > 0 && rt[i][j].r.params[0] > 0) {
-		rt[i][j].r.params[1] /= rt[i][j].r.params[0];
-		rt[i][j].r.params[2] /= rt[i][j].r.params[0];
-		rt[i][j].r.params[3] /= rt[i][j].r.params[0];
+	    n2 = n*(nrmin[i]+nrmax[i])/2;
+	    nm2 = (nrmin[i]-1)*nrmin[i]/2;
+	    for (nbk = nrmin[i]; nbk <= nrmax[i]; nbk++) {
+	      for (kbk = 0; kbk < nbk; kbk++) {
+		j = (nbk-1)*nbk/2 + kbk - nm2;
+		if (nqk > 0 && rt[i][j].r.params[0] > 0) {
+		  rt[i][j].r.params[1] /= rt[i][j].r.params[0];
+		  rt[i][j].r.params[2] /= rt[i][j].r.params[0];
+		  rt[i][j].r.params[3] /= rt[i][j].r.params[0];
+		}
+		if (rt[i][j].r.strength[iwk] > 0 &&
+		    rt[i][j].r.strength[iwe] > 0) {
+		  fte = rt[i][j].dn/rt[i][j].r.strength[iwe];
+		  rt[i][j].r.kl = *((int *) &fte);
+		  WriteRRRecord(f1[3], &(rt[i][j].r));
+		  nt2++;
+		}
+		free(rt[i][j].r.strength);
+		if (nqk > 0) free(rt[i][j].r.params);
 	      }
-	      if (rt[i][j].r.strength[iwk] > 0 && rt[i][j].r.strength[iwe] > 0) {
-		t = (int)(rt[i][j].dk/rt[i][j].r.strength[iwk]+0.25);
-		rt[i][j].r.f = -((nrmin[i]+j)*1000+t);
-		fte = rt[i][j].dn/rt[i][j].r.strength[iwe];
-		rt[i][j].r.kl = *((int *) &fte);
-		WriteRRRecord(f1[3], &(rt[i][j].r));
-		nt2++;
-	      }
-	      free(rt[i][j].r.strength);
-	      if (nqk > 0) free(rt[i][j].r.params);
 	    }
 	    free(rt[i]);
 	  }
@@ -10536,7 +10800,6 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	} else {
 	  nt2 = 0;
 	}
-	free(ij);
 	free(nrmin);
 	free(nrmax);
 	wt1 = WallTime();

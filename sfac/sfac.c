@@ -5473,12 +5473,17 @@ static int PConfigUTA(int argc, char *argv[], int argt[],
 
 static int PGetGroundProp(int argc, char *argv[], int argt[],
 			  ARRAY *variables) {
-  int z, k;
+  int z, k, md;
   
-  if (argc != 2) return -1;
+  if (argc < 2 || argc > 3) return -1;
   if (argt[0] != NUMBER) return -1;
   if (argt[1] != NUMBER) return -1;
-
+  if (argc == 3) {
+    if (argt[2] != NUMBER) return -1;
+    md = atoi(argv[2]);
+  } else {
+    md = 0;
+  }
   z = atoi(argv[0]);
   k = atoi(argv[1]);
   if (z > N_ELEMENTS) return -1;
@@ -5486,11 +5491,11 @@ static int PGetGroundProp(int argc, char *argv[], int argt[],
   if (k > z) return -1;
   if (k < 1) return -1;
   
-  printf("%s\n", GetGroundCfg(z, k));
-  printf("%s\n", GetGroundLev(z, k));
-  printf("%d\n", GetGround2J(z, k));
-  printf("%15.8E\n", GetGroundIP(z, k));
-
+  printf("%s\n", GetGroundCfg(z, k, md));
+  printf("%s\n", GetGroundLev(z, k, md));
+  printf("%d\n", GetGround2J(z, k, md));
+  printf("%15.8E\n", GetGroundIP(z, k, md));
+  printf("%d\n", GetGroundParity(z, k, md));
   return 0;
 }
 

@@ -17,7 +17,7 @@
 #
 
 from pfac.fac import *
-from pfac import rfac
+from pfac import rfac, const
 import numpy as np
 from multiprocessing import Pool,cpu_count
 from types import *
@@ -43,54 +43,6 @@ def grdcfg0(z, k):
     s = s[1:]
     return s
 
-def cfgene(a, gc, p):
-    SetAtom(a)
-    SetOption('structure:full_name', 1)
-    Reinit(0)
-                    
-    Closed()
-    nkq = rfac.nlqs(gc)
-    nv = nkq[-1][0]
-    kv = nkq[-1][1]
-    i = ''
-    s = ''
-    cs = ''
-    for n,k,q in nkq:
-        if q == 2*(2*k+1) and n < nv:
-            ss = '%d%s'%(n,SPECSYMBOL[k])
-            Closed(ss)
-            cs += ' %s%d'%(ss,q)
-        else:
-            s += ' %d%s%d'%(n,SPECSYMBOL[k],q)
-            if n == nv and k == kv:
-                if q > 1:
-                    i += ' %d%s%d'%(n,SPECSYMBOL[k],q-1)
-            else:
-                i += ' %d%s%d'%(n,SPECSYMBOL[k],q)
-    if len(cs) > 0:
-        cs = cs[1:]
-    if len(s) > 0:
-        s = s[1:]
-    if len(i) > 0:
-        i = i[1:]
-    Config('g', s)
-    Config('i', i)
-    OptimizeRadial('g')
-    GetPotential(p+'a.pot')
-    Structure(p+'b.en', ['g'])
-    Structure(p+'b.en', ['i'])
-    PrintTable(p+'b.en', p+'a.en')
-    Closed()
-    Reinit(0)
-    r = rfac.FLEV(p+'a.en')
-    i = np.argmin(r.e)
-    if len(cs) > 0:
-        gc = cs.replace(' ', '.')+'.'+r.s[i]
-    else:
-        gc = r.s[i]
-    j = np.where(r.nele == r.nele[i]-1)[0]
-    return r.e[i],r.e[j].min(),gc,r.n[i]
-
 def dist_iqs(iw0, iw1, iqs):
     n = len(iw0)
     if n == 1:
@@ -102,68 +54,188 @@ def dist_iqs(iw0, iw1, iqs):
             rs.append([iq]+iw)
     return rs
 
+def cfgene(a, gc, pref=None):
+    if type(a)==type(''):
+        z = ATOMICSYMBOL.index(a)
+    else:
+        z = int(a)
+        a = ATOMICSYMBOL[z]
+        
+    SetAtom(a)
+    SetOption('structure:full_name', 1)
+    Reinit(0)
+                    
+    Closed()
+    nkq = rfac.nlqs(gc)
+    nv = nkq[-1][0]
+    s = ''
+    cs = ''
+    qt = 0
+    for n,k,q in nkq:
+        if q == 2*(2*k+1) and n < nv:
+            ss = '%d%s'%(n,SPECSYMBOL[k])
+            Closed(ss)
+            cs += ' %s%d'%(ss,q)
+        else:
+            s += ' %d%s%d'%(n,SPECSYMBOL[k],q)
+        qt = qt + q
+        
+    if len(cs) > 0:
+        cs = cs[1:]
+    if len(s) > 0:
+        s = s[1:]
+
+    Config('g', s)
+    OptimizeRadial('g')
+
+    if pref is None:
+        pref = 'z%03d/k%03d'%(z,qt)
+    p = pref+'/ce'
+    GetPotential(p+'a.pot')
+    Structure(p+'b.en', ['g'])
+    PrintTable(p+'b.en', p+'a.en')
+    Closed()
+    Reinit(0)
+    r = rfac.FLEV(p+'a.en')
+    i = np.argmin(r.e)
+    if len(cs) > 0:
+        gc = cs.replace(' ', '.')+'.'+r.s[i]
+    else:
+        gc = r.s[i]
+    return r.e[i],gc
+
+def gen_cfgs(ks, qt, qmin, qmax):
+    nk = len(ks)
+    if qt < 0:
+        return []
+    if qt > np.sum(qmax):
+        return []
+    if qt < np.sum(qmin):
+        return []
+    
+    if qt == 0:
+        return [[0]*nk]
+    if nk == 1:
+        return [[qt]]
+    qr = []
+    for q in range(qmin[0],qmax[0]+1):
+        qa = gen_cfgs(ks[1:], qt-q, qmin[1:], qmax[1:])
+        for a in qa:
+            qr.append([q]+a)
+    return qr        
+
+def gck(z, k, pref=None, cleanup=False, nproc=0,
+        sc_print=1, aaztol=1e-3, ptol=1e-3, scb_uf=0.0, scb_mte=0.0):
+    if pref is None:
+        pref = 'z%03d/k%03d'%(z,k)
+        if not os.path.exists(pref):
+            os.system('mkdir -p %s'%pref)
+    if nproc == 0:
+        nproc = cpu_count()
+    if nproc > 1:
+        InitializeMPI(nproc)
+        
+    SetAtom(ATOMICSYMBOL[z])
+    gc = grdcfg0(z, k)
+    Config('gc', gc)
+    SetOption('radial:scb_ke', k)
+    SetOption('radial:aaztol', aaztol)
+    SetOption('radial:sc_print', sc_print)
+    if scb_uf > 0:
+        SetOption('radial:scb_uf', scb_uf)
+    if scb_mte > 0:
+        SetOption('radial:scb_mte', scb_mte)
+    OptimizeRadial('gc')
+    pfn = pref+'/pot.txt'
+    GetPotential(pfn)
+    c = rfac.read_pot(pfn, cfg='bnd')
+    d = rfac.nlqs(c)
+    print('gc0: %s'%gc)
+    print('gc1: %s'%c)
+    qm0 = []
+    qm1 = []
+    kb = []
+    ks = []
+    qb = 0
+    for a in d:
+        di = int(a[2])
+        dd = a[2]-di
+        if dd < ptol:
+            qb = qb + di
+            kb.append((a[0],a[1],di))
+        elif dd > 1-ptol:
+            qb = qb + di + 1
+            kb.append((a[0],a[1],di+1))
+        else:
+            ks.append((a[0],a[1]))
+            qm0.append(di)
+            qm1.append(di+1)
+    qt = k - qb
+    if qt > 0:
+        qa = gen_cfgs(ks, qt, qm0, qm1)
+        gs = []
+        for q in qa:
+            kn = kb + [(ks[i][0],ks[i][1],q[i]) for i in range(len(q))]
+            gn = rfac.cfgnr(kn)
+            gs.append(gn)
+    else:
+        gs = [rfac.cfgnr(kb)]
+
+    SetOption('radial:scb_ke', 0)
+    SetOption('radial:sc_print', 0)
+    es = []
+    ts = []
+    for i in range(len(gs)):
+        t0 = time.time()
+        Reinit(0)
+        print('%d: %s'%(i, gs[i]))
+        Config('gc', gs[i])
+        OptimizeRadial('gc')
+        Structure(pref+'/ce%db.en'%i, ['gc'])
+        PrintTable(pref+'/ce%db.en'%i, pref+'/ce%da.en'%i)
+        x = LevelInfo(pref+'/ce%db.en'%i, 0)
+        ts.append(x[-1])        
+        es.append(x[0]*const.Hartree_eV)
+        t1 = time.time()
+        print('%15.8E %s %10.3E'%(es[-1], ts[-1], t1-t0))
+        
+    if cleanup:
+        os.system('rm -rf %s'%pref)
+        
+    Reinit(0)
+    if nproc > 1:
+        FinalizeMPI()
+        
+    i = np.argsort(es)
+    r = []
+    for j in i:
+        ej = es[j]
+        x = rfac.nlqs(gs[j])
+        gj = rfac.cfgnr(x).replace(' ', '.')
+        tj = ts[j]
+        r.append((ej,gj,tj))
+
+    return r
+
+def gcz(z, fn=None, k0=0, k1=0, cleanup=True, **kw):
+    if k0 == 0:
+        k0 = 1
+    if k1 == 0:
+        k1 = z
+    if fn is None:
+        fn = 'z%03dg.txt'%z
+    with open(fn, 'w') as f:
+        for k in range(k1,k0-1,-1):
+            r = gck(z, k, cleanup=cleanup, **kw)[0]
+            s = '%3d %3d %15.8E %s %s\n'%(z, k, r[0], r[1], r[2])
+            f.write(s)
+            f.flush()
+    if cleanup:
+        os.system('rm -rf z%03d'%z)
+                  
 def run1c(x):
     return cfgene(x[0], x[2], x[1])
 
-def grdcfg(z, k, pref='', nmax=10, cleanup=2, nproc=-1):
-    if k > z:
-        print('k=%d > z=%d'%(z,k))
-    a = ATOMICSYMBOL[z]
-    p = '%s%s%02d'%(pref,a,k)
-
-    gc = grdcfg0(z, k)
-    nkq = rfac.nlqs(gc)
-
-    nv,kv,qv = nkq[-1]
-    if nv < 3:
-        return gc
-    if nv == 3 and kv < 2:
-        return gc
-    nv1 = nv+1
-    gcs = [gc]
-    for q in range(qv-1,-1,-1):
-        nqs = copy.deepcopy(nkq)
-        nqs[-1] = (nqs[-1][0],nqs[-1][1], q)
-        qq = qv-q
-        qv1 = 0
-        for k1 in range(0,3):
-            q1 = 2*(2*k1+1)
-            if qv1+q1 > qq:
-                q1 = qq-qv1
-            nqs.append((nv1,k1,q1))
-            qv1 += q1
-            if qv1 == qq:
-                break
-        gcs.append(rfac.cfgnr(nqs))
-
-    nc = len(gcs)
-    if nproc < 0:
-        nproc = cpu_count()
-    elif nproc == 0:
-        nproc = 1
-    nproc = min(nc,cpu_count())
-    mp = Pool(processes=nproc)
-    x = []
-    for i in range(nc):
-        x.append((a,p+'c%d'%i,gcs[i]))
-    rs = mp.map(run1c, x)
-    es = np.array([r[0] for r in rs])
-    i = np.argsort(es)
-    os.system('cp %sc%da.pot %sa.pot'%(p,i[0],p))
-    if cleanup:
-        if cleanup > 0:
-            os.system('rm -f %sc*.*'%p)
-            if cleanup > 1:
-                os.system('rm -f %s*.en'%p)
-                os.system('rm -f %s*.cfg'%p)
-
-    with open(p+'a.grd', 'w') as f:
-        for j in i:
-            f.write('%15.8E %12.5E %-85s %-s\n'%(rs[j][0],
-                                                 rs[j][1]-rs[j][0],
-                                                 rs[j][2], rs[j][3]))
-            
-    return rs[i[0]][2]
 
 # reinitialize FAC
 def reinit(m = 0):
