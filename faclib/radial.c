@@ -2903,9 +2903,9 @@ void SetScreenConfig(int iter) {
     } else {
       etf = eth;
     }
-    etf = 1.1E31;
     tps = potential->tps;
   } else {
+    etf = 1.1E31;
     tps = 1.0;
   }
   if (SCEWM() < 0 && _scb_ke <= 0) {
@@ -3034,11 +3034,9 @@ void SetScreenConfig(int iter) {
 	  if (done) break;
 	  n++;
 	}
-	if (_scb_ke > 0) {
-	  if (n <= k+1+_psnfmin) {
-	    if (j < 0) donem = 1;
-	    else donep = 1;
-	  }
+	if (n <= k+1+_psnfmin) {
+	  if (j < 0) donem = 1;
+	  else donep = 1;
 	}
       }
       if (donem && donep) break;
@@ -3859,8 +3857,10 @@ int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
       }
     }
     SetOrbitalRGrid(potential);    
+  } else {
+    InitializePS(potential);
   }
-
+  
   int nmax = potential->nmax-1;
   if (potential->nb > 0 && nmax < potential->nb) nmax = potential->nb;
   for (i = 0; i < acfg->n_shells; i++) {
@@ -11759,6 +11759,7 @@ int ReinitRadial(int m) {
       potential->EPS[i] = 0;
       potential->VPS[i] = 0;
     }
+    potential->sps = 0;
     if (m == 0) {      
       if (optimize_control.n_screen > 0) {
 	free(optimize_control.screened_n);
@@ -12816,7 +12817,7 @@ void PlasmaScreen(int m, int vxf,
   //stewart&pyatt model, ups is the z*;
   if (ups >= 0) potential->ups = ups;
   if (zps > 0) {
-    if (m == 0) {
+    if (potential->mps == 0) {
       potential->rps = pow(3*zps/(FOUR_PI*potential->nps),ONETHIRD);
     } else {
       potential->rps = sqrt(potential->tps/(FOUR_PI*potential->nps*zps));
