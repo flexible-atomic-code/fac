@@ -76,7 +76,7 @@ static SYMMETRY *symmetry_list;
 **              rather, it represents any of the previous symbols.
 */
 static char spec_symbols[MAX_SPEC_SYMBOLS+2] = "spdfghiklmnoqrtuvwxyz*"; 
-static char all_spec_symbols[2*MAX_SPEC_SYMBOLS+2] = "sSpPdDfFgGhHiIkKlLmMnNoOqQrRtTuUvVwWxXyYzZ*@"; 
+static char all_spec_symbols[2*MAX_SPEC_SYMBOLS+3] = "sSpPdDfFgGhHiIkKlLmMnNoOqQrRtTuUvVwWxXyYzZ*@"; 
 
 #define NJQ 25
 #define NJ2 10

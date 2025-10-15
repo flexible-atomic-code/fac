@@ -1988,8 +1988,23 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
 	  break;
 	}
       }
+      b = 0.0;
+      m = j;
+      for (; m < i; m++) {
+	if (ut[m] > ut[m-1]) break;
+      }
+      for (; m < i; m++) {
+	r2 = potential->rad[m]-potential->rad[m-1];
+	a = (ut[m]-ut[m-1])/r2;
+	if (a > b) {
+	  j = m;
+	  b = a;
+	} else if (a < 0) {
+	  break;
+	}
+      }
       _jsi = 0;
-      //printf("n12: %g %g %g %g %d\n", n0, n1, n2, _opm_ahx, j);
+      //printf("n12: %g %g %g %g %d\n", n0, n1, n2, potential->rad[j], j);
       if (j < 10) {
 	for (m = 0; m <= jmax; m++) {
 	  u[m] = 0.0;
@@ -2011,7 +2026,6 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
 	  }
 	}
 	a /= b;
-	b = 0.0;
 	b = a*(n0-ur)/(n1-ur);
 	r2 = potential->rad[j];
 	//printf("r2: %d %g %g %g %g %g %g %g %g\n", j, potential->rad[j], r2, n0, n1, n2, ur, a, b);
@@ -5685,8 +5699,9 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
       if (og) {
 	gp = malloc(sizeof(int)*og[iog][0]);
 	ngp = 0;
+	sid = GetOptGrpId(iog);
 	for (k = 0; k < og[iog][0]; k++) {
-	  g = GetGroup(og[iog][k+1]);
+	  g = GetGroup(og[iog][k+1]);	  
 	  for (i = 0; i < g->n_cfgs; i++) {
 	    cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
 	    cfg->energy = 0;
@@ -5695,13 +5710,13 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	  if (SkipOptGrp(g)) continue;
 	  gp[ngp++] = og[iog][k+1];
 	}
-	sid = GetOptGrpId(iog);
       } else {
 	ngp = 1;
 	if (kg) kk = kg[iog];
 	else kk = iog;
 	gp = &kk;
 	g = GetGroup(kk);
+	sid = g->name;
 	for (i = 0; i < g->n_cfgs; i++) {
 	  cfg = (CONFIG *) ArrayGet(&(g->cfg_list), i);
 	  cfg->energy = 0;
@@ -5710,7 +5725,6 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	if (SkipOptGrp(g)) {
 	  ngp = 0;
 	}
-	sid = g->name;
       }
       if (ngp == 0) {
 	continue;
@@ -6458,17 +6472,36 @@ double AverageEnergyConfig(CONFIG *cfg) {
 
 /* calculate the average energy of a configuration */
 double AverageEnergyConfigMode(CONFIG *cfg, int md) {
-  int i, j, n, kappa, nq, np, kappap, nqp, k2;
+  int na[512], ka[512];
+  double qa[512];
+  int i, ns;
+  
+  ns = cfg->n_shells;
+  if (ns >= 512) {
+    printf("max shells reached in AverageEnergyConfigMode: %d>=%d\n", ns, 512);
+    Abort(1);
+  }
+  for (i = 0; i < ns; i++) {
+    na[i] = (cfg->shells[i]).n;
+    ka[i] = (cfg->shells[i]).kappa;
+    qa[i] = (cfg->shells[i]).nq;
+  }
+  return AverageEnergyConfigShells(ns, na, ka, qa, md);
+}
+
+double AverageEnergyConfigShells(int ns,
+				 int *na, int *ka, double *qa, int md) {  
+  int i, j, n, kappa, np, kappap, k2;
   int k, kp, kk, kl, klp, kkmin, kkmax, j2, j2p;
-  double x, y, t, q, a, b, r, e, *v1, *v2;
+  double x, y, yb, t, q, a, b, r, e, *v1, *v2, nq, nqp;
 
   x = 0.0;
-  for (i = 0; i < cfg->n_shells; i++) {
-    n = (cfg->shells[i]).n;
-    kappa = (cfg->shells[i]).kappa;
+  for (i = 0; i < ns; i++) {
+    n = na[i];
+    kappa = ka[i];
     kl = GetLFromKappa(kappa);
     j2 = GetJFromKappa(kappa);
-    nq = (cfg->shells[i]).nq;
+    nq = qa[i];
     k = OrbitalIndex(n, kappa, 0.0);
     if (md < 10) {
       double am = AMU * GetAtomicMass();
@@ -6512,18 +6545,18 @@ double AverageEnergyConfigMode(CONFIG *cfg, int md) {
 	if (MAXKSSC > 0 && k < MAXNSSC) {
 	  y *= _slater_scale[0][k][k];
 	}
-	b = ((nq-1.0)/2.0) * (y - (1.0 + 1.0/j2)*t);
+	b = ((nq-1.0)/2.0) * (y - (1.0+1.0/j2)*t);
       } else {
 	b = 0.0;
       }
       
       t = 0.0;
       for (j = 0; j < i; j++) {
-	np = (cfg->shells[j]).n;
-	kappap = (cfg->shells[j]).kappa;
+	np = na[j];
+	kappap = ka[j];
 	klp = GetLFromKappa(kappap);
 	j2p = GetJFromKappa(kappap);
-	nqp = (cfg->shells[j]).nq;
+	nqp = qa[j];
 	kp = OrbitalIndex(np, kappap, 0.0);
 	kkmin = abs(j2 - j2p);
 	kkmax = (j2 + j2p);
@@ -6745,8 +6778,8 @@ double AverageEnergyAvgConfig(AVERAGE_CONFIG *cfg) {
   return AverageEnergyAvgConfigMode(cfg, 0);
 }
 
-/* calculate the average energy of an average configuration */
-double AverageEnergyAvgConfigMode(AVERAGE_CONFIG *cfg, int md) {
+
+double AverageEnergyAvgConfigMode0(AVERAGE_CONFIG *cfg, int md) {
   int i, j, n, kappa, np, kappap;
   int k, kp, kk, kl, klp, kkmin, kkmax, j2, j2p;
   double x, y, t, q, a, b, r, nq, nqp, r0, r1;
@@ -6771,10 +6804,6 @@ double AverageEnergyAvgConfigMode(AVERAGE_CONFIG *cfg, int md) {
     Slater(&y, k, k, k, k, 0, 0);
     b = ((nq-1.0)/2.0) * (y - (1.0 + 1.0/j2)*t);
     
-#if FAC_DEBUG
-      fprintf(debug_log, "\nAverage Radial: %lf\n", y);
-#endif
-      
     t = 0.0;
     for (j = 0; j < i; j++) {
       np = cfg->n[j];
@@ -6792,17 +6821,8 @@ double AverageEnergyAvgConfigMode(AVERAGE_CONFIG *cfg, int md) {
 	Slater(&y, k, kp, kp, k, kk/2, 0);
 	q = W3j(j2, kk, j2p, -1, 0, 1);
 	a += y * q * q;
-#if FAC_DEBUG
-	fprintf(debug_log, "exchange rank: %d, q*q: %lf, Radial: %lf\n", 
-		kk/2, q*q, y);
-#endif
-
       }
       Slater(&y, k, kp, k, kp, 0, 0);
-
-#if FAC_DEBUG
-      fprintf(debug_log, "direct: %lf\n", y);
-#endif
 
       t += nqp * (y - a);
     }
@@ -6820,6 +6840,16 @@ double AverageEnergyAvgConfigMode(AVERAGE_CONFIG *cfg, int md) {
 
   /*printf("%12.5E %12.5E %15.8E\n", r0, r1, x);*/
   return x;
+}
+
+/* calculate the average energy of an average configuration */
+double AverageEnergyAvgConfigMode(AVERAGE_CONFIG *cfg, int md) {
+  double r;
+  r = AverageEnergyConfigShells(cfg->n_shells,
+				cfg->n,
+				cfg->kappa,
+				cfg->nq, md);
+  return r;
 }
 
 double ZerothHamilton(ORBITAL *orb0, ORBITAL *orb1) {
