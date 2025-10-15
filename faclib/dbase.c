@@ -10922,6 +10922,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	  rt[i] = NULL;
 	}
 
+	nt0 = 0;
 	sprintf(ifn, "%sb.ai", ipr);
 	f0 = OpenFileRO(ifn, &fh, &swp);
 	for (nb = 0; nb < fh.nblocks; nb++) {
