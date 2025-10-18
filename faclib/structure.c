@@ -2173,22 +2173,6 @@ void GenEigen(HAMILTON *h, char *trans, char *jobz, int n, double *ap,
 	      double *work, int lwork, int *info) {
   char uplo[] = "U";
   int i, j, t, ti, i1, i2;
-
-  if (h->pj == 2 || h->pj == 3) {
-  for (j = 0; j < n; j++) {
-    t = j*(j+1)/2;
-    for (i = 0; i <= j; i++) {
-      ti = t + i;
-      i1 = i*n + j;
-      if (i == j) {
-	i2 = i1;
-      } else {
-	i2 = j*n + i;
-      }
-      printf("ap: %d %d %d %15.8E %15.8E\n", h->pj, i, j,  ap[i1], ap[i2]);
-    }
-  }
-  }
   
   if (dgeev_mode == 0) {
     DGEEV(trans, jobz, n, ap, n, w, wi, z, n, z, n, work, lwork, info);

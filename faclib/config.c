@@ -577,7 +577,6 @@ int ShellsFromStringNR(char *scfg, double *dnq, SHELL **shell) {
       }
     } else {
       nkl = 1;
-      kl[0] = brkpos/2;
     }
     nkappa = 0;
     for (i = 0; i < nkl; i++) {
