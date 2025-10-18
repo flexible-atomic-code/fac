@@ -49,6 +49,8 @@ static char quote_end[NN]   = "\"'";
 static int  quote_open[NN];
 static char escape = '\0';
 
+#pragma omp threadprivate(state,tokpos,white,delim,quote_begin,quote_end,quote_open,escape)
+
 int SetParserQuote(char *qbegin, char *qend) {
   int n1, n2;
   n1 = strlen(qbegin);
