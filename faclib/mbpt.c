@@ -1470,7 +1470,9 @@ int PadStates(CONFIG *c1, CONFIG *c2, SHELL **bra, SHELL **ket,
   /* first 2 orbitals are reserved for virtual orbitals */
   for (i = 0; i < 2; i++) {
     (*bra)[i].nq = 0;
+    (*bra)[i].nr = 0;
     (*ket)[i].nq = 0;
+    (*ket)[i].nr = 0;
     (*sbra)[i].shellJ = 0;
     (*sbra)[i].totalJ = s1[0].totalJ;
     (*sket)[i].shellJ = 0;
@@ -1509,6 +1511,7 @@ int PadStates(CONFIG *c1, CONFIG *c2, SHELL **bra, SHELL **ket,
       memcpy(bra1+m, c2->shells+j, sizeof(SHELL));
       memcpy(sbra1+m, s2+j, sizeof(SHELL_STATE));
       bra1[m].nq = 0;
+      bra1[m].nr = 0;
       sbra1[m].shellJ = 0;
       sbra1[m].nu = 0;
       sbra1[m].Nr = 0;
@@ -1525,6 +1528,7 @@ int PadStates(CONFIG *c1, CONFIG *c2, SHELL **bra, SHELL **ket,
       memcpy(bra1+m, c1->shells+i, sizeof(SHELL));
       memcpy(sbra1+m, s1+i, sizeof(SHELL_STATE));
       ket1[m].nq = 0;
+      ket1[m].nr = 0;
       sket1[m].shellJ = 0;
       sket1[m].nu = 0;
       sket1[m].Nr = 0;
