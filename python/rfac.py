@@ -947,13 +947,6 @@ def read_wfun(fn, npi=0, rmax=None):
 def read_pot(fn, cfg=None, header=None):
     if cfg is None and header is None:
         return np.loadtxt(fn, unpack=1)
-    nw = 0
-    with open(fn, 'r') as f:
-        rs = f.readlines(20000)
-        for i in range(len(rs)):
-            if len(rs[i]) > 6 and rs[i][:6] == '# Mean':
-                nw = i
-                break
     if not header is None:
         rs = np.loadtxt(fn, unpack=1, max_rows=nw, comments='@',
                         usecols=1, dtype=str)
@@ -964,15 +957,30 @@ def read_pot(fn, cfg=None, header=None):
         if len(header) == 0:
             return r
         return r[header]
-    nc = np.int32(np.loadtxt(fn, unpack=1, skiprows=nw, max_rows=1,
-                             comments='@', usecols=3))
-    d = np.loadtxt(fn, unpack=1, comments='@', skiprows=nw+1,
+    nw = 0
+    nc = 0
+    with open(fn, 'r') as f:
+        rs = f.readlines(1000)
+        for i in range(len(rs)):
+            if (len(rs[i]) > 7 and rs[i][:7] == '#    0 '):
+                nw = i
+                nc = 1
+                break
+            if (len(rs[i]) < 7):
+                break
+        for i in range(nw+1,len(rs)):
+            if len(rs[i]) < 7:
+                break
+            nc = nc+1
+    d = np.loadtxt(fn, unpack=1, comments='@', skiprows=nw,
                    max_rows=nc, usecols=range(1,10))
     if len(cfg) == 0:
         return d
     if cfg == 'bnd' or cfg == 'ac':
         ns = np.int32(d[1])
         ks = np.int32(d[2])
+        print(ns)
+        print(ks)
         nlq = []
         for n in range(min(ns),max(ns)+1):
             for k in range(n):
@@ -989,7 +997,7 @@ def read_pot(fn, cfg=None, header=None):
                         nlq.append((n,k,nq))
         if cfg == 'bnd':
             return cfgnr(nlq)
-        else:
+        else:            
             return nlq
     if (cfg[-1] == '+'):
         j = 1
