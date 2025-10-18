@@ -120,6 +120,7 @@ static double *_xk;
 static int _jsi = 0;
 static double _wsi = 0.995;
 static double _csi = 0.55;
+static double _dsi = 0.0;
 static double _xhx = 0.1;
 static int _mhx = 0;
 static double _ihxmin = MINIHX;
@@ -1957,63 +1958,65 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
     }
   }
   _jsi = 0;
-  if (_csi > -1 && fabs(_csi) > 1e-10 &&
-      potential->ihx < 0 && (_scpot.md < 0 || _scpot.md > 1)) {
-    if (_csi > 0) {
-      n0 = potential->N;
-      if (potential->mps > 2) n0 += potential->nqf;
-      n1 = n0 + potential->ihx;
-      n2 = n0 + (1+_csi)*potential->ihx;
-      n1 = Max(0, n1);
-      n2 = Max(0, n2);
-      jm = jmax;
-      for (m = jmax; m > 0; m--) {
-	if (ut[m-1] < ut[m]) {
-	  jm = m;
-	  break;
+  if (_csi > 1e-10 && potential->ihx < 0 &&
+      (_scpot.md < 0 || _scpot.md > 1)) {
+    n0 = potential->N;
+    if (potential->mps > 2) n0 += potential->nqf;
+    n1 = n0 + potential->ihx;
+    n2 = n0 + (1+fabs(_csi))*potential->ihx;
+    n1 = Max(0, n1);
+    n2 = Max(0, n2);
+    jm = jmax;
+    for (m = jmax; m > 0; m--) {
+      if (ut[m-1] < ut[m]) {
+	jm = m;
+	break;
+      }
+    }
+    for (m = jm+1; m <= jmax; m++) {
+      ut[m] = ut[jm];
+    }
+    for (m = jm; m > 0; m--) {
+      if (ut[m] <= n1) {
+	i = m;
+	break;
+      }
+    }
+    for (m = i; m > 0; m--) {
+      if (ut[m] < n2) {
+	j = m;
+	break;
+      }
+    }
+    _jsi = 0;
+    if (j < 10) {
+      for (m = 0; m <= jmax; m++) {
+	u[m] = 0.0;
+	ut[m] = 0.0;
+	if (potential->mps > 2) {
+	  potential->ZPS[m] = 0.0;
 	}
       }
-      for (m = jm+1; m <= jmax; m++) {
-	ut[m] = ut[jm];
-      }
-      for (m = jm; m > 0; m--) {
-	if (ut[m] <= n1) {
-	  i = m;
-	  break;
+    } else if (j < jm) {
+      if (_dsi < 1e-10) {
+	b = 0.0;
+	m = j;
+	for (; m < i; m++) {
+	  if (ut[m] > ut[m-1]) break;
 	}
-      }
-      for (m = i; m > 0; m--) {
-	if (ut[m] < n2) {
-	  j = m;
-	  break;
-	}
-      }
-      b = 0.0;
-      m = j;
-      for (; m < i; m++) {
-	if (ut[m] > ut[m-1]) break;
-      }
-      for (; m < i; m++) {
-	r2 = potential->rad[m]-potential->rad[m-1];
-	a = (ut[m]-ut[m-1])/r2;
-	if (a > b) {
-	  j = m;
-	  b = a;
-	} else if (a < 0) {
-	  break;
-	}
-      }
-      _jsi = 0;
-      //printf("n12: %g %g %g %g %d\n", n0, n1, n2, potential->rad[j], j);
-      if (j < 10) {
-	for (m = 0; m <= jmax; m++) {
-	  u[m] = 0.0;
-	  ut[m] = 0.0;
-	  if (potential->mps > 2) {
-	    potential->ZPS[m] = 0.0;
+	ur = n1*0.9 + n2*0.1;
+	for (; m < i; m++) {
+	  r2 = potential->rad[m]-potential->rad[m-1];
+	  a = (ut[m]-ut[m-1])/r2;
+	  if (ut[m] > ur) break;
+	  if (a > b) {
+	    j = m;
+	    b = a;
+	  } else if (a < 0) {
+	    break;
 	  }
 	}
-      } else if (j < jm) {
+	//printf("n12: %g %g %g %g %d\n", n0, n1, n2, potential->rad[j], j);
 	_jsi = j;
 	a = 0.0;
 	b = 0.0;
@@ -2028,7 +2031,7 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
 	a /= b;
 	b = a*(n0-ur)/(n1-ur);
 	r2 = potential->rad[j];
-	//printf("r2: %d %g %g %g %g %g %g %g %g\n", j, potential->rad[j], r2, n0, n1, n2, ur, a, b);
+	//printf("r2: %d %d %g %g %g %g %g %g %g\n", i, j , r2, n0, n1, n2, ur, a, b);
 	for (m = j+1; m <= jmax; m++) {
 	  ux[m] = ur + (n1-ur)*(1-exp(-b*(potential->rad[m]-r2)))-ut[m];
 	  u[m] += ux[m]*(u[m]/ut[m]);
@@ -2038,41 +2041,37 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
 	  ut[m] += ux[m];
 	}
       } else {
-	for (m = jm+1; m <= jmax; m++) {
-	  ur = ut[jm];
-	  u[m] += (ur-ut[m])*(u[m]/ut[m]);
-	  if (potential->mps > 2) {
-	    potential->ZPS[m] += (ur-ut[m])*(potential->ZPS[m]/ut[m]);
+	a = n1 - n2;
+	b = _dsi*a;
+	r2 = 0.5*(n1+n2);
+	for (m = j; m <= jmax; m++) {
+	  a = (ut[m]-r2)/b;
+	  if (a < 0) {
+	    a = 1/(1+exp(a));
+	  } else {
+	    a = exp(-a);
+	    a = a/(1+a);
 	  }
-	  ut[m] = ur;
+	  ur = (n1/n0)*ut[m];
+	  ux[m] = ut[m]*a + ur*(1-a) - ut[m];
+	  u[m] += ux[m]*(u[m]/ut[m]);
+	  if (potential->mps > 2) {
+	    potential->ZPS[m] += ux[m]*(potential->ZPS[m]/ut[m]);
+	  }
+	  ut[m] += ux[m];
 	}
       }
     } else {
-      n0 = ut[jmax];
-      n1 = (n0+potential->ihx)/n0;
-      r2 = n1 + _csi/n0;
-      b = _xhx*(n1-r2);
-      ur = (1+1./b)/2.0;
-      for (j = jmax; j >= 0; j--) {
-	n2 = r2-ut[j]/n0;
-	a = n2/b;
-	if (a > 0) {
-	  if (a > 35.0) break;
-	  a = 1.0/(1.0+exp(a));
-	} else {
-	  a = 1 - 0.5*exp(ur*exp(n2/(r2-n1))*n2);
-	}
-	ux[j] = a*potential->ihx*pow(ut[j]/n0,ur);
-      }
-      _jsi = j;
-      for (m = j+1; m <= jmax; m++) {
-	u[m] += ux[m]*(u[m]/ut[m]);
+      for (m = jm+1; m <= jmax; m++) {
+	ur = ut[jm];
+	u[m] += (ur-ut[m])*(u[m]/ut[m]);
 	if (potential->mps > 2) {
-	  potential->ZPS[m] += ux[m]*(potential->ZPS[m]/ut[m]);
+	  potential->ZPS[m] += (ur-ut[m])*(potential->ZPS[m]/ut[m]);
 	}
-	ut[m] += ux[m];
+	ut[m] = ur;
       }
     }
+    
     for (j = jmax+1; j < potential->maxrp; j++) {
       u[j] = u[jmax];
       if (potential->mps > 2) {
@@ -2678,8 +2677,13 @@ int GetPotential(char *s, int m) {
   double large1, small1, large2, small2;
   int norbs, jmax, kmin, kmax;  
   FILE *f;
-  int i, j;
+  int i, j, k;
   double rb, rb0, rb1, rc;
+  double nqt = 0.0;
+  double nqb = 0.0;
+  double nqc = 0.0;
+  double x, e;
+  char wvf[1024];
 
   /* get the average configuration for the groups */
   acfg = &(average_config);
@@ -2731,6 +2735,7 @@ int GetPotential(char *s, int m) {
   fprintf(f, "#    mhx = %d\n", _mhx);
   fprintf(f, "#    xhx = %15.8E\n", _xhx);
   fprintf(f, "#    csi = %15.8E\n", _csi);
+  fprintf(f, "#    dsi = %15.8E\n", _dsi);
   fprintf(f, "#    zps = %15.8E\n", potential->zps);
   fprintf(f, "#    nps = %15.8E\n", potential->nps);
   fprintf(f, "#    tps = %15.8E\n", potential->tps);
@@ -2768,26 +2773,30 @@ int GetPotential(char *s, int m) {
   fprintf(f, "#   nmax = %d\n", potential->nmax);
   fprintf(f, "#  maxrp = %d\n", potential->maxrp);
   PrintLepton(f);
-  fprintf(f, "# Mean configuration: %d %d\n", acfg->n_shells, acfg->n_cores);
-  double nqt = 0.0;
-  double nqb = 0.0;
-  double nqc = 0.0;
-  double x;
-  char wvf[1024];
-  for (i = 0; i < acfg->n_shells; i++) {
-    j = OrbitalIndex(acfg->n[i], acfg->kappa[i], 0);
-    orb1 = GetOrbitalSolved(j);
-    x = 1.0;
-    if (i < acfg->n_cores) nqc += acfg->nq[i];
-    else x = BoundFactor(orb1->energy, potential->eth,
-			 potential->ewd, potential->mps);
-    if (x < 1e-50) x = 0.0;
+  fprintf(f, "#   mcns = %d\n", abs(acfg->n_shells));
+  fprintf(f, "#   mcnc = %d\n", acfg->n_cores);
+  fprintf(f, "#   mcng = %d\n", acfg->ng);
+  for (i = 0; i < abs(acfg->n_shells); i++) {
+    if (acfg->n_shells > 0) {
+      j = OrbitalIndex(acfg->n[i], acfg->kappa[i], 0);
+      orb1 = GetOrbitalSolved(j);
+      x = 1.0;
+      if (i < acfg->n_cores) nqc += acfg->nq[i];
+      else x = BoundFactor(orb1->energy, potential->eth,
+			   potential->ewd, potential->mps);
+      if (x < 1e-50) x = 0.0;
+      e = orb1->energy;
+    } else {
+      orb1 = NULL;
+      x = 1.0;
+      e = -1E30;
+    }
     nqb += acfg->nq[i]*x;
     nqt += acfg->nq[i];
     fprintf(f, "# %4d %4d %4d %12.5E %12.5E %12.5E %12.5E %12.5E %15.8E\n",
 	    i, acfg->n[i], acfg->kappa[i], acfg->nq[i],
-	    nqc, nqb, nqt, x, orb1->energy);
-    if (m) {
+	    nqc, nqb, nqt, x, e);
+    if (m && orb1) {
       if (m < 0 || abs(orb1->n) <= m) {
 	if (orb1->kappa > 0) {
 	  sprintf(wvf, "wv%03dk%03dm.txt", abs(orb1->n), orb1->kappa);
@@ -3455,7 +3464,7 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
       }
     }
     if (tol < a) tol = a;
-    if (optimize_control.iprint) {
+    if (optimize_control.iprint & 1) {
       printf("optimize loop: %4d %13.5E %13.5E %13.5E %13.5E %13.5E %13.5E %13.5E %10.3E %10.3E %10.3E %10.3E\n",
 	     iter, tol, atol, a, tol0, tol1, atol0, ahx,
 	     optimize_control.dph[0][NDPH-1],
@@ -3608,7 +3617,7 @@ void SetPotentialN(void) {
     if (i < acfg->n_cores) {
       b += acfg->nq[i];
     }
-    if (optimize_control.iprint > 1) {
+    if (optimize_control.iprint & (1<<1)) {
       MPrintf(-1, "avgcfg: %3d %3d %3d %11.4E %11.4E %11.4E %11.4E\n",
 	      i, acfg->n[i], acfg->kappa[i], acfg->nq[i], a, b, acfg->e[i]);
     }
@@ -4115,7 +4124,7 @@ int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
     } else {
       ehx[i] = AverageEnergyAvgConfig(acfg);
     }
-    if (optimize_control.iprint) {
+    if (optimize_control.iprint & (1<<2)) {
       printf("hxs iter: %d %d %g %g %18.10E\n", ng, i, hxs[i], potential->ahx, ehx[i]);
     }
     int im = NXS;
@@ -4133,7 +4142,7 @@ int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
       } else {
 	ehx[i] = AverageEnergyAvgConfig(acfg);
       }
-      if (optimize_control.iprint) {
+      if (optimize_control.iprint & (1<<2)) {
 	printf("hxs iter: %d %d %g %g %18.10E\n", ng, i, hxs[i], potential->ahx, ehx[i]);
       }
       if (ehx[i] < em) {
@@ -4157,7 +4166,7 @@ int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
       } else {
 	ehx[i] = AverageEnergyAvgConfig(acfg);
       }
-      if (optimize_control.iprint) {
+      if (optimize_control.iprint & (1<<2)) {
 	printf("hxs iter: %d %d %g %g %18.10E\n", ng, i, hxs[i], potential->ahx, ehx[i]);
       }
       if (ehx[i] < em) {
@@ -4198,7 +4207,7 @@ int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
     ReinitRadial(1);
     potential->hxs = smin;
     
-    if (optimize_control.iprint) {
+    if (optimize_control.iprint & (1<<2)) {
       printf("hxs: %g %18.10E\n", smin, emin);
     }
     iter = OptimizeLoop(acfg);
@@ -4991,7 +5000,7 @@ int SolveDirac(ORBITAL *orb) {
   if (err) { 
     MPrintf(-1, "Error occured in RadialSolver: %d %d %d %18.10E\n",
 	    err, orb->n, orb->kappa, orb->energy);
-    average_config.n_shells = 0;
+    average_config.n_shells = -average_config.n_shells;
     GetPotential("error.pot", 0);
     if (err < -1 && orb->wfun != NULL) {
       orb->isol=10;
@@ -5738,6 +5747,10 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	    continue;
 	  }
 	} else {
+	  if (optimize_control.iprint & (1<<4)) {
+	    MPrintf(-1, "ConfigEnergy0: %2d %2d %s\n",
+		    optimize_control.mce, ngp, sid);
+	  }
 	  k = OptimizeRadial(ngp, gp, -1, NULL, 1);
 	  if (k < 0) {
 	    ReinitRadial(1);
@@ -5812,8 +5825,8 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	  if (cfg->energy != 0) {
 	    e0 = AverageEnergyConfigMode(cfg, md1);
 	    cfg->delta = cfg->energy - e0;	
-	    if (optimize_control.iprint) {
-	      MPrintf(-1, "ConfigEnergy: %d %d %d %d %g %g %g %s\n", 
+	    if (optimize_control.iprint & (1<<3)) {
+	      MPrintf(-1, "ConfigEnergy1: %d %d %d %d %g %g %g %s\n", 
 		      md, md1, kk, i, cfg->energy, e0, cfg->delta, g->name);
 	    }
 	  }
@@ -13211,6 +13224,10 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "radial:wsi")) {
     _wsi = dp;
+    return;
+  }
+  if (0 == strcmp(s, "radial:dsi")) {
+    _dsi = dp;
     return;
   }
   if (0 == strcmp(s, "radial:gridasymp")) {
