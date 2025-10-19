@@ -2873,6 +2873,7 @@ int AddToULevels(int ng, int *kg) {
       c->energy = AverageEnergyConfig(c);
       c->energy += c->delta+c->shift;
       lev.energy = c->energy+_eoffset;
+      lev.energy += _ref_ecorr;
       if (ArrayAppend(ulevels, &lev, InitLevelData) == NULL) {
 	printf("Not enough memory for levels array\n");
 	exit(1);
