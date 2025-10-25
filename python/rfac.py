@@ -70,10 +70,14 @@ def cfgnr(nq):
     for n,k,q in nq:
         if q <= 0:
             continue
-        if type(q) == int:
-            s += ' %d%s%d'%(n,fac.SPECSYMBOL[k],q)
+        if k < 0:
+            c = 'a'
         else:
-            s += ' %d%s%g'%(n,fac.SPECSYMBOL[k],q)
+            c = fac.SPECSYMBOL[k]
+        if type(q) == int:
+            s += ' %d%s%d'%(n,c,q)
+        else:
+            s += ' %d%s%g'%(n,c,q)
     if len(s) == 0:
         return s
     return s[1:]
@@ -135,6 +139,17 @@ def nlqs(s):
         else:
             a.append((int(r[x,0]),int(r[x,1]),r[x,2]))
     return a
+
+def nqs(r):
+    nm = r[-1][0]
+    nq = np.zeros(nm)
+    for a in r:
+        nq[a[0]-1] += a[2]
+    w = np.where(nq > 0)[0]
+    a = []
+    for i in w:
+        a.append((i+1,-1,nq[i]))
+    return cfgnr(a)
 
 def voigt_fwhm(gw, lw):
     return 0.5346*lw + np.sqrt(0.2166*lw**2 + gw**2)

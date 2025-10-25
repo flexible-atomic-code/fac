@@ -1575,6 +1575,7 @@ int Couple(CONFIG *cfg) {
     for (i = 0; i < cfg->n_shells; i++) {
       cfg->n_electrons += cfg->shells[i].nq;
     }
+    if (idx) free(idx);
     return 0;
   }
   if (cfg->n_shells == 1) {
@@ -2094,6 +2095,12 @@ int ShellNeedNuNr(SHELL *s, SHELL_STATE *st) {
 int GroupIndex(char *name) {
   int i;
 
+  i = strlen(name);
+  if (i >= GROUP_NAME_LEN) {
+    printf("config group name truncated for %s: %d > %d\n",
+	   name, i, GROUP_NAME_LEN-1);
+  }
+  
   i = GroupExists(name);
   if (i < 0) i = AddGroup(name);
   return i;
@@ -2210,13 +2217,14 @@ int AddGroup(char *name) {
       cfg_groups[i].n_cfgs = 0;
       ArrayInit(&(cfg_groups[i].cfg_list), sizeof(CONFIG), CONFIGS_BLOCK);
     }
-  }  
-  strncpy(cfg_groups[n_groups].name, name, GROUP_NAME_LEN-1);
+  }
+  strncpy(cfg_groups[n_groups].name, name, GROUP_NAME_LEN);
   cfg_groups[n_groups].nmax = 0;
   cfg_groups[n_groups].gweight = 1.0;
   cfg_groups[n_groups].n_csfs = 0;
   cfg_groups[n_groups].nr = 0;
   c = cfg_groups[n_groups].name;
+  c[GROUP_NAME_LEN-1] = '\0';
   for (i = 0; i < GROUP_NAME_LEN; i++) {
     if (!c[i]) break;
   }
