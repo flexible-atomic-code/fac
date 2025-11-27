@@ -2920,7 +2920,11 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
 	lev.pb = j;
 	c = GetConfigFromGroup(kg[i], j);
 	lev.ilev = ((int)(fabs(c->sweight)+0.25))-1;
-	lev.pj = c->sweight < 0;
+	if (c->nr == 2) {
+	  lev.pj = -1;
+	} else {
+	  lev.pj = c->sweight < 0;
+	}
 	if (ci_level < -1) {
 	  lev.energy = 0.0;
 	  for (k = 0; k < c->n_shells; k++) {
@@ -4517,7 +4521,7 @@ int ConstructLevelName(char *name, char *sname, char *nc,
   LEVEL *lev;
   SYMMETRY *sym;
   int si;
-  int n0, kl0, nq0;
+  int n0, kl0, j0, nq0, nqm;
 
   symbol[0] = '\0';
   if (basis->kgroup < 0) {
@@ -4590,6 +4594,7 @@ int ConstructLevelName(char *name, char *sname, char *nc,
   if (nc) nc[0] = '\0';
   n0 = 0;
   kl0= -1;
+  j0 = -1;
   nq0 = 0;
   
   for (i = c->n_shells-1; i >= 0; i--) {
@@ -4597,12 +4602,24 @@ int ConstructLevelName(char *name, char *sname, char *nc,
     n = abs(n);
     if (j < kl) jsym = '-';
     else jsym = '+';
-    kl = kl/2;
+    if (kl >= 0) kl = kl/2;
+    if (j <= 0) {
+      if (kl >= 0) {
+	nqm = 2*(2*kl+1);
+      } else {
+	nqm = 2*n*n;
+      }
+    } else {
+      nqm = j+1;
+    }
     if (name) {
-      if (((nq <= j+1) && nq > 0 &&
+      if (((nq <= nqm) && nq > 0 &&
 	   !IsClosedShellFR(n, kl, j, nq, full_name)) ||
-	  (i == 0 && name[0] == '\0')) {
+	  (i == 0 && name[0] == '\0')) {	
 	SpecSymbol(symbol, kl);
+	if (j == 0 && kl >= 0) {
+	  symbol[0] = toupper(symbol[0]);
+	}
 	if (c->n_csfs > 0) {
 	  int sj = s[i].shellJ;
 	  if (ShellNeedNuNr(c->shells+i, s+i)&1) {
@@ -4616,10 +4633,18 @@ int ConstructLevelName(char *name, char *sname, char *nc,
 		    n, symbol, jsym, nq, sj, s[i].totalJ);
 	  }
 	} else {
-	  if (name[0]) {
-	    sprintf(ashell, ".%1d%s%c%1d", n, symbol, jsym, nq);
+	  if (j == 0) {
+	    if (name[0]) {
+	      sprintf(ashell, ".%1d%s%1d", n, symbol, nq);
+	    } else {
+	      sprintf(ashell, "%1d%s%1d", n, symbol, nq);
+	    }	    
 	  } else {
-	    sprintf(ashell, "%1d%s%c%1d", n, symbol, jsym, nq);
+	    if (name[0]) {
+	      sprintf(ashell, ".%1d%s%c%1d", n, symbol, jsym, nq);
+	    } else {
+	      sprintf(ashell, "%1d%s%c%1d", n, symbol, jsym, nq);
+	    }
 	  }
 	}
 	len += strlen(ashell);
@@ -4635,9 +4660,14 @@ int ConstructLevelName(char *name, char *sname, char *nc,
       if (n == n0 && kl == kl0) {
 	nq0 += nq;
       } else {
-	if ((nq0 > 0 && nq0 <= 2*(2*kl0+1) &&
+	if (kl0 < 0) nqm = 2*n0*n0;
+	else nqm = 2*(2*kl0+1);
+	if ((nq0 > 0 && nq0 <= nqm &&
 	     !IsClosedShellNR(n0, kl0, nq0, full_name))) {
 	  SpecSymbol(symbol, kl0);
+	  if (j0 == 0 && kl0 >= 0) {
+	    symbol[0] = toupper(symbol[0]);
+	  }
 	  if (sname[0]) {
 	    sprintf(ashell, ".%1d%s%1d", n0, symbol, nq0);
 	  } else {
@@ -4647,16 +4677,23 @@ int ConstructLevelName(char *name, char *sname, char *nc,
 	}
 	n0 = n;
 	kl0 = kl;
+	j0 = j;
 	nq0 = nq;
       }
     }
   }
 
   if (sname && n0 > 0) {
-    if ((nq0 > 0 && nq0 <= 2*(2*kl0+1) &&
+    if (kl0 < 0) {
+      nqm = 2*n0*n0;
+    } else {
+      nqm = 2*(2*kl0+1);
+    }
+    if ((nq0 > 0 && nq0 <= nqm &&
 	 !IsClosedShellNR(n0, kl0, nq0, full_name)) ||
 	sname[0] == '\0') {
       SpecSymbol(symbol, kl0);
+      if (j0 == 0 && kl0 >= 0) symbol[0] = toupper(symbol[0]);
       if (sname[0]) {
 	sprintf(ashell, ".%1d%s%1d", n0, symbol, nq0);
       } else {
@@ -4700,7 +4737,11 @@ int ConstructLevelName(char *name, char *sname, char *nc,
   if (vnl) {
     UnpackShell(c->shells, &n, &kl, &j, &nq);
     n = abs(n);
-    *vnl = (kl/2) + 100*n;
+    if (kl >= 0) {
+      *vnl = (kl/2) + 100*n;
+    } else {
+      *vnl = 100*n;
+    }
   }
 
   return nele;

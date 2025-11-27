@@ -503,8 +503,9 @@ C Error exit
       GO TO 99
    91 WRITE (*,99091) NI
       GO TO 99
-   92 WRITE (*,99092) ID,XD(ID-1),XD(ID)
-   99 WRITE (*,99099)
+ 92   WRITE (*,99092) ID,XD(ID-1),XD(ID)
+ 99   WRITE (*,99099)
+      XD(ND+1000000) = 0.0
       STOP
       RETURN
 C Format statements for error messages
@@ -1015,6 +1016,7 @@ C Error exit
       GO TO 99
    92 WRITE (*,99092) ID,XD(ID-1),XD(ID)
    99 WRITE (*,99099)
+      XD(ND+1000000) = 0.0
       STOP
       RETURN
 C Format statements for error messages

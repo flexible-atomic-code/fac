@@ -96,6 +96,7 @@ typedef struct _INTERACT_SHELL_ {
   int kappa; /* relativistic angular quantum number kappa */
   int nq_bra; /* the occupation number in the bra state */
   int nq_ket; /* occupation number in the ket state */
+  int nr; /* non-relativistic flag */
 } INTERACT_SHELL;
 
 /*

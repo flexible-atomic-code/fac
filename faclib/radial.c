@@ -5000,6 +5000,8 @@ int SolveDirac(ORBITAL *orb) {
   if (err) { 
     MPrintf(-1, "Error occured in RadialSolver: %d %d %d %18.10E\n",
 	    err, orb->n, orb->kappa, orb->energy);
+    int *ix=0;
+    *ix =0;
     average_config.n_shells = -average_config.n_shells;
     GetPotential("error.pot", 0);
     if (err < -1 && orb->wfun != NULL) {
@@ -5299,6 +5301,8 @@ int OrbitalIndex(int n, int kappa, double energy) {
     if (k >= _korbmap) {
       printf("too large kappa, enlarge korbmap: %d >= %d\n",
 	     k, _korbmap);
+      int *ix = 0;
+      *ix = 0;
       Abort(1);
     }
   }
@@ -5308,6 +5312,8 @@ int OrbitalIndex(int n, int kappa, double energy) {
     if (k >= _norbmap0) {
       printf("too many bound orbitals, enlarge norbmap0: %d >= %d\n",
 	     k, _norbmap0);
+      int *ix = 0;
+      *ix = 0;
       Abort(1);
     }
     porb = &om->opn[k];
@@ -5399,6 +5405,8 @@ int OrbitalExistsNoLock(int n, int kappa, double energy) {
     if (k >= _korbmap) {
       printf("too large kappa, enlarge korbmap: %d >= %d\n",
 	     k, _korbmap);
+      int *ix = 0;
+      *ix = 0;
       Abort(1);
     }
   }
@@ -5459,6 +5467,8 @@ void AddOrbMap(ORBITAL *orb) {
     if (k >= _korbmap) {
       printf("too large kappa, enlarge korbmap: %d >= %d\n",
 	     k, _korbmap);
+      int *ix = 0;
+      *ix = 0;
       Abort(1);
     }
   }
@@ -5953,16 +5963,16 @@ static double GKB(int ka, int kb, int k) {
   return b;
 }  
   
-static double ConfigEnergyVarianceParts0(SHELL *bra, int ia, int ib, 
+static double ConfigEnergyVarianceParts0(SHELL *bra, int ia, int kapa, int ib, int kapb,
 					 int m2, int p) {
   int ja, jb, k, kp, k0, k1, kp0, kp1, ka, kb;
   double a, b, c, d, e;
 
-  ja = GetJFromKappa(bra[ia].kappa);
-  ka = OrbitalIndex(bra[ia].n, bra[ia].kappa, 0);
+  ja = GetJFromKappa(kapa);
+  ka = OrbitalIndex(bra[ia].n, kapa, 0);
   if (p > 0) {
-    jb = GetJFromKappa(bra[ib].kappa);
-    kb = OrbitalIndex(bra[ib].n, bra[ib].kappa, 0);
+    jb = GetJFromKappa(kapb);
+    kb = OrbitalIndex(bra[ib].n, kapb, 0);
   }
   e = 0.0;
   switch (p) {
@@ -6143,17 +6153,17 @@ static double ConfigEnergyVarianceParts0(SHELL *bra, int ia, int ib,
   return e;
 }
 
-static double ConfigEnergyVarianceParts1(SHELL *bra, int i, 
-					 int ia, int ib, int m2, int p) {  
+static double ConfigEnergyVarianceParts1(SHELL *bra, int i, int kapi,
+					 int ia, int kapa, int ib, int kapb, int m2, int p) {  
   int js, ja, jb, k, kp, k0, k1, kp0, kp1, ka, kb, ks;
   double a, b, e;
   
-  js = GetJFromKappa(bra[i].kappa);
-  ks = OrbitalIndex(bra[i].n, bra[i].kappa, 0);
-  ja = GetJFromKappa(bra[ia].kappa);
-  ka = OrbitalIndex(bra[ia].n, bra[ia].kappa, 0);
-  jb = GetJFromKappa(bra[ib].kappa);
-  kb = OrbitalIndex(bra[ib].n, bra[ib].kappa, 0);
+  js = GetJFromKappa(kapi);
+  ks = OrbitalIndex(bra[i].n, kapi, 0);
+  ja = GetJFromKappa(kapa);
+  ka = OrbitalIndex(bra[ia].n, kapa, 0);
+  jb = GetJFromKappa(kapb);
+  kb = OrbitalIndex(bra[ib].n, kapb, 0);
   e = 0.0;
 
   switch (p) {
@@ -6215,56 +6225,76 @@ static double ConfigEnergyVarianceParts1(SHELL *bra, int i,
 }
 
 double ConfigEnergyVariance(int ns, SHELL *bra, int ia, int ib, int m2) {
-  int i, js, p;
-  double e, a, b, c;
+  int i, js, p, i0, i1, u0, u;
+  double e, a, b, c, w0;
   
   e = 0.0;
   for (i = 0; i < ns; i++) {
-    js = GetJFromKappa(bra[i].kappa);
-    a = bra[i].nq;
-    b = js+1.0 - bra[i].nq;
-    if (i == ia) {
-      a -= 1.0;      
-    }
-    if (i == ib) {
-      b -= 1.0;
-    }
-    if (a == 0.0 || b == 0.0) continue;
-    a = a*b;
-    b = 0.0;
-    if (i == ia) {
-      for (p = 0; p < 6; p++) {
-	c = ConfigEnergyVarianceParts0(bra, ia, ib, m2, p);
-	b += c;
+    if (bra[i].nr == 2) {
+      if (bra[i].kappa >= 0) {
+	i1 = -(1+bra[i].kappa/2);
+	i0 = -(i1+1);
+	u0 = i0;
+	w0 = 2*(bra[i].kappa+1.0);
+      } else {
+	i0 = 0;
+	i1 = 2*bra[i].n-2;
+	u0 = -1;
+	w0 = 2*bra[i].n*bra[i].n;
       }
-      b /= js-1.0;
-    } else if (i == ib) {
-      for (p = 0; p < 6; p++) {
-	c = ConfigEnergyVarianceParts0(bra, ib, ia, m2, p);
-	b += c;
-      }
-      b /= js-1.0;
     } else {
-      for (p = 6; p < 9; p++) {
-	c = ConfigEnergyVarianceParts0(bra, i, ia, m2, p);
-	b += c;
-	c = ConfigEnergyVarianceParts0(bra, i, ib, m2, p);
-	b += c;
+      i0 = bra[i].kappa;
+      i1 = bra[i].kappa;
+      u0 = i0;
+      w0 = 2*abs(bra[i].kappa);
+    }    
+    for (u = abs(i0); u <= abs(i1); u++) {      
+      js = GetJFromKappa(u0);
+      a = bra[i].nq * 2*abs(u0)/w0;
+      b = js+1.0 - a;
+      if (i == ia) {
+	a -= 1.0;      
       }
-      c = ConfigEnergyVarianceParts1(bra, i, ia, ib, m2, 0);
-      b += c;
-      c = ConfigEnergyVarianceParts1(bra, i, ia, ib, m2, 1);
-      b += c;
-      c = ConfigEnergyVarianceParts1(bra, i, ia, ib, m2, 2);
-      b += c;
-      c = ConfigEnergyVarianceParts1(bra, i, ib, ia, m2, 2);
-      b += c;
-      b /= js;
+      if (i == ib) {
+	b -= 1.0;
+      }
+      if (a <= 0.0 || b <= 0.0) continue;
+      a = a*b;
+      b = 0.0;
+      if (i == ia) {
+	for (p = 0; p < 6; p++) {
+	  c = ConfigEnergyVarianceParts0(bra, ia, u0, ib, bra[ib].kappa, m2, p);
+	  b += c;
+	}
+	b /= js-1.0;
+      } else if (i == ib) {
+	for (p = 0; p < 6; p++) {
+	  c = ConfigEnergyVarianceParts0(bra, ib, u0, ia, bra[ia].kappa, m2, p);
+	  b += c;
+	}
+	b /= js-1.0;
+      } else {
+	for (p = 6; p < 9; p++) {
+	  c = ConfigEnergyVarianceParts0(bra, i, u0, ia, bra[ia].kappa, m2, p);
+	  b += c;
+	  c = ConfigEnergyVarianceParts0(bra, i, u0, ib, bra[ib].kappa, m2, p);
+	  b += c;
+	}
+	c = ConfigEnergyVarianceParts1(bra, i, u0, ia, bra[ia].kappa, ib, bra[ib].kappa, m2, 0);
+	b += c;
+	c = ConfigEnergyVarianceParts1(bra, i, u0, ia, bra[ia].kappa, ib, bra[ib].kappa, m2, 1);
+	b += c;
+	c = ConfigEnergyVarianceParts1(bra, i, u0, ia, bra[ia].kappa, ib, bra[ib].kappa, m2, 2);
+	b += c;
+	c = ConfigEnergyVarianceParts1(bra, i, u0, ib, bra[ib].kappa, ia, bra[ia].kappa, m2, 2);
+	b += c;
+	b /= js;
+      }
+      e += a*b;
+      if (u0 < 0) u0 = -u0;
+      else u0 = -(u0+1);
     }
-
-    e += a*b;
   }
-    
   if (e < 0.0) e = 0.0;
   return e;
 }
@@ -6445,7 +6475,6 @@ double CoulombEnergyShell(CONFIG *cfg, int i) {
     }
     Slater(&y, k, k, k, k, 0, 0);
     b = (nq-1.0) * (y - (1.0 + 1.0/j2)*t);
-
   } else {
     b = 0.0;
   }
@@ -6486,20 +6515,190 @@ double AverageEnergyConfig(CONFIG *cfg) {
 /* calculate the average energy of a configuration */
 double AverageEnergyConfigMode(CONFIG *cfg, int md) {
   int na[512], ka[512];
+  double qa[512], r;
+  int i, j, k, ns;
+  CONFIG_GROUP *g;
+
+  g = GetGroup(cfg->igroup);
+  if (cfg->nr < 2) {
+    ns = cfg->n_shells;
+    if (ns >= 512) {
+      printf("max shells reached in AverageEnergyConfigMode: %d>=%d\n",
+	     ns, 512);
+      Abort(1);
+    }
+    for (i = 0; i < ns; i++) {
+      na[i] = (cfg->shells[i]).n;
+      ka[i] = (cfg->shells[i]).kappa;
+      qa[i] = (cfg->shells[i]).nq;
+    }
+    j = ns;
+    r = AverageEnergyConfigShells(j, na, ka, qa, md);
+  } else {
+    r = 0.0;
+    ns = cfg->n_shells;
+    for (i = 0; i < ns; i++) {
+      r += AverageShellEnergy(&(cfg->shells[i]), md);
+      for (j = 0; j < i; j++) {
+	r += InteractShellEnergy(&(cfg->shells[i]), &(cfg->shells[j]));
+      }
+    }
+  }
+  return r;
+}
+
+double AverageShellEnergy(SHELL *s, int md) {
+  int na[512], ka[512];
   double qa[512];
-  int i, ns;
+  int j0, j1, q0, q1, q, k, k0;
+  double r, w, a, b0, b1;
   
-  ns = cfg->n_shells;
-  if (ns >= 512) {
-    printf("max shells reached in AverageEnergyConfigMode: %d>=%d\n", ns, 512);
-    Abort(1);
+  if (s->nr < 2) {
+    na[0] = s->n;
+    ka[0] = s->kappa;
+    qa[0] = s->nq;
+    return AverageEnergyConfigShells(1, na, ka, qa, md);
   }
-  for (i = 0; i < ns; i++) {
-    na[i] = (cfg->shells[i]).n;
-    ka[i] = (cfg->shells[i]).kappa;
-    qa[i] = (cfg->shells[i]).nq;
+  if (s->kappa >= 0) {
+    if (s->kappa == 0) {
+      na[0] = s->n;
+      ka[0] = -1;
+      qa[0] = s->nq;
+      return AverageEnergyConfigShells(1, na, ka, qa, md);
+    }
+    j0 = s->kappa-1;
+    j1 = s->kappa+1;
+    na[0] = s->n;
+    na[1] = s->n;
+    ka[0] = GetKappaFromJL(j0, s->kappa);
+    ka[1] = GetKappaFromJL(j1, s->kappa);
+    r = 0.0;
+    w = 0.0;
+    for (q0 = 0; q0 <= s->nq; q0++) {
+      if (q0 > j0+1) break;
+      q1 = s->nq - q0;
+      if (q1 > j1+1) continue;
+      qa[0] = q0;
+      qa[1] = q1;
+      if (q0 == 0) {
+	b0 = 1;
+	b1 = ShellDegeneracy(j1+1, q1);
+	a = AverageEnergyConfigShells(1, na+1, ka+1, qa+1, md);
+      } else if (q1 == 0) {
+	b0 = ShellDegeneracy(j0+1, q0);
+	b1 = 1.0;
+	a = AverageEnergyConfigShells(1, na, ka, qa, md);
+      } else {
+	b0 = ShellDegeneracy(j0+1, q0);
+	b1 = ShellDegeneracy(j1+1, q1);
+	a = AverageEnergyConfigShells(2, na, ka, qa, md);
+      }
+      w += b0*b1;
+      r += a*b0*b1;
+    }
+    r /= w;
+  } else {
+    r = 0.0;
+    w = 0.0;
+    k0 = -1;
+    for (k = 0; k < 2*s->n-1; k++) {
+      q1 = s->nq;
+      q = 0;
+      j1 = k0;
+      b0 = 1.0;
+      for (j0 = k; j0 < 2*s->n-1; j0++) {
+	if (q1 == 0) break;
+	na[q] = s->n;
+	ka[q] = j1;
+	q0 = 2*abs(j1);
+	if (q0 > q1) q0 = q1;
+	qa[q] = q0;
+	b0 *= ShellDegeneracy(2*abs(j1), q0);
+	q1 -= q0;	
+	q++;
+	if (j1 < 0) j1 = -j1;
+	else j1 = -(j1+1);
+      }
+      if (q1 > 0) break;
+      a = AverageEnergyConfigShells(q, na, ka, qa, md);
+      r += a*b0;
+      w += b0;
+      if (k0 < 0) k0 = -k0;
+      else k0 = -(k0+1);
+    }
+    r /= w;
   }
-  return AverageEnergyConfigShells(ns, na, ka, qa, md);
+  return r;
+}
+
+double InteractShellEnergy(SHELL *s0, SHELL *s1) {
+  int i0, i1, j0, j1, k0, k1, i, j, k;
+  int na[2], ka[2];
+  double qa[2], r, w0, w1;
+
+  if (s0->nr < 2 && s1->nr < 2) {
+    na[0] = s0->n;
+    na[1] = s1->n;
+    ka[0] = s0->kappa;
+    ka[1] = s1->kappa;
+    qa[0] = s0->nq;
+    qa[1] = s1->nq;
+    return AverageEnergyConfigShells(2, na, ka, qa, 9);
+  }
+  if (s0->nr == 2) {
+    if (s0->kappa >= 0) {
+      i1 = -(1+s0->kappa/2);
+      i0 = -(i1+1);
+      k0 = i0;
+      w0 = 2*(s0->kappa+1.0);
+    } else {
+      i0 = 0;
+      i1 = 2*s0->n-2;
+      k0 = -1;
+      w0 = 2.0*s0->n*s0->n;
+    }
+  } else {
+    i0 = s0->kappa;
+    i1 = s0->kappa;
+    k0 = i0;
+    w0 = 2.0*abs(s0->kappa);
+  }
+  if (s1->nr == 2) {
+    if (s1->kappa >= 0) {
+      j1 = -(1+s1->kappa/2);
+      j0 = -(j1+1);
+      k = j0;
+      w1 = 2*(s1->kappa+1.0);
+    } else {
+      j0 = 0;
+      j1 = 2*s1->n-2;
+      k = -1;
+      w1 = 2.0*s1->n*s1->n;
+    }
+  } else {
+    j0 = s1->kappa;
+    j1 = s1->kappa;
+    k = j0;
+    w1 = 2.0*abs(s1->kappa);
+  }
+  r = 0.0;
+  for (i = abs(i0); i <= abs(i1); i++) {
+    na[0] = s0->n;
+    ka[0] = k0;
+    qa[0] = s0->nq*2.0*abs(k0)/w0;
+    k1 = k;
+    for (j = abs(j0); j <= abs(j1); j++) {
+      na[1] = s1->n;
+      ka[1] = k1;
+      qa[1] = s1->nq*2.0*abs(k1)/w1;
+      r += AverageEnergyConfigShells(2, na, ka, qa, 9);
+      if (k1 < 0) k1 = -k1;
+      else k1 = -(k1+1);
+    }
+    if (k0 < 0) k0 = -k0;
+    else k0 = -(k0+1);
+  }
+  return r;
 }
 
 double AverageEnergyConfigShells(int ns,
@@ -6518,7 +6717,7 @@ double AverageEnergyConfigShells(int ns,
     k = OrbitalIndex(n, kappa, 0.0);
     if (md < 10) {
       double am = AMU * GetAtomicMass();
-      if (nq > 1) {
+      if (nq > 1 && md < 9) {
 	t = 0.0;
 	for (kk = 1; kk <= j2; kk += 1) {
 	  k2 = kk*2;
@@ -6558,7 +6757,8 @@ double AverageEnergyConfigShells(int ns,
 	if (MAXKSSC > 0 && k < MAXNSSC) {
 	  y *= _slater_scale[0][k][k];
 	}
-	b = ((nq-1.0)/2.0) * (y - (1.0+1.0/j2)*t);
+	b = y - (1+1./j2)*t;
+	b *= (nq-1.0)/2.0;
       } else {
 	b = 0.0;
       }
@@ -6637,16 +6837,21 @@ double AverageEnergyConfigShells(int ns,
 	if (MAXKSSC > 1 && k < MAXNSSC && kp < MAXNSSC) {
 	  y *= _slater_scale[1][k][kp];
 	}
-	t += nqp * (y - a);
+	r = nqp * (y - a);
+	t += r;	
       }
-      if (md >= 0) {
-	ResidualPotential(&y, k, k);
+      if (md < 9) {
+	if (md >= 0) {
+	  ResidualPotential(&y, k, k);
+	} else {
+	  y = 0;
+	}
+	e = GetOrbital(k)->energy;
+	a = QED1E(k, k);
+	r = nq * (b + t + e + a + y);
       } else {
-	y = 0;
+	r = nq * t;
       }
-      e = GetOrbital(k)->energy;
-      a = QED1E(k, k);
-      r = nq * (b + t + e + a + y);      
     } else {
       ORBITAL *orb = GetOrbitalSolved(k);
       a = SelfEnergy(orb, orb);

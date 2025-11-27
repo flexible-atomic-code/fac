@@ -1350,6 +1350,7 @@ int InteractingShells(INTERACT_DATUM **idatum,
 	s[pb].kl = kl;
 	s[pb].nq_bra = nq;
 	s[pb].nq_ket = 0;
+	s[pb].nr = ci->shells[i].nr;
 	pb += 2;
 	if (nq == 2) {
 	  memcpy(s+pb, s, sizeof(INTERACT_SHELL));
@@ -1372,6 +1373,7 @@ int InteractingShells(INTERACT_DATUM **idatum,
 	s[pk].j = jj;
 	s[pk].kl = kl;
 	s[pk].nq_bra = 0;
+	s[pk].nr = cj->shells[j].nr;
 	bra[m].nq = 0;
 	s[pk].nq_ket = nq;
 	pk += 2;
@@ -1396,6 +1398,7 @@ int InteractingShells(INTERACT_DATUM **idatum,
 	s[pb].kappa = bra[m].kappa;
 	s[pb].j = jj;
 	s[pb].kl = kl;
+	s[pb].nr = ci->shells[i].nr;
 	s[pb].nq_bra = nq;
 	s[pb].nq_ket = cj->shells[j].nq;
 	pb += 2;
@@ -1406,15 +1409,16 @@ int InteractingShells(INTERACT_DATUM **idatum,
 	}
       } else if (qd < 0) { /* ket has more electrons in the shell */
 	if (nq_minus >= 2) break;
-	UnpackShell(bra+m, &n, &kl, &jj, &nq);
+	UnpackShell(&cj->shells[j], &n, &kl, &jj, &nq);
 	nq_minus += -qd;
 	if (nq_minus > 2) break;
 	s[pk].index = m;
 	s[pk].n = n;
-	s[pk].kappa = bra[m].kappa;
+	s[pk].kappa = cj->shells[j].kappa;
 	s[pk].j = jj;
 	s[pk].kl = kl;
-	s[pk].nq_bra = nq;
+	s[pk].nr = cj->shells[j].nr;
+	s[pk].nq_bra = ci->shells[i].nq;
 	s[pk].nq_ket = cj->shells[j].nq;
 	pk += 2;
 	if (qd == -2) {

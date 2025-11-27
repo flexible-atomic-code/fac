@@ -21,19 +21,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define MAXNALLOC 10000000
+#define MAXNALLOC 16000000
 typedef struct _MEM_INFO_ {
-  long int base;
-  char *f;
-  int nline;
+  size_t base;
+  char *fa, *ff;
+  int nla, nlf;
   size_t size;
 } MEM_INFO;
   
 static int n_alloc = 0;
-static int n_free = 0;
 static size_t _tsize = 0;
+static double _dmsize = 0;
 static MEM_INFO mem_alloc[MAXNALLOC];
-static MEM_INFO mem_free[MAXNALLOC];
 static FILE *pmalloc_log;
 
 size_t pmsize(void) {
@@ -41,72 +40,142 @@ size_t pmsize(void) {
 }
 
 void *pmalloc(size_t size, char *f, int nline) {
-  void *p;
+  size_t *p;
 
-  p = malloc(size);
-  mem_alloc[n_alloc].base = (long int) p;
-  mem_alloc[n_alloc].f = f;
-  mem_alloc[n_alloc].nline = nline;
+  p = (size_t *) malloc(size + sizeof(size_t));
+  *p = n_alloc;
+  mem_alloc[n_alloc].base = (size_t) &p[1];
+  mem_alloc[n_alloc].fa = f;
+  mem_alloc[n_alloc].nla = nline;
+  mem_alloc[n_alloc].ff = NULL;
+  mem_alloc[n_alloc].nlf = 0;
   mem_alloc[n_alloc].size = size;
-  fprintf(pmalloc_log, "%8s %lx %16s %5d %zu\n", "MALLOC:", (long)p, f, nline, size);
+#if PMALLOC_CHECK == 3
+  fprintf(pmalloc_log, "%8s %8d %lx %16s %5d %zu\n", "MALLOC:", n_alloc, (long)(&p[1]), f, nline, size);
+  fflush(pmalloc_log);
+#endif
+#pragma omp atomic
   n_alloc++;
+#pragma omp atomic
+  _tsize += size;
+#pragma omp atomic
+  _dmsize += size;
   if (n_alloc == MAXNALLOC) {
     fprintf(pmalloc_log, "MAXNALLOC reached\n");
     exit(1);
   }
-  return p;
+  return &p[1];
 }
 
 void *pcalloc(size_t n, size_t size, char *f, int nline) {
-  void *p;
-
-  p = calloc(n, size);
-  mem_alloc[n_alloc].base = (long int) p;
-  mem_alloc[n_alloc].f = f;
-  mem_alloc[n_alloc].nline = nline;
-  mem_alloc[n_alloc].size = size*n;
-  fprintf(pmalloc_log, "%8s %lx %16s %5d %zu\n", "CALLOC:", (long)p, f, nline, size*n);
+  size_t *p;
+  size_t ns = n*size;
   
+  p = (size_t *) calloc(ns+sizeof(size_t), 1);
+  *p = n_alloc;
+  mem_alloc[n_alloc].base = (size_t) &p[1];
+  mem_alloc[n_alloc].fa = f;
+  mem_alloc[n_alloc].nla = nline;
+  mem_alloc[n_alloc].ff = NULL;
+  mem_alloc[n_alloc].nlf = 0;
+  mem_alloc[n_alloc].size = ns;
+#if PMALLOC_CHECK == 3
+  fprintf(pmalloc_log, "%8s %8d %lx %16s %5d %zu\n", "CALLOC:", n_alloc, (long)(&p[1]), f, nline, ns);
+  fflush(pmalloc_log);
+#endif
+#pragma omp atomic
   n_alloc++;
+#pragma omp atomic
+  _tsize += ns;
+#pragma omp atomic
+  _dmsize += ns;
   if (n_alloc == MAXNALLOC) {
     fprintf(pmalloc_log, "MAXNALLOC reached\n");
     exit(1);
   }
-  return p;
+  return &p[1];
 }
 
 void *prealloc(void *p, size_t size, char *f, int nline) {
-  void *q;
+  size_t *ps, s0;
 
-  mem_free[n_free].base = (long int) p;
-  mem_free[n_free].f = f;
-  mem_free[n_free].nline = nline;
-  fprintf(pmalloc_log, "%8s %lx %16s %5d\n", "REALLOC:", (long)p, f, nline);
-  n_free++;
-
-  q = realloc(p, size);
-  mem_alloc[n_alloc].base = (long int) q;
-  mem_alloc[n_alloc].f = f;
-  mem_alloc[n_alloc].nline = nline;
+  if (p) {
+    ps = (size_t *) p;
+    ps--;    
+    s0 = mem_alloc[*ps].size;
+    if (mem_alloc[*ps].ff) {
+      fprintf(pmalloc_log, "double free: %d %lx %s(%d), free in %s(%d), alloc in %s(%d)\n",
+	      (int)(*ps), (long) &ps[1], f, nline,
+	      mem_alloc[*ps].ff, mem_alloc[*ps].nlf,
+	      mem_alloc[*ps].fa, mem_alloc[*ps].nla);
+      fflush(pmalloc_log);
+      mem_alloc[*ps].ff = f;
+      mem_alloc[*ps].nlf = -nline;
+    } else {
+      mem_alloc[*ps].ff = f;
+      mem_alloc[*ps].nlf = nline;
+    }
+#if PMALLOC_CHECK == 3
+    fprintf(pmalloc_log, "%8s %8ld %lx %16s %5d\n", "REALLOC:", *ps, (long)(&ps[1]), f, nline);
+    fflush(pmalloc_log);
+#endif
+#pragma omp atomic
+    _tsize -= s0;
+  }
+  
+  ps = (size_t *) realloc(ps, size+sizeof(size_t));
+  *ps = n_alloc;
+  mem_alloc[n_alloc].base = (size_t) &ps[1];
+  mem_alloc[n_alloc].fa = f;
+  mem_alloc[n_alloc].nla = nline;
+  mem_alloc[n_alloc].ff = NULL;
+  mem_alloc[n_alloc].nlf = 0;
   mem_alloc[n_alloc].size = size;
+#pragma omp atomic
   n_alloc++;
+#pragma omp atomic
+  _tsize += size;
+#pragma omp atomic
+  _dmsize += size;
   if (n_alloc == MAXNALLOC) {
     fprintf(pmalloc_log, "MAXNALLOC reached\n");
     exit(1);
   }
 
-  return q;
+  return &ps[1];
 }
 
-void pfree(void *p, char *f, int nline) {  
-  mem_free[n_free].base = (long int) p;
-  mem_free[n_free].f = f;
-  mem_free[n_free].nline = nline;
-  fprintf(pmalloc_log, "%8s %lx %16s %5d\n", "FREE:", (long)p, f, nline);
-  fflush(pmalloc_log);
-  n_free++;
+void pfree(void *p, char *f, int nline) {
+  size_t *ps;
+  ssize_t s0;
   
-  free(p);
+  if (!p) return;
+  ps = (size_t *) p;
+  ps--;
+  
+  s0 = mem_alloc[*ps].size;
+  if (mem_alloc[*ps].ff) {
+    fprintf(pmalloc_log, "double free: %d %lx %s(%d), free in %s(%d), alloc in %s(%d)\n",
+	    (int)(*ps), (long) &ps[1], f, nline,
+	    mem_alloc[*ps].ff, mem_alloc[*ps].nlf,
+	    mem_alloc[*ps].fa, mem_alloc[*ps].nla);
+    fflush(pmalloc_log);
+    mem_alloc[*ps].ff = f;
+    mem_alloc[*ps].nlf = -nline;
+  } else {
+    mem_alloc[*ps].ff = f;
+    mem_alloc[*ps].nlf = nline;
+  }
+
+#if PMALLOC_CHECK == 3
+  fprintf(pmalloc_log, "%8s %8d %lx %16s %5d\n", "FREE:", *ps, (long) (&ps[1]), f, nline);
+  fflush(pmalloc_log);
+#endif
+
+#pragma omp atomic
+  _tsize -= s0;
+  
+  free(ps);
 }
 
 int CompareMemory(const void *p1, const void *p2) {
@@ -125,51 +194,37 @@ void pmalloc_open(void) {
 }
 
 void pmalloc_check(void) {
-  int i, j;
+  int i;
   int n_leaks;
-  int n_leakm;
+  size_t n_leakm;
   int n_ilegal;
-  int tmem;
+  size_t tmem;
 
-  if (n_alloc == n_free) {
-    fprintf(pmalloc_log, "no mem leak\n");
-    return;
-  }
-
-  qsort(mem_alloc, n_alloc, sizeof(MEM_INFO), CompareMemory);
-  qsort(mem_free, n_free, sizeof(MEM_INFO), CompareMemory);
-
-  i = 0; 
-  j = 0;
   n_leaks = 0;
-  n_leakm = 0;
   n_ilegal = 0;
+  n_leakm = 0;
   tmem = 0;
-  while (i < n_alloc && j < n_free) {
-    if (mem_alloc[i].base < mem_free[j].base) {
-      fprintf(pmalloc_log, "%6d: Leak = %lx, %5zu, %30s (%d)\n",  
-	     n_leaks, mem_alloc[i].base, mem_alloc[i].size, 
-	     mem_alloc[i].f, mem_alloc[i].nline);
+  for (i = 0; i < n_alloc; i++) {
+    if (mem_alloc[i].ff == NULL) {
+      fprintf(pmalloc_log, "%8d: Leak = %d %lx, %5zu, %s (%d)\n",  
+	      n_leaks, i, mem_alloc[i].base, mem_alloc[i].size, 
+	      mem_alloc[i].fa, mem_alloc[i].nla);
       n_leaks++;
       n_leakm += mem_alloc[i].size;
-      i++;
-    } else if (mem_alloc[i].base == mem_free[j].base) {
-      tmem += mem_alloc[i].size;
-      i++;
-      j++;
-    } else {
-      fprintf(pmalloc_log, "%6d: Illegal Free = %lx, in File %s (%d)\n", 
-	     n_ilegal, mem_free[j].base, mem_free[j].f, mem_free[j].nline);
-      fprintf(pmalloc_log, "%d %d %d %d\n", i, n_alloc, j, n_free);
+    } else if (mem_alloc[i].nlf < 0) {
+      fprintf(pmalloc_log, "%d: Illegal = %d %lx, %5zu, %s(%d), %s(%d)\n",
+	      n_ilegal, i, mem_alloc[i].base, mem_alloc[i].size,
+	      mem_alloc[i].fa, mem_alloc[i].nla,
+	      mem_alloc[i].ff, mem_alloc[i].nlf);
       n_ilegal++;
-      j++;
     }
+    tmem += mem_alloc[i].size;
   }
 
-  tmem += n_leakm;
+  fprintf(pmalloc_log, "Total:  %ld %ld %ld\n", tmem, (size_t)_dmsize,  _tsize);
+  fprintf(pmalloc_log, "Leaked: %d %ld\n", n_leaks, n_leakm);
+  fprintf(pmalloc_log, "Illegal: %d\n", n_ilegal);
 
-  fprintf(pmalloc_log, "Total:  %d\n", tmem);
-  fprintf(pmalloc_log, "Leaked: %d\n", n_leakm);
-
+  fclose(pmalloc_log);
   return;
 }

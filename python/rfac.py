@@ -83,6 +83,9 @@ def cfgnr(nq):
     return s[1:]
 
 def nlq(s):
+    if len(s) == 0:
+        return 1,0,0
+    
     i = 0
     n = 0
     l = -1
@@ -138,7 +141,13 @@ def nlqs(s):
                 a.append((int(r[x,0]),int(r[x,1]),q))
         else:
             a.append((int(r[x,0]),int(r[x,1]),r[x,2]))
+    if len(a) == 0:
+        a = [(1,0,0)]
     return a
+
+def nqt(s):
+    r = nlqs(s)
+    return np.sum(x[-1] for x in r)
 
 def nqs(r):
     nm = r[-1][0]
@@ -150,6 +159,103 @@ def nqs(r):
     for i in w:
         a.append((i+1,-1,nq[i]))
     return cfgnr(a)
+
+def nstw(k, j, q, n=0):
+    if j > 0:
+        return fac.ShellDegeneracy(j+1, q)
+    if k >= 0:
+        return fac.ShellDegeneracy(2*(k+1), q)
+    if n > 0:
+        return fac.ShellDegeneracy(2*n*n, q)
+    return 0
+
+def nstc(k, q):
+    if q == 0:
+        return 1
+    qh = k+1
+    qm = 2*qh
+    if q > qm:
+        return 0
+    if q == qm:
+        return 1
+    if q > qh:
+        q = qm-q
+    if q > k:
+        return k+1
+    return q+1
+
+def jsts(k, j, q):
+    qm = j+1
+    if q > qm:
+        return []
+    if q > qm/2:
+        q = qm-q
+    if q == 0:
+        return [0,]
+    if q == 1:
+        return [j,]
+    if q == 2:
+        return [2*i for i in range(0,j,2)]
+    if q == 3:
+        if j == 5:
+            return [3,5,9]
+        if j == 7:
+            return [3,5,9,7,11,15]
+        return [3,5,7,9,9,11,13,15,17,21]
+    if q == 4:
+        if j == 7:
+            return [0,4,4,8,8,10,12,16]
+        return [0,0,4,4,6,8,8,8,10,12,12,12,14,16,16,18,20,24]
+
+    return [9,3,5,7,9,11,13,15,17,21,1,5,7,9,11,13,15,17,19,25]
+
+def nsts(k, j, q):
+    if q == 0:
+        return 1
+    if j > 0:
+        return len(jsts(k, j, q))
+
+    qh = k+1
+    qm = 2*qh
+    if q > qm:
+        return 0
+    if q == qm:
+        return 1
+    if q > qh:
+        q = qm-q
+    if q == 1:
+        if k == 0:
+            return 1
+        else:
+            return 2
+    if k == 0:
+        return len(jsts(k, k+1, q))
+
+    j1 = k-1
+    j2 = k+1
+    qm1 = j1+1
+    qm2 = j2+1
+    r = 0
+    for q1 in range(q+1):
+        q2 = q-q1
+        if (q1 > qm1 or q2 > qm2):
+            continue
+        js1 = jsts(k, j1, q1)
+        js2 = jsts(k, j2, q2)
+        for i1 in js1:
+            for i2 in js2:
+                jmin = abs(i2-i1)
+                jmax = abs(i2+i1)
+                r += 1 + (jmax-jmin)//2
+    return r
+
+def csts(c):
+    r = nlqs(c)
+    n = 1
+    for a in r:
+        if a[1] >= 0:
+            n *= nsts(2*a[1], 0, a[2])
+    return n
 
 def voigt_fwhm(gw, lw):
     return 0.5346*lw + np.sqrt(0.2166*lw**2 + gw**2)

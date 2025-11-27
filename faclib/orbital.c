@@ -2811,7 +2811,7 @@ double Amplitude(double *p, double e, int ka, POTENTIAL *pot, int i0) {
       if (istate == -1) istate = 2;
       else if (istate < 0) {
 	printf("Amplitude0 LSODE Error: %d %d %g %d %d %d %g\n",
-	       istate, ka, e, i, ii, i0, r);      
+	       istate, ka, e, i, ii, i0, r);
 	Abort(1);
       }
     }

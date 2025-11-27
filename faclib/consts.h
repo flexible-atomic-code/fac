@@ -251,6 +251,9 @@ extern double AMU;
 /* config */
 #define MCHSHELL           2048
 #define MAX_SPEC_SYMBOLS   21
+#define MAX_SPEC_SYMBOLS1  22
+#define MAX_SPEC_SYMBOLS2  42
+#define MAX_SPEC_SYMBOLS3  44
 #define LEVEL_NAME_LEN     1024
 #define GROUP_NAME_LEN     17
 #define MAX_GROUPS         1024

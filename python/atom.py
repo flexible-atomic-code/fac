@@ -236,6 +236,299 @@ def gcz(z, fn=None, k0=0, k1=0, cleanup=True, **kw):
 def run1c(x):
     return cfgene(x[0], x[2], x[1])
 
+def jes(c0, c1):
+    r0 = rfac.nlqs(c0)
+    r1 = rfac.nlqs(c1)
+    n0 = r0[-1][0]
+    n1 = r1[-1][0]
+    n = np.max([n0,n1])
+    q0 = np.zeros(n+1, dtype=int)
+    q1 = np.zeros(n+1, dtype=int)    
+    for a in r0:
+        q0[a[0]-1] += a[2]
+    for a in r1:
+        q1[a[0]-1] += a[2]
+    tq0 = np.sum(q0)
+    tq1 = np.sum(q1)
+    if tq1 < tq0:
+        q1[n] = tq0-tq1
+    else:
+        q0[n] = tq1-tq0
+    dq = q1-q0
+    w0 = np.where(dq < 0)[0]
+    w1 = np.where(dq > 0)[0]
+    i0 = []
+    i1 = []
+    for i in w0:
+        i0 += [(i+1)%(n+1)]*(-dq[i])
+    for i in w1:
+        i1 += [(i+1)%(n+1)]*dq[i]
+    if len(i0) == 0:
+        j0 = 0
+        j1 = 0
+        r = []
+        while (j0 < len(r0) and j1 < len(r1)):
+            if ((r0[j0][0] != r1[j1][0]) or
+                (r0[j0][1] != r1[j1][1]) or
+                (r0[j0][2] != r1[j1][2])):
+                r = [(r0[j0][0],r0[j1][0])]
+                break
+            j0 += 1
+            j1 += 1
+        if len(r) == 0:
+            r = [(r0[-1][0],r0[-1][0])]
+    else:
+        r = [(i0[i],i1[i]) for i in range(len(i0))]
+    return r
+
+def c2i(c, n):
+    r = rfac.nlqs(c)
+    ic = np.zeros((n,n), dtype=int)
+    for a in r:
+        ic[a[0]-1,a[1]] = a[2]
+    return ic
+
+def i2c(r):
+    w = np.where(r > 0)
+    return rfac.cfgnr([(w[0][i]+1,w[1][i],r[w[0][i],w[1][i]]) for i in range(len(w[0]))])
+
+def r1e(r, nm=0, nk=()):
+    if type(r) != type([]):
+        r = rfac.nlqs(r)
+    c = []
+    for i in range(len(r)):
+        if nm > 0 and r[i][0] > nm:
+            continue
+        if len(nk) == 2:
+            if r[i][0] != nk[0] or r[i][1] != nk[1]:
+                continue
+        b = r[:i]+[(r[i][0],r[i][1],r[i][2]-1)]+r[i+1:]
+        c.append(rfac.cfgnr(b))
+    return c
+
+def a1e(r, na, nm, km=7, nk=()):
+    c = []
+    ic = c2i(r, nm)
+    for n in range(1,na+1):
+        for k in range(min(km+1,n)):
+            if len(nk) == 2:
+                if n != nk[0] or k != nk[1]:
+                    continue
+            qm = 2*(2*k+1)
+            if ic[n-1,k] == qm:
+                continue
+            ic[n-1,k] = ic[n-1,k]+1
+            c.append(i2c(ic))
+            ic[n-1,k] = ic[n-1,k]-1
+    return c
+
+def rank_cfg(r, r0, nv, kv):
+    d = r-r0
+    wm = np.where(d < 0)
+    wp = np.where(d > 0)
+    dq = np.sum(d[wp])
+    dn = np.zeros(dq)
+    dk = np.zeros(dq)
+    im = 0
+    ip = 0
+    rd = 0
+    for i in range(dq):
+        dn[i] = (1/(wm[0][im]+1)**2 - 1/(wp[0][ip]+1)**2)*nv**2
+        dk[i] = wp[1][ip]-wm[1][im]
+        d[wm[0][im],wm[1][im]] += 1
+        d[wp[0][ip],wp[1][ip]] -= 1
+        x = dn[i]*1000 + dk[i]
+        if wm[0][im] < nv-1:
+            x *= 100
+        elif wm[1][im] < kv:
+            x *= 10
+        rd += x
+        if d[wm[0][im],wm[1][im]] == 0:
+            im += 1
+        if d[wp[0][ip],wp[1][ip]] == 0:
+            ip += 1
+
+    return abs(rd)
+
+def cs(z, k, nd=0, nm=0, na=0, km=7):
+    if k == 0:
+        return {'g0':[('1s0',1,1,1,1,1,1,1,1),('1a0',1,1,1,1,1,1,1,1)]}
+    
+    c = grdcfg0(z, k)
+    r = rfac.nlqs(c)
+    nv = r[-1][0]
+    if na == 0:
+        na = 10
+    if nm == 0:
+        if k <= 3:
+            nm = 10
+        elif k <= 11:
+            nm = 7
+        elif k <= 29:
+            nm = 5
+        else:
+            nm = nv+1
+    if nd == 0:
+        if k <= 11:
+            nd = 5
+        elif k <= 29:
+            nd = 4
+        elif k <= 55:
+            nd = nv+1
+        else:
+            nd = nv            
+    if nm < nv:
+        nm = nv
+        
+    if km < 0:
+        r = {}
+        r['nm'] = nm
+        r['nd'] = nd
+        r['na'] = na
+        r['km'] = km
+        r['z'] = z
+        r['k'] = k
+        return r
+    
+    kv = r[-1][1]
+    iv = nv*(nv-1)//2 + kv
+    
+    nmax = np.max([na,nm,nd])
+    ic0 = c2i(c,nmax)
+    
+    c0 = r1e(r)
+    c1 = []
+    for a in c0:
+        for b in a1e(a, nm, nm, km=km):
+            c1.append(b)
+    if kv <= 1:
+        bs = []
+        for a in c1:
+            b = r1e(a, nk=(nv,0))
+            if len(b) == 0:
+                continue
+            b = b[0]
+            for b1 in a1e(b, nv, nm, km=km, nk=(nv,1)):
+                if not b1 in c1:
+                    bs.append(b1)
+            if nv > 2:
+                for b1 in a1e(b, nv, nm, km=km, nk=(nv,2)):
+                    if not b1 in c1:
+                        bs.append(b1)
+        c1 = c1 + bs
+    c1 = list(np.unique(c1))
+    
+    c2 = []
+    for a in c1:
+        for b in r1e(a, nv):
+            if b in c0:
+                continue
+            r = rfac.nlqs(b)
+            if r[-1][0] <= nd:
+                c2.append(b)
+    c3 = []
+    for a in c2:
+        for b in a1e(a, nd, nd, km=km):
+            if b == c:
+                continue
+            if b in c1:
+                continue
+            c3.append(b)
+
+    c3 = list(np.unique(c3))
+
+    c2 = []
+    c4 = []
+    if na > nm:
+        for a in c1:
+            r = rfac.nlqs(a)
+            for n in range(nm+1, na+1):
+                if r[-1][2] == 1:
+                    r[-1] = (n,-1,1)
+                else:
+                    r[-1] = (r[-1][0],r[-1][1],r[-1][2]-1)
+                    r.append((n,-1,1))
+                c2.append(rfac.cfgnr(r))
+    if k > 1 and na > nd:
+        for a in c3:
+            r = rfac.nlqs(a)
+            for n in range(nd+1, na+1):                
+                if r[-1][2] == 1:
+                    r[-1] = (n,-1,1)
+                else:
+                    r[-1] = (r[-1][0],r[-1][1],r[-1][2]-1)
+                    r.append((n,-1,1))
+                c4.append(rfac.cfgnr(r))
+
+            for n0 in range(nd+1,na+1):
+                r0 = r[:-1]
+                if r0[-1][2] == 1:
+                    r0[-1] = (n0,-1,2)
+                else:                            
+                    r0[-1] = (r0[-1][0],r0[-1][1],r0[-1][2]-1)
+                    r0.append((n0,-1,2))
+                c4.append(rfac.cfgnr(r0))
+                    
+            for n0 in range(nd+1,na+1):
+                r0 = r[:-1]
+                if r0[-1][2] == 1:
+                    r0[-1] = (n0,-1,1)
+                else:                            
+                    r0[-1] = (r0[-1][0],r0[-1][1],r0[-1][2]-1)
+                    r0.append((n0,-1,1))
+                for n1 in range(n0+1, na+1):
+                    c4.append(rfac.cfgnr(r0 + [(n1,-1,1)]))
+                    
+    c1 = [c]+c1
+    cr = np.unique(c1 + c2 + c3 + c4)
+    icr = [c2i(x,nmax) for x in cr]
+    ic = [rank_cfg(x,ic0,nv,kv) for x in icr]
+    s = np.argsort(ic)
+    cr = cr[s]
+    ns = [rfac.nlqs(x) for x in cr]
+    nr = [rfac.nqs(x) for x in ns]
+    r = {}
+    for i in range(len(cr)):
+        nas = 1
+        naw = 1
+        nac = 1
+        naq = 0
+        for x in ns[i]:
+            naq += x[-1]
+            if x[1] >= 0:
+                nas *= rfac.nsts(2*x[1],0,x[2])
+                nac *= rfac.nstc(2*x[1],x[2])
+                if x[1] <= 1 and x[0] <= 2:
+                    naw *= rfac.nstc(2*x[1],x[2])
+        if naq != k:
+            print('#electrons dose not match: %d %d %s'%(k,naq,cr[i]))
+            continue
+        gn = nr[i]
+        try:            
+            x = r[gn][-1]        
+            r[gn].append((cr[i],nas,nas+x[2],nac,x[4]+nac,1,1+x[6],naw,naw+x[8]))
+        except KeyError:
+            r[gn] = [(cr[i],nas,nas,nac,nac,1,1,naw,naw)]
+        except Exception as e:
+            print(e)
+    
+    r1 = {}
+    ig = 0
+    tas = 0
+    taw = 0
+    tac = 0
+    tag = 0
+    for key,v in r.items():
+        gn = 'g%d'%ig
+        ig += 1
+        tas += v[-1][2]
+        tac += v[-1][4]
+        tag += v[-1][6]
+        taw += v[-1][8]
+        v.append((key,0,tas,0,tac,0,tag,0,taw))
+        r1[gn] = v
+        
+    return r1
 
 # reinitialize FAC
 def reinit(m = 0):

@@ -74,7 +74,7 @@ int RecStatesFrozen(int n, int k, int *kg, char *fn);
 int RRRadialMultipoleTable(double *qr, int k0, int k1, int m);
 int RRRadialQkTable(double *qr, int k0, int k1, int m);
 int RRRadialMultipole(double *rqc, double te, int k0, int k1, int m);
-int RRRadialQk(double *rqc, double te, int k0, int k1, int m);
+int RRRadialQk(double *rqc, double te, int k0, int k1, int m, int u);
 void RRRadialQkFromFit(int np, double *p, int n, double *x, double *logx, 
 		       double *y, double *dy, int ndy, void *extra);
 void TopUpRRRadialQk(double *qr, int k0, int k1, int mx);
@@ -122,4 +122,6 @@ void LandauZenerBareCX(char *fn, double z, int ne0, double *e0, int ldm);
 double **LandauZenerMC(CXTGT *cx, double z, int ne0, double *e0, int *nmc);
 int SaveCX(int nlow, int *low, int nup, int *up, char *fn);
 int SetCXEGrid(int n, double e0, double e1, double *eg, int ilog, int t);
+void PrepRRUTA(int nmin, int nmax, int kmin, int kmax);
+void PrepAIUTA(int nmin0, int nmax0, int nmin1, int nmax1, int nmin2, int nmax2, int kmin, int kmax);
 #endif

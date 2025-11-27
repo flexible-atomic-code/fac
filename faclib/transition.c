@@ -144,14 +144,66 @@ int GetTransitionMode(void) {
   return transition_option.mode;
 }
 
+int TRMultipoleUTA0I(double *strength, TR_EXTRA *rx, INTERACT_DATUM *idatum,
+		     int m0, int k0, int k1, int p1, int p2, int j1, int j2,
+		     int ns, int *ks, int ia, int ib,
+		     double te, int q1, int q2, double w0, double w1) {
+  int m, m2;
+  double aw, qw1, qw2, r;
+
+  *strength = 0.0;
+  if (m0 == 0) {
+    m = abs(j1-j2)/2;
+    if (m == 0) m += 1;
+    if (IsEven(p1+p2+m)) m = -m;
+  } else {
+    m = m0;
+  }
+  m2 = 2*abs(m);
+  if ((_uta_e1 && m != -1) || !Triangle(j1, j2, m2)) {
+    return 0;
+  }
+  rx->energy = te;
+  aw = FINE_STRUCTURE_CONST * rx->energy;
+  if (aw < 0.0) {
+    return 0;
+  }
+  
+  if (ks) {
+    rx->energy += ConfigEnergyShift(ns, idatum->bra, ia, ib, m2);
+    r = ConfigEnergyVariance(ns, idatum->bra, ia, ib, m2);
+    rx->sdev = sqrt(r);
+  } else {
+    rx->sdev = 0.0;
+  }
+  rx->sci = 1.0;
+  
+  if (transition_option.mode == M_NR && m != 1) {
+    r = MultipoleRadialNR(m, k0, k1, transition_option.gauge);
+  } else {
+    r = MultipoleRadialFR(aw, m, k0, k1, transition_option.gauge);
+  }
+  /*
+  qw1 = q1 * (j1+1.0)/w0;
+  qw2 = q2 * (j2+1.0)/w1;
+  *strength = sqrt(qw1*(j2+1.0-qw2)/((j1+1.0)*(j2+1.0)))*r;
+  */
+  *strength = sqrt(q1*(w1-q2)/(w0*w1))*r;
+  if (m0 == 0) {
+    *strength = OscillatorStrength(m, rx->energy, *strength, &r);
+  }
+  return m;
+}
+
 int TRMultipoleUTA0(double *strength, TR_EXTRA *rx, 
 		    int m, int kg0, int kg1, int kc0, int kc1,
 		    double te, int p1, int p2, int *ks, int *pk0, int *pk1) {
-  int m2, ns, k0, k1, q1, w1, q2, m0;
-  int j1, j2, ia, ib;
-  double r, aw, eg;
+  int m2, ns, k0, k1, q1, w2, q2, m0, m1, u0, u1;
+  int j1, j2, ia, ib, i0, i1, t0, t1, i, t, u;
+  double r, eg, w0, w1;
   CONFIG *c, *c1;
   INTERACT_DATUM *idatum;
+  INTERACT_SHELL *s;
 
   m0 = m;
   *pk0 = -1;
@@ -163,13 +215,14 @@ int TRMultipoleUTA0(double *strength, TR_EXTRA *rx,
   c = NULL;
   if (_uta_e1) {
     c = GetConfigFromGroup(kg0, kc0);
-    c1 = GetConfigFromGroup(kg1, kc1);
-    if (c->parity == c1->parity) return 0;
+    if (c->parity >= 0 && c1->parity >= 0) {
+      if (c->parity == c1->parity) return 0;
+    }
   }
   
   idatum = NULL;
   ns = GetInteract(&idatum, NULL, NULL, kg0, kg1, kc0, kc1, 0, 0, 0);
-  if (ns <= 0) return 0;
+  if (ns <= 0) return 0;  
   if (idatum->s[0].index < 0 || idatum->s[3].index >= 0) {
     free(idatum->bra);
     free(idatum);
@@ -178,83 +231,133 @@ int TRMultipoleUTA0(double *strength, TR_EXTRA *rx,
 
   if (c == NULL) c = GetConfigFromGroup(kg0, kc0);
   
-  if (idatum->s[0].nq_bra > idatum->s[0].nq_ket) {
-    ia = ns-1-idatum->s[0].index;
-    ib = ns-1-idatum->s[1].index;
-    j1 = idatum->s[0].j;
-    j2 = idatum->s[1].j;
-    q1 = idatum->s[0].nq_bra;
-    q2 = idatum->s[1].nq_bra;
-    w1 = FactorNR(c, idatum->s[0].n, idatum->s[0].kappa);
-    if (w1 > 0) q1 = w1;
-    k0 = OrbitalIndex(idatum->s[0].n, idatum->s[0].kappa, 0.0);
-    k1 = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
-    if (ks) {
-      PackNRShell(ks, idatum->s[0].n, idatum->s[0].kl, q1);
-      if (idatum->s[0].kappa > 0) ks[0] |= 0x01000000;
-      PackNRShell(ks+1, idatum->s[1].n, idatum->s[1].kl, q2);
-      if (idatum->s[1].kappa > 0) ks[1] |= 0x01000000;
+  s = idatum->s;
+  k0 = -1;
+  k1 = -1;
+  
+  if (s[0].nq_bra > s[0].nq_ket) {
+    ia = ns-1-s[0].index;
+    ib = ns-1-s[1].index;
+    j1 = s[0].j;
+    j2 = s[1].j;
+    q1 = s[0].nq_bra;
+    q2 = s[1].nq_bra;
+    w2 = FactorNR(c, s[0].n, s[0].kappa);
+    if (w2 > 0) q1 = w2;
+    if (s[0].nr < 2 && s[1].nr < 2) {
+      k0 = OrbitalIndex(s[0].n, s[0].kappa, 0.0);
+      k1 = OrbitalIndex(s[1].n, s[1].kappa, 0.0);
+      if (ks) {
+	PackNRShell(ks, s[0].n, s[0].kl, q1);
+	if (s[0].kappa > 0) ks[0] |= 0x01000000;
+	PackNRShell(ks+1, s[1].n, s[1].kl, q2);
+	if (s[1].kappa > 0) ks[1] |= 0x01000000;
+      }
+    } else {
+      ks = NULL;
     }
   } else {
-    ia = ns-1-idatum->s[1].index;
-    ib = ns-1-idatum->s[0].index;    
-    j1 = idatum->s[1].j;
-    j2 = idatum->s[0].j;
-    q1 = idatum->s[1].nq_bra;
-    q2 = idatum->s[0].nq_bra;
-    w1 = FactorNR(c, idatum->s[1].n, idatum->s[1].kappa);
-    if (w1 > 0) q1 = w1;
-    k1 = OrbitalIndex(idatum->s[0].n, idatum->s[0].kappa, 0.0);
-    k0 = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
-    if (ks) {
-      PackNRShell(ks, idatum->s[1].n, idatum->s[1].kl, q1);
-      if (idatum->s[1].kappa > 0)  ks[0] |= 0x01000000;
-      PackNRShell(ks+1, idatum->s[0].n, idatum->s[0].kl, q2);
-      if (idatum->s[0].kappa > 0)  ks[1] |= 0x01000000;
+    ia = ns-1-s[1].index;
+    ib = ns-1-s[0].index;    
+    j1 = s[1].j;
+    j2 = s[0].j;
+    q1 = s[1].nq_bra;
+    q2 = s[0].nq_bra;
+    w2 = FactorNR(c, s[1].n, s[1].kappa);
+    if (w2 > 0) q1 = w2;
+    if (s[0].nr < 2 && s[1].nr < 2) {
+      k1 = OrbitalIndex(s[0].n, s[0].kappa, 0.0);
+      k0 = OrbitalIndex(s[1].n, s[1].kappa, 0.0);
+      if (ks) {
+	PackNRShell(ks, s[1].n, s[1].kl, q1);
+	if (s[1].kappa > 0)  ks[0] |= 0x01000000;
+	PackNRShell(ks+1, s[0].n, s[0].kl, q2);
+	if (s[0].kappa > 0)  ks[1] |= 0x01000000;
+      }
+    } else {
+      ks = NULL;
     }
   }
 
-  if (m == 0) {
-    m = abs(j1-j2)/2;
-    if (m == 0) m += 1;
-    if (IsEven(p1+p2+m)) m = -m;
-  }
-  m2 = 2*abs(m);
-  if ((_uta_e1 && m != -1) || !Triangle(j1, j2, m2)) {
-    free(idatum->bra);    
-    free(idatum);
-    return 0;
-  }
-
-  rx->energy = te;
-  if (ks) {
-    rx->energy += ConfigEnergyShift(ns, idatum->bra, ia, ib, m2);
-    r = ConfigEnergyVariance(ns, idatum->bra, ia, ib, m2);
-    rx->sdev = sqrt(r);
+  if (s[0].nr == 2) {
+    if (s[0].kappa >= 0) {
+      i1 = -(1+s[0].kappa/2);
+      i0 = -(i1+1);
+      u0 = i0;
+      w0 = 2*(s[0].kappa+1.0);
+    } else {
+      i0 = 0;
+      i1 = 2*s[0].n-2;
+      u0 = -1;
+      w0 = 2*s[0].n*s[0].n;
+    }
   } else {
-    rx->sdev = 0.0;
+    i0 = s[0].kappa;
+    i1 = s[0].kappa;
+    u0 = i0;
+    w0 = 2*abs(s[0].kappa);
   }
-  rx->sci = 1.0;
-  
-  aw = FINE_STRUCTURE_CONST * rx->energy;
-  if (aw < 0.0) {
-    free(idatum->bra);
-    free(idatum);
-    return 0;
-  }
-  
-  if (transition_option.mode == M_NR && m != 1) {
-    r = MultipoleRadialNR(m, k0, k1, transition_option.gauge);
+  if (s[1].nr == 2) {
+    if (s[1].kappa >= 0) {
+      t1 = -(1+s[1].kappa/2);
+      t0 = -(t1+1);
+      u1 = t0;
+      w1 = 2*(s[1].kappa+1.0);
+    } else {
+      t0 = 0;
+      t1 = 2*s[1].n-2;
+      u1 = -1;
+      w1 = 2*s[1].n*s[1].n;
+    }
   } else {
-    r = MultipoleRadialFR(aw, m, k0, k1, transition_option.gauge);
+    t0 = s[1].kappa;
+    t1 = s[1].kappa;
+    u1 = t0;
+    w1 = 2*abs(s[1].kappa);
   }
-  *strength = sqrt(q1*(j2+1.0-q2)/((j1+1.0)*(j2+1.0)))*r;
-  if (m0 == 0) {
-    *strength = OscillatorStrength(m, rx->energy, *strength, &r);
+  if (s[0].nr < 2 && s[1].nr < 2) {
+    if (p1 < 0) {
+      p1 = s[0].kl/2;
+    }
+    if (p2 < 0) {
+      p2 = s[1].kl/2;
+    }
+    m = TRMultipoleUTA0I(strength, rx, idatum, m0, k0, k1, p1, p2, j1, j2,
+			 ns, ks, ia, ib, te, q1, q2, w0, w1);
+  } else {
+    m = 0;
+    u = u1;
+    for (i = abs(i0); i <= abs(i1); i++) {
+      GetJLFromKappa(u0, &j1, &p1);
+      k0 = OrbitalIndex(s[0].n, u0, 0.0);
+      p1 /= 2;
+      u1 = u;
+      for (t = abs(t0); t <= abs(t1); t++) {
+	GetJLFromKappa(u1, &j2, &p2);
+	k1 = OrbitalIndex(s[1].n, u1, 0.0);
+	p2 /= 2;
+	m1 = TRMultipoleUTA0I(&r, rx, idatum, m0, k0, k1, p1, p2, j1, j2,
+			      ns, ks, ia, ib, te, q1, q2, w0, w1);
+	if (m1) {
+	  *strength += r;
+	  if (m == 0) m = m1;
+	  else if (m < 0) {
+	    if (m1 < 0 && m1 > m) m = m1;
+	  } else {
+	    if (m1 < 0) m = m1;
+	    else if (m1 < m) m = m1;
+	  }
+	}
+	if (u1 < 0) u1 = -u1;
+	else u1 = -(u1+1);
+      }
+      if (u0 < 0) u0 = -u0;
+      else u0 = -(u0+1);
+    }    
   }
   free(idatum->bra);
   free(idatum);
-  if (m == -1) {
+  if (ks && m == -1) {
     *pk0 = k0;
     *pk1 = k1;
   }
@@ -285,9 +388,11 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
 		  lev2->energy-lev1->energy)) return 0;
   p1 = lev1->pj;
   p2 = lev2->pj;
-  if (m > 0 && IsEven(p1+p2+m)) return 0;
-  if (m < 0 && IsOdd(p1+p2+m)) return 0;
-
+  if (p1 >= 0 && p2 >= 0) {
+    if (m > 0 && IsEven(p1+p2+m)) return 0;
+    if (m < 0 && IsOdd(p1+p2+m)) return 0;
+  }
+  
   te = lev2->energy - lev1->energy;
   if (te <= 0) return 0;
 
@@ -339,6 +444,7 @@ int TRMultipoleUTA(double *strength, TR_EXTRA *rx,
     rx->sci = 1.0;
     return mk;
   }
+  CONFIG *cc = GetConfigFromGroup(lev2->iham, lev2->pb);
   if (lev1->n_basis == 0 && lev2->n_basis == 0) {
     k = TRMultipoleUTA0(strength, rx, m, lev1->iham, lev2->iham,
 			lev1->pb, lev2->pb, te, p1, p2, ks, pk0, pk1);
@@ -1172,7 +1278,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	    ir++;
 	  }
 	}
-	if (wp > 0 && wm > 0.0 && ir0 >= 0) {
+	if (wp > 0 && wm > 0.0 && ir0 >= 0 && c0->nr < 1 && c1->nr < 1) {
 	  nrs0 = 0;
 	  nrs1 = 0;
 	  for (i = 0; i < c0->nnrs; i++) {

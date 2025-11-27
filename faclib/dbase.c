@@ -242,7 +242,7 @@ int IsUTA(void) {
 
 int TrueUTA(int n) {
   if (cuta <= 0) return 0;
-  if (n < cuta/10) return 0;
+  if (n > 0 && n < cuta/10) return 0;
   return 1;
 }
 
@@ -809,8 +809,8 @@ void PrintTransReport(int nproc, double t0, int *ntrans,
   if (nt > 0) mdta = mdt/nt;
   if (n1 > 0) mdt1 = mdt/n1;
   if (n0 > 0) mdt0 = mdt/n0;
-  MPrintf(md, "%s %06d: %09d(%09d,%09d)trans in %8.2Es, %8.2E(%8.2E,%8.2E)ms/tran @ %11.4Es\n",
-	  sid, ip, ((int)(nt+0.25)), n0, n1, dt, mdta, mdt0, mdt1, ClockNow(0));
+  MPrintf(md, "%s %06d: %09d(%09d,%09d)trans in %8.2Es, %8.2E(%8.2E,%8.2E)ms/tran @ %11.4Es m=%11.4E\n",
+	  sid, ip, ((int)(nt+0.25)), n0, n1, dt, mdta, mdt0, mdt1, ClockNow(0), TotalSize());
   if (ip < 0) free(ntrans);
 }
   

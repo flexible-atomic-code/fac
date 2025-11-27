@@ -71,8 +71,6 @@ static double gos2[NKINT];
 static double gost[NKINT];
 static double gosint[NKINT];
 static double xborn = XBORN;
-static double xborn0 = XBORN0;
-static double xborn1 = XBORN1;
 static double eborn = EBORN;
 static double _pborn = 0.5;
 #pragma omp threadprivate (kgrid, log_kgrid, kint, log_kint, gos1, gos2, gost)
@@ -100,6 +98,7 @@ static int _topup = 2;
 static int maxcecache = MAXCECACHE;
 static CECACHE cecache = {0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL};
 
+static MULTI *qku_array;
 static MULTI *pk_array;
 static MULTI *qk_array;
 static MULTI *qkm_array;
@@ -300,21 +299,11 @@ int SetCEQkMode(int m, double tol) {
   return 0;
 }
 
-int SetCEBorn(double eb, double x, double x1, double x0) {
+int SetCEBorn(double eb, double x) {
   if (x > 1e30) {
     xborn = XBORN;
   } else {
     xborn = x;
-  }
-  if (x1 > 1e30) {
-    xborn1 = XBORN1;
-  } else {
-    xborn1 = x1;
-  }
-  if (x0 > 0) {
-    xborn0 = x0;
-  } else {
-    xborn0 = XBORN0;
   }
   if (eb > 0) {
     eborn = eb;
@@ -383,9 +372,12 @@ int SetCEEGrid(int n, double emin, double emax, double eth) {
   eth = (eth + bte)/bms;
   n_egrid = SetEGrid(egrid, log_egrid, n, emin, emax, eth);
   if (uta_tegrid) {
-    for (i = 0; i < n_egrid; i++) {
-      egrid[i] /= eth;
-      log_egrid[i] = log(egrid[i]);
+    double te = fabs(eth);
+    if (te > 1e-20) {
+      for (i = 0; i < n_egrid; i++) {
+	egrid[i] /= te;
+	log_egrid[i] = log(egrid[i]);
+      }
     }
   }
   return n_egrid;
@@ -414,9 +406,12 @@ int SetUsrCEEGrid(int n, double emin, double emax, double eth) {
   eth = (eth + bte)/bms;
   n_usr = SetEGrid(usr_egrid, log_usr, n, emin, emax, eth);
   if (uta_tegrid) {
-    for (i = 0; i < n_usr; i++) {
-      usr_egrid[i] /= eth;
-      log_usr[i] = log(usr_egrid[i]);
+    double te = fabs(eth);
+    if (te > 1e-20) {
+      for (i = 0; i < n_usr; i++) {
+	usr_egrid[i] /= te;
+	log_usr[i] = log(usr_egrid[i]);
+      }
     }
   }
   return n_usr;
@@ -612,7 +607,6 @@ int CERadialPk(CEPK **pk, int ie, int k0, int k1, int k, int trylock) {
   } else {
     kl_max = pw_scratch.max_kl;
   }
-  
   js[0] = 0;
   ks[0] = k0;
   js[2] = 0;
@@ -1129,9 +1123,10 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
   index[4] = k3;
   LOCK *lock = NULL;
   int locked = 0;
+  double *pp = NULL;
+  p = NULL;
   p = (double **) MultiSet(qk_array, index, NULL, &lock,
 			   InitPointerData, FreeExcitationQkData);
-  double *pp;
 #pragma omp atomic read
   pp = *p;
   if (lock && !pp) {
@@ -1148,6 +1143,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
 #pragma omp atomic read
     pp = *p;
   }
+
   if (pp) {
     if (locked) ReleaseLock(lock);
     return pp;
@@ -1312,7 +1308,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
 		b = -1.0;
 	      } else {
 		if (uta_tegrid) {
-		  b = (GetCoulombBethe(0, 0, 0, k/2, 0))[nklp];
+		  b = (GetCoulombBethe(0, 0, ie, k/2, 0))[nklp];
 		} else {
 		  b = (GetCoulombBethe(0, ite, ie, k/2, 0))[nklp];
 		}
@@ -1381,7 +1377,7 @@ double *CERadialQkTable(int k0, int k1, int k2, int k3, int k, int trylock) {
 #pragma omp flush
   }
   if (locked) ReleaseLock(lock);
-  return *p;
+  return pd;
 }
 
 double *CERadialQkMSubTable(int k0, int k1, int k2, int k3, int k, int kp,
@@ -1928,16 +1924,123 @@ void RelativisticCorrection(int m, double *s, double *p, double te, double b) {
   }
 }
 
+int CollisionStrengthUTA0I(double *qkc, double *e, double *bethe0,
+			   int k0, int k1, int j1, int j2, int p1, int p2,
+			   int q1, int q2, double w0, double w1) {
+  int ie, type, kmin, kmax, n, kmt, i, k, ty;
+  double rq[(MAXNE+1)], d, qw1, qw2, r;
+  int nd = 1000, done[1000];
+  int index[2];
+  ORBITAL *orb0, *orb1;
+
+  for (ie = 0; ie < n_egrid1; ie++) {
+    qkc[ie] = 0.0;
+  }
+  *bethe0 = 0.0;
+  type = -1;
+
+  index[0] = k0;
+  index[1] = k1;    
+  LOCK *lock = NULL;
+  int locked = 0;
+  double *pp = NULL, **p = NULL;
+  if (uta_tegrid) {
+    p = (double **) MultiSet(qku_array, index, NULL, &lock, InitPointerData, FreeExcitationQkData);
+#pragma omp atomic read
+    pp = *p;
+    if (lock && !pp) {
+      SetLock(lock);
+      locked = 1;
+#pragma omp atomic read
+      pp = *p;    
+    }
+  }
+  if (pp) {
+    for (ie = 0; ie < n_egrid1; ie++) {
+      qkc[ie] = pp[ie];
+      *bethe0 = pp[n_egrid1];
+      type = (int)pp[n_egrid1+1];
+    }
+    if (locked) ReleaseLock(lock);
+  } else {    
+    kmin = abs(j1-j2);
+    kmax = j1 + j2;
+    while (1) {
+      n = nd;
+      kmt = (n-1)*2 + kmin;
+      if (kmt > kmax) {
+	kmt = kmax;
+	n = (kmt-kmin)/2 + 1;
+      }
+      for (i = 0; i < n; i++) done[i] = 0;
+      while (n > 0) {
+	for (k = kmin; k <= kmt; k += 2) {
+	  i = (k-kmin)/2;
+	  if (done[i]) continue;
+	  ty = CERadialQk(rq, *e, k0, k1, k0, k1, k, 1);
+	  if (ty == -9999) {
+	    continue;
+	  }
+	  done[i] = 1;
+	  n--;
+	  if (ty > type) type = ty;
+	  for (ie = 0; ie < n_egrid1; ie++) {
+	    qkc[ie] += rq[ie]/(k+1.0);	  
+	  }
+	}
+      }
+      if (kmt >= kmax) break;
+      kmin = kmt + 2;
+    }
+    if (type >= 0) {
+      r = 0.0;
+      if (Triangle(j1, j2, 2) && IsOdd(p1+p2)) {
+	r = MultipoleRadialNR(-1, k0, k1, G_BABUSHKIN);
+      }
+      if (fabs(r) > 0) {
+	r = OscillatorStrength(-1, *e, r, NULL);
+	*bethe0 = 2.0*r/(*e);
+      } else {
+	*bethe0 = 0.0;
+      }
+    }
+    if (uta_tegrid && p) {
+      pp = (double *) malloc(sizeof(double)*(n_egrid1+2));
+      for (ie = 0; ie < n_egrid1; ie++) {
+	pp[ie] = qkc[ie];
+      }
+      pp[n_egrid1] = *bethe0;
+      pp[n_egrid1+1] = type;
+#pragma omp atomic write
+      *p = pp;
+#pragma omp flush
+      if (locked) ReleaseLock(lock);
+    }
+  }
+  /*
+  qw1 = q1 * (j1+1.0)/w0;
+  qw2 = q2 * (j2+1.0)/w1;
+  d = qw1*(j2+1.0-qw2)/((j1+1.0)*(j2+1.0));
+  */
+  d = q1*(w1-q2)/(w0*w1);
+  for (ie = 0; ie < n_egrid1; ie++) {
+    qkc[ie] *= d;
+  }
+  *bethe0 *= d;
+  
+  return type;
+}
+
 int CollisionStrengthUTA0(double *qkc, double *e, double *bethe0,
 			  int kg0, int kg1, int kc0, int kc1,
 			  int p1, int p2) {  
   INTERACT_DATUM *idatum;
-  double rq[(MAXNE+1)], r, d;
-  int type, ie, ns, j1, j2, k0, k1, q1, w1, q2;
-  int i, n, k, kmin, kmax, kmt, ty;
-  int nd = 1000, done[1000];
+  INTERACT_SHELL *s;
+  double rq[(MAXNE+1)], be0, r, d, w0, w1;
+  int type, ty, ie, ns, j1, j2, k0, k1, q1, w2, q2;
+  int i0, i1, i, t0, t1, t, u0, u1, u;
   CONFIG *c;
-  
+
   for (ie = 0; ie < n_egrid1; ie++) {
     qkc[ie] = 0.0;
   }
@@ -1949,76 +2052,199 @@ int CollisionStrengthUTA0(double *qkc, double *e, double *bethe0,
     free(idatum);
     return -1;
   }
+  *bethe0 = 0.0;
+  s = idatum->s;
   c = GetConfigFromGroup(kg0, kc0);
-  if (idatum->s[0].nq_bra > idatum->s[0].nq_ket) {
-    j1 = idatum->s[0].j;
-    j2 = idatum->s[1].j;
-    q1 = idatum->s[0].nq_bra;
-    q2 = idatum->s[1].nq_bra;
-    w1 = FactorNR(c, idatum->s[0].n, idatum->s[0].kappa);
-    if (w1 > 0) q1 = w1;
-    k0 = OrbitalIndex(idatum->s[0].n, idatum->s[0].kappa, 0.0);
-    k1 = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
-  } else {
-    j1 = idatum->s[1].j;
-    j2 = idatum->s[0].j;
-    q1 = idatum->s[1].nq_bra;
-    q2 = idatum->s[0].nq_bra;
-    w1 = FactorNR(c, idatum->s[1].n, idatum->s[1].kappa);
-    if (w1 > 0) q1 = w1;
-    k1 = OrbitalIndex(idatum->s[0].n, idatum->s[0].kappa, 0.0);
-    k0 = OrbitalIndex(idatum->s[1].n, idatum->s[1].kappa, 0.0);
-  }
-    
-  type = -1;
-  kmin = abs(j1-j2);
-  kmax = j1 + j2;
-  while (1) {
-    n = nd;
-    kmt = (n-1)*2 + kmin;
-    if (kmt > kmax) {
-      kmt = kmax;
-      n = (kmt-kmin)/2 + 1;
+  if (s[0].nq_bra > s[0].nq_ket) {
+    j1 = s[0].j;
+    j2 = s[1].j;
+    q1 = s[0].nq_bra;
+    q2 = s[1].nq_bra;
+    w2 = FactorNR(c, s[0].n, s[0].kappa);
+    if (w2 > 0) q1 = w2;
+    if (s[0].nr < 2 && s[1].nr < 2) {
+      k0 = OrbitalIndex(s[0].n, s[0].kappa, 0.0);
+      k1 = OrbitalIndex(s[1].n, s[1].kappa, 0.0);
     }
-    for (i = 0; i < n; i++) done[i] = 0;
-    while (n > 0) {
-      for (k = kmin; k <= kmt; k += 2) {
-	i = (k-kmin)/2;
-	if (done[i]) continue;
-	ty = CERadialQk(rq, *e, k0, k1, k0, k1, k, 1);
-	if (ty == -9999) {
-	  continue;
-	}
-	done[i] = 1;
-	n--;
+  } else {
+    j1 = s[1].j;
+    j2 = s[0].j;
+    q1 = s[1].nq_bra;
+    q2 = s[0].nq_bra;
+    w2 = FactorNR(c, s[1].n, s[1].kappa);
+    if (w2 > 0) q1 = w2;
+    if (s[0].nr < 2 && s[1].nr < 2) {
+      k1 = OrbitalIndex(s[0].n, s[0].kappa, 0.0);
+      k0 = OrbitalIndex(s[1].n, s[1].kappa, 0.0);
+    }
+  }
+
+  if (s[0].nr == 2) {
+    if (s[0].kappa >= 0) {
+      i1 = -(1+s[0].kappa/2);
+      i0 = -(i1+1);
+      u0 = i0;
+      w0 = 2*(s[0].kappa+1.0);
+    } else {
+      i0 = 0;
+      i1 = 2*s[0].n-2;
+      u0 = -1;
+      w0 = 2*s[0].n*s[0].n;
+    }
+  } else {
+    i0 = s[0].kappa;
+    i1 = s[0].kappa;
+    u0 = i0;
+    w0 = 2*abs(s[0].kappa);
+  }
+  if (s[1].nr == 2) {
+    if (s[1].kappa >= 0) {
+      t1 = -(1+s[1].kappa/2);
+      t0 = -(t1+1);
+      u1 = t0;
+      w1 = 2*(s[1].kappa+1.0);
+    } else {
+      t0 = 0;
+      t1 = 2*s[1].n-2;
+      u1 = -1;
+      w1 = 2*s[1].n*s[1].n;
+    }
+  } else {
+    t0 = s[1].kappa;
+    t1 = s[1].kappa;
+    u1 = t0;
+    w1 = 2*abs(s[1].kappa);
+  }
+  if (s[0].nr < 2 && s[1].nr < 2) {
+    if (p1 < 0) {
+      p1 = s[0].kl/2;
+    }
+    if (p2 < 0) {
+      p2 = s[1].kl/2;
+    }
+    type = CollisionStrengthUTA0I(qkc, e, bethe0, k0, k1, j1, j2,
+				  p1, p2, q1, q2, w0, w1);
+  } else {
+    type = -1;
+    u = u1;
+    for (i = abs(i0); i <= abs(i1); i++) {
+      GetJLFromKappa(u0, &j1, &p1);
+      p1 /= 2;
+      k0 = OrbitalIndex(s[0].n, u0, 0.0);
+      u1 = u;
+      for (t = abs(t0); t <= abs(t1); t++) {
+	GetJLFromKappa(u1, &j2, &p2);
+	p2 /= 2;
+	k1 = OrbitalIndex(s[1].n, u1, 0.0);
+	ty = CollisionStrengthUTA0I(rq, e, &be0, k0, k1, j1, j2,
+				    p1, p2, q1, q2, w0, w1);
 	if (ty > type) type = ty;
 	for (ie = 0; ie < n_egrid1; ie++) {
-	  qkc[ie] += rq[ie]/(k+1.0);	  
+	  qkc[ie] += rq[ie];
 	}
+	if (be0 > 0) {
+	  *bethe0 += be0;
+	}
+	if (u1 < 0) u1 = -u1;
+	else u1 = -(u1+1);
       }
-    }
-    if (kmt >= kmax) break;
-    kmin += 2;
-  }
-  d = q1*(j2+1.0-q2)/((j1+1.0)*(j2+1.0));
-  for (ie = 0; ie < n_egrid1; ie++) {
-    qkc[ie] *= d;
-  }
-  if (type >= 0) {
-    r = 0.0;
-    if (Triangle(j1, j2, 2) && IsOdd(p1+p2)) {
-      r = MultipoleRadialNR(-1, k0, k1, G_BABUSHKIN);
-    }
-    if (fabs(r) > 0) {
-      r = OscillatorStrength(-1, *e, r, NULL);
-      *bethe0 = d*2.0*r/(*e);
-    } else {
-      *bethe0 = 0.0;
+      if (u0 < 0) u0 = -u0;
+      else u0 = -(u0+1);
     }
   }
+ 
   free(idatum->bra);
   free(idatum);
   return type;
+}
+
+void PrepCEUTA(int nmin0, int nmax0, int nmin1, int nmax1, int kmin, int kmax) {
+  double w, ea, wa, e, z;
+  int n0, n1, km2, km0, km1, k0, k1, j0, j1, i0, i1, i;
+  
+  SetCETEGrid(-1, 0.0, 0.0);
+  SetCEEGrid(6, egrid_min, egrid_max, -1.0);
+  n_egrid1 = n_egrid + 1;
+  egrid[n_egrid] = EBORN;
+  egrid_type = 1;
+  pw_type = 0;
+  usr_egrid_type = 1;
+  if (pw_scratch.nkl == 0) {
+    SetCEPWGrid(0, NULL, NULL);
+  }
+  z = GetResidualZ();
+  km2 = 2*kmin;
+  for (n0 = nmin0; n0 <= nmax0; n0++) {
+    km0 = 2*Min(kmax,n0-1);
+    for (n1 = Max(n0,nmin1); n1 <= nmax1; n1++) {
+      km1 = 2*Min(kmax,n1-1);
+      ea = 0.0;
+      for (k0 = km2; k0 <= km0; k0 += 2) {
+	for (k1 = km2; k1 <= km1; k1 += 2) {
+	  for (j0 = k0-1; j0 <= k0+1; j0 += 2) {
+	    if (j0 < 0) continue;
+	    for (j1 = k1-1; j1 <= k1+1; j1 += 2) {
+	      if (j1 < 0) continue;
+	      i0 = OrbitalIndex(n0, GetKappaFromJL(j0, k0), 0.0);
+	      i1 = OrbitalIndex(n1, GetKappaFromJL(j1, k1), 0.0);
+	      e = fabs(GetOrbital(i1)->energy - GetOrbital(i0)->energy);
+	      e = Max(e, _minte);
+	      w = (j0+1.0)*(j1+1.0);
+	      ea += e*w;
+	      wa += w;
+	    }
+	  }
+	}
+      }
+      ea /= wa;
+      for (i = 0; i < n_egrid; i++) {
+	egrid[i] *= ea;
+      }
+      e = 0.0;
+      tegrid[0] = ea;
+      PrepCoulombBethe(1, 1, n_egrid, z, &e, tegrid, egrid, pw_scratch.nkl, pw_scratch.kl, 0);
+      for (i = 0; i < n_egrid; i++) {
+	egrid[i] /= ea;
+      }
+      tegrid[0] = -1;
+      ResetWidMPI();
+#pragma omp parallel default(shared) private(i0,i1,k0,k1,j0,j1,e)
+      {
+	int p0, p1, skip;
+	double rq[MAXNE+1], be0;
+	for (k0 = km2; k0 <= km0; k0 += 2) {
+	  for (k1 = km2; k1 <= km1; k1 += 2) {
+	    for (j0 = k0-1; j0 <= k0+1; j0 += 2) {
+	      if (j0 < 0) continue;
+	      for (j1 = k1-1; j1 <= k1+1; j1 += 2) {
+		if (j1 < 0) continue;
+		if (n0 == n1 && k0 == k1 && j0 == j1) continue;
+		skip = SkipMPI();
+		if (skip) continue;
+		i0 = OrbitalIndex(n0, GetKappaFromJL(j0, k0), 0.0);
+		i1 = OrbitalIndex(n1, GetKappaFromJL(j1, k1), 0.0);
+		e = GetOrbital(i1)->energy - GetOrbital(i0)->energy;
+		if (_progress_report != 0) {
+		  MPrintf(-1, "PrepCEUTA: %d %d %d %d %d %d %g\n", n0, k0, n1, k1, i0, i1, e);
+		}
+		p0 = k0/2;
+		p1 = k1/2;
+		if (e > 0) {
+		  CollisionStrengthUTA0I(rq, &e, &be0, i0, i1, j0, j1, p0, p1, 1, 0, j0+1., j1+1.);
+		} else if (e < 0) {
+		  e = -e;
+		  CollisionStrengthUTA0I(rq, &e, &be0, i1, i0, j1, j0, p1, p0, 1, 0, j1+1., j0+1.);
+		}
+	      }
+	    }
+	  }
+	}
+      }      
+      ReinitRadial(2);
+      FreeExcitationQk();
+    }
+  }  
+  ReinitExcitation(1);
 }
 
 int CollisionStrengthUTA(double *qkt, double *params,
@@ -2134,7 +2360,6 @@ int CollisionStrengthUTA(double *qkt, double *params,
       be0 += wb*ibe0;
     }    
   }
-
   bte = te;
   if (type >= 0) {
     if (fabs(be0) > 0.0) {
@@ -3568,7 +3793,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     lev2 = GetLevel(up[j]);
     if (lev2->n_basis == 0) {
       cfg = GetConfigFromGroup(lev2->iham, lev2->pb);
-      k = OrbitalIndex(cfg->shells[0].n, cfg->shells[0].kappa, 0.0);
+      k = OrbitalIndex(cfg->shells[0].n, GetKappa(&cfg->shells[0]), 0.0);
       e = -(GetOrbital(k)->energy);
       if (e < ei) ei = e;
     } else {
@@ -3578,7 +3803,7 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
 	k = st->kcfg;
       } else {
 	cfg = GetConfig(st);
-	k = OrbitalIndex(cfg->shells[0].n, cfg->shells[0].kappa, 0.0);
+	k = OrbitalIndex(cfg->shells[0].n, GetKappa(&cfg->shells[0]), 0.0);
       }
       e = -(GetOrbital(k)->energy);
       if (e < ei) ei = e;
@@ -3710,21 +3935,29 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
       rmin = egrid_min/e;
       rmax = egrid_max/e;
     }
-    emin = rmin*e;
-    te0 = emax;
-    if (te0 > ei) {
-      emax = rmax*te0;
-      //ce_hdr.te0 = te0;
+    if (auta) {
+      emin = rmin*ce_hdr.te0;
+      emax = rmax*ce_hdr.te0;
     } else {
-      emax = rmax*te0*3.0;
-      //ce_hdr.te0 = te0;
+      emin = rmin*e;
+      te0 = emax;
+      if (te0 > ei) {
+	emax = rmax*te0;
+	//ce_hdr.te0 = te0;
+      } else {
+	emax = rmax*te0*3.0;
+	//ce_hdr.te0 = te0;
+      }
     }
-    
     if (n_egrid0 == 0) {
       n_egrid = 6;
     }
     if (!e_set) {
-      SetCEEGrid(n_egrid, emin, emax, ce_hdr.te0);
+      if (auta) {
+	SetCEEGrid(n_egrid, emin, emax, -ce_hdr.te0);
+      } else {
+	SetCEEGrid(n_egrid, emin, emax, ce_hdr.te0);
+      }
     }
     if (n_usr0 <= 0) {
       SetUsrCEEGridDetail(n_egrid, egrid);
@@ -3739,16 +3972,20 @@ int SaveExcitation(int nlow, int *low, int nup, int *up, int msub, char *fn) {
     }
     n_egrid1 = n_egrid + 1;
     ie = n_egrid;
-    if (eborn > 0.0) {
-      if (uta_tegrid) {
-	egrid[ie] = eborn;
-      } else {
-	egrid[ie] = Max(te0,ei)*eborn;
-      }
+    if (auta) {
+      egrid[ie] = EBORN;
     } else {
-      egrid[ie] = -eborn;
+      if (eborn > 0.0) {
+	if (uta_tegrid) {
+	  egrid[ie] = eborn;
+	} else {
+	  egrid[ie] = Max(te0,ei)*eborn;
+	}
+      } else {
+	egrid[ie] = -eborn;
+      }
+      if (egrid[ie] < 2*egrid[ie-1]) egrid[ie] = 2*egrid[ie-1];
     }
-    if (egrid[ie] < 2*egrid[ie-1]) egrid[ie] = 2*egrid[ie-1];
     if (qk_mode == QK_FIT && n_egrid <= NPARAMS) {
       printf("n_egrid must > %d to use QK_FIT mode\n", NPARAMS);
       return -1;
@@ -4525,8 +4762,12 @@ int FreeExcitationQk(void) {
   return 0;
 }
 
+int FreeExcitationQkU(void) {
+  MultiFreeData(qku_array, FreeExcitationQkData);
+}
   
 int InitExcitation(void) {
+  int blocks0[] = {MULTI_BLOCK2, MULTI_BLOCK2};
   int blocks1[] = {MULTI_BLOCK3,MULTI_BLOCK3,MULTI_BLOCK3};
   int blocks2[] = {MULTI_BLOCK5,MULTI_BLOCK5,MULTI_BLOCK5,
 		   MULTI_BLOCK5,MULTI_BLOCK5};
@@ -4541,6 +4782,10 @@ int InitExcitation(void) {
   qk_array = (MULTI *) malloc(sizeof(MULTI));
   MultiInit(qk_array, sizeof(double *), ndim, blocks2, "qk_array");
 
+  ndim = 2;
+  qku_array = (MULTI *) malloc(sizeof(MULTI));
+  MultiInit(qku_array, sizeof(double *), ndim, blocks0, "qku_array");
+  
   if (fpw) {
     fclose(fpw);
     fpw = NULL;
@@ -4606,19 +4851,21 @@ void SetOptionExcitation(char *s, char *sp, int ip, double dp) {
     return;
   }
   if (strcmp("excitation:xborn", s) == 0) {
-    xborn = dp;
-    return;
-  }
-  if (strcmp("excitation:xborn0", s) == 0) {
-    xborn0 = dp;
-    return;
-  }
-  if (strcmp("excitation:xborn1", s) == 0) {
-    xborn1 = dp;
+    if (dp > 1e30) {
+      xborn = XBORN;
+    } else {
+      xborn = dp;
+    }
     return;
   }
   if (strcmp("excitation:eborn", s) == 0) {
-    eborn = dp/HARTREE_EV;
+    if (dp > 0) {
+      eborn = dp;
+    } else if (dp < 0) {
+      eborn = dp/HARTREE_EV;
+    } else {
+      eborn = EBORN;
+    }
     return;
   }
   if (strcmp("excitation:pborn", s) == 0) {

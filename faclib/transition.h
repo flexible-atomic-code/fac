@@ -34,6 +34,10 @@ void SetTransitionMaxM(int m);
 void SetTransitionOptions(int gauge, int mode, int max_e, int max_m);
 int GetTransitionGauge(void);
 int GetTransitionMode(void);
+int TRMultipoleUTA0I(double *strength, TR_EXTRA *rx, INTERACT_DATUM *idatum,
+		     int m0, int k0, int k1, int p1, int p2, int j1, int j2,
+		     int ns, int *ks, int ia, int ib,
+		     double te, int q1, int q2, double w0, double w1);
 int TRMultipole(double *strength, double *energy,
 		int m, int low, int up, int *pk0, int *pk1);
 int TRMultipoleEB(double *strength, double *energy,

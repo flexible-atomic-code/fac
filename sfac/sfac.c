@@ -2275,28 +2275,17 @@ static int PSetCEPWGrid(int argc, char *argv[], int argt[],
 
 static int PSetCEBorn(int argc, char *argv[], int argt[],
 		      ARRAY *variables) {
-  double eb, x, x1, x0;
+  double eb, x;
 
   if (argc < 1 || argc > 4) return -1;
   if (argt[0] != NUMBER) return -1;
-  x0 = XBORN0;
-  x1 = XBORN1;
   x = XBORN;
   if (argc > 1) {
     if (argt[1] != NUMBER) return -1;
     x = atof(argv[1]);
-    if (argc > 2) {
-      if (argt[2] != NUMBER) return -1;
-      x1 = atof(argv[2]);
-      if (argc > 3) {
-        if (argt[3] != NUMBER) return -1;
-        x0 = atof(argv[3]);
-      }
-    }
   }
-
   eb = atof(argv[0]);
-  SetCEBorn(eb, x, x1, x0);
+  SetCEBorn(eb, x);
   
   return 0;
 }
@@ -5499,6 +5488,72 @@ static int PGetGroundProp(int argc, char *argv[], int argt[],
   return 0;
 }
 
+static int PPrepCEUTA(int argc, char *argv[], int argt[],
+		      ARRAY *variables) {
+  int nmin0, nmax0, nmin1, nmax1, kmin, kmax;
+
+  if (argc != 6) return -1;
+
+  nmin0 = atoi(argv[0]);
+  nmax0 = atoi(argv[1]);
+  nmin1 = atoi(argv[2]);
+  nmax1 = atoi(argv[3]);
+  kmin = atoi(argv[4]);
+  kmax = atoi(argv[5]);
+  PrepCEUTA(nmin0, nmax0, nmin1, nmax1, kmin, kmax);
+
+  return 0;
+}
+
+static int PPrepCIUTA(int argc, char *argv[], int argt[],
+		      ARRAY *variables) {
+  int nmin, nmax, kmin, kmax;
+
+  if (argc != 4) return -1;
+
+  nmin = atoi(argv[0]);
+  nmax = atoi(argv[1]);
+  kmin = atoi(argv[2]);
+  kmax = atoi(argv[3]);
+  PrepCIUTA(nmin, nmax, kmin, kmax);
+
+  return 0;
+}
+
+static int PPrepRRUTA(int argc, char *argv[], int argt[],
+		      ARRAY *variables) {
+  int nmin, nmax, kmin, kmax;
+
+  if (argc != 4) return -1;
+
+  nmin = atoi(argv[0]);
+  nmax = atoi(argv[1]);
+  kmin = atoi(argv[2]);
+  kmax = atoi(argv[3]);
+  PrepRRUTA(nmin, nmax, kmin, kmax);
+
+  return 0;
+}
+
+static int PPrepAIUTA(int argc, char *argv[], int argt[],
+		      ARRAY *variables) {
+  int nmin0, nmax0, nmin1, nmax1, nmin2, nmax2, kmin, kmax;
+
+  if (argc != 8) return -1;
+
+  nmin0 = atoi(argv[0]);
+  nmax0 = atoi(argv[1]);
+  nmin1 = atoi(argv[2]);
+  nmax1 = atoi(argv[3]);
+  nmin2 = atoi(argv[4]);
+  nmax2 = atoi(argv[5]);
+  kmin = atoi(argv[6]);
+  kmax = atoi(argv[7]);
+  PrepAIUTA(nmin0, nmax0, nmin1, nmax1, nmin2, nmax2, kmin, kmax);
+
+  return 0;
+}
+
 static METHOD methods[] = {
   {"GeneralizedMoment", PGeneralizedMoment, METH_VARARGS},
   {"SlaterCoeff", PSlaterCoeff, METH_VARARGS},
@@ -5730,6 +5785,10 @@ static METHOD methods[] = {
   {"FillClosedShell", PFillClosedShell, METH_VARARGS},
   {"DiracCoulomb", PDiracCoulomb, METH_VARARGS},
   {"GetGroundProp", PGetGroundProp, METH_VARARGS},
+  {"PrepCEUTA", PPrepCEUTA, METH_VARARGS},
+  {"PrepCIUTA", PPrepCIUTA, METH_VARARGS},
+  {"PrepRRUTA", PPrepRRUTA, METH_VARARGS},
+  {"PrepAIUTA", PPrepAIUTA, METH_VARARGS},
   {"", NULL, METH_VARARGS}
 };
  
@@ -5737,7 +5796,7 @@ int main(int argc, char *argv[]) {
   int i;
   FILE *f;
 
-#if PMALLOC_CHECK == 1
+#if PMALLOC_CHECK >= 2
   pmalloc_open();
 #endif
 
@@ -5750,7 +5809,7 @@ int main(int argc, char *argv[]) {
 
   ParseArgs(argc, argv, methods);
 
-#if PMALLOC_CHECK == 1
+#if PMALLOC_CHECK >= 2
   pmalloc_check();
 #endif
 
