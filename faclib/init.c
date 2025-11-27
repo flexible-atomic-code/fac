@@ -176,6 +176,9 @@ int InitFac(void) {
     return ierr;
   }
 
+#if PMALLOC_CHECK >= 2
+  printf("using malloc check mode: %d\n", PMALLOC_CHECK);
+#endif
   InitMultiStats();
   InitNucleus();
   InitCoulomb();

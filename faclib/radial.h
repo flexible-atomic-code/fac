@@ -144,6 +144,8 @@ double TotalEnergyGroupMode(int kg, int md);
 double ZerothEnergyConfig(CONFIG *cfg);
 double ZerothResidualConfig(CONFIG *cfg);
 double ConfigHamilton(CONFIG *cfg, ORBITAL *orb0, ORBITAL *orb1, double xdf);
+double AverageShellEnergy(SHELL *s, int md);
+double InteractShellEnergy(SHELL *s0, SHELL *s1);
 double AverageEnergyConfig(CONFIG *cfg);
 double AverageEnergyConfigMode(CONFIG *cfg, int md);
 double AverageEnergyAvgConfig(AVERAGE_CONFIG *cfg);

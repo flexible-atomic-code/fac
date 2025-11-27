@@ -2908,7 +2908,7 @@ static PyObject *PSetTEGrid(PyObject *self, PyObject *args) {
 }
   
 static  PyObject *PSetCEBorn(PyObject *self, PyObject *args) {
-  double eb, x, x1, x0;
+  double eb, x;
   
   if (sfac_file) {
     SFACStatement("SetCEBorn", args, NULL);
@@ -2916,12 +2916,10 @@ static  PyObject *PSetCEBorn(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
-  x0 = XBORN0;
-  x1 = XBORN1;
   x = XBORN;
-  if (!PyArg_ParseTuple(args, "d|ddd", &eb, &x, &x1, &x0)) return NULL;
+  if (!PyArg_ParseTuple(args, "d|d", &eb, &x)) return NULL;
 
-  SetCEBorn(eb, x, x1, x0);
+  SetCEBorn(eb, x);
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -6564,6 +6562,72 @@ static PyObject *PSetSlaterScale(PyObject *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
+
+static PyObject *PPrepCEUTA(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("PrepCEUTA", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  int nmin0, nmax0, nmin1, nmax1, kmin, kmax;
+
+  if (!PyArg_ParseTuple(args, "iiiiii", &nmin0, &nmax0, &nmin1, &nmax1, &kmin, &kmax)) return NULL;
+  PrepCEUTA(nmin0, nmax0, nmin1, nmax1, kmin, kmax);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PPrepCIUTA(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("PrepCIUTA", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  int nmin, nmax, kmin, kmax;
+
+  if (!PyArg_ParseTuple(args, "iiii", &nmin, &nmax, &kmin, &kmax)) return NULL;
+  PrepCIUTA(nmin, nmax, kmin, kmax);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PPrepRRUTA(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("PrepRRUTA", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  int nmin, nmax, kmin, kmax;
+
+  if (!PyArg_ParseTuple(args, "iiii", &nmin, &nmax, &kmin, &kmax)) return NULL;
+  PrepRRUTA(nmin, nmax, kmin, kmax);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+static PyObject *PPrepAIUTA(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("PrepAIUTA", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  int nmin0, nmax0, nmin1, nmax1, nmin2, nmax2, kmin, kmax;
+
+  if (!PyArg_ParseTuple(args, "iiiiiiii",
+			&nmin0, &nmax0, &nmin1, &nmax1,
+			&nmin2, &nmax2, &kmin, &kmax)) return NULL;
+  PrepAIUTA(nmin0, nmax0, nmin1, nmax1, nmin2, nmax2, kmin, kmax);
+  
+  Py_INCREF(Py_None);
+  return Py_None;
+}
   
 static PyObject *PFermiRMS(PyObject *self, PyObject *args) {
   double r, c, a;
@@ -6771,6 +6835,14 @@ static PyObject *PGetGroundProp(PyObject *self, PyObject *args) {
   strncpy(gcfg, GetGroundCfg(z, k, md), 128);
 
   return Py_BuildValue("ssidi", gcfg, glev, j2, ipot, p);
+}
+
+static PyObject *PShellDegeneracy(PyObject *self, PyObject *args) {
+  int g, q;
+
+  if (!PyArg_ParseTuple(args, "ii", &g, &q)) return NULL;
+
+  return Py_BuildValue("i", ShellDegeneracy(g, q));
 }
 
 static struct PyMethodDef fac_methods[] = {
@@ -7032,6 +7104,11 @@ static struct PyMethodDef fac_methods[] = {
   {"FillClosedShell", PFillClosedShell, METH_VARARGS},
   {"RemoveClosedShell", PRemoveClosedShell, METH_VARARGS},
   {"GetGroundProp", PGetGroundProp, METH_VARARGS},
+  {"ShellDegeneracy", PShellDegeneracy, METH_VARARGS},
+  {"PrepCEUTA", PPrepCEUTA, METH_VARARGS},
+  {"PrepCIUTA", PPrepCIUTA, METH_VARARGS},
+  {"PrepRRUTA", PPrepRRUTA, METH_VARARGS},
+  {"PrepAIUTA", PPrepAIUTA, METH_VARARGS},
   {NULL, NULL}
 };
 

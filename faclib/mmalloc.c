@@ -40,8 +40,8 @@ void *mmalloc(size_t size) {
   *p = size;
 #pragma omp atomic
   _tsize += size;
-#pragma omp atomic
-  _dmsize += size;
+  //#pragma omp atomic
+  //_dmsize += size;
   return &p[1];
 }
 
@@ -57,6 +57,8 @@ void *mcalloc(size_t n, size_t size) {
   *p = ns;
 #pragma omp atomic
   _tsize += ns;
+  //#pragma omp atomic
+  //_dmsize += ns;
   return &p[1];
 }
 
@@ -77,6 +79,8 @@ void *mrealloc(void *p, size_t size) {
   *ps = size;
 #pragma omp atomic
   _tsize += size;
+  //#pragma omp atomic
+  //_dmsize += size;
   return &ps[1];
 }
 

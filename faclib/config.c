@@ -76,7 +76,7 @@ static SYMMETRY *symmetry_list;
 **              rather, it represents any of the previous symbols.
 */
 static char spec_symbols[MAX_SPEC_SYMBOLS+2] = "spdfghiklmnoqrtuvwxyz*"; 
-static char all_spec_symbols[2*MAX_SPEC_SYMBOLS+3] = "sSpPdDfFgGhHiIkKlLmMnNoOqQrRtTuUvVwWxXyYzZ*@"; 
+static char all_spec_symbols[MAX_SPEC_SYMBOLS2+3] = "sSpPdDfFgGhHiIkKlLmMnNoOqQrRtTuUvVwWxXyYzZ*a"; 
 
 #define NJQ 25
 #define NJ2 10
@@ -103,6 +103,7 @@ static int _cfghmask = 0;
 static ARRAY **_cfghasha = NULL;
 #define MAXNRN 10
 static int _nrk[MAXNRN+1];
+static int _nrm = 1;
 
 static int _sfac_addcfg = 1;
 static int _uta_ncsf = 0;
@@ -135,6 +136,9 @@ int IsClosedComplex(int n, int nq) {
 }
 
 int IsClosedShellNR(int n, int k, int nq, int fn) {
+  if (k < 0) {
+    return 0;
+  }
   if (nq < 2*(k*2+1)) return 0;
   if (fn > 0) {
     if (n >= NCS) return 0;
@@ -145,6 +149,7 @@ int IsClosedShellNR(int n, int k, int nq, int fn) {
 }
 
 int IsClosedShellFR(int n, int k, int j, int nq, int fn) {
+  if (j == 0) return IsClosedShellNR(n, k, nq, fn);
   if (nq < j+1) return 0;
   if (fn > 0) {
     if (n >= NCS) return 0;
@@ -197,6 +202,7 @@ void InitConfigData(void *p, int n) {
     d[i].icfg = -1;
     d[i].iulev = -1;
     d[i].parity = 0;
+    d[i].nr = 0;
     d[i].energy = 0.0;
     d[i].delta = 0.0;
     d[i].shift = 0.0;
@@ -207,13 +213,16 @@ void InitConfigData(void *p, int n) {
 }
   
 int ShellDegeneracy(int g, int nq) {
+  if (nq < 0 || nq > g) {
+    return 0;
+  }
   if (nq == 1) {
     return g;
-  } else if (nq == g) {
-    return 1;
-  } else {
-    return (int) (exp(LnFactorial(g)-LnFactorial(nq)-LnFactorial(g-nq))+0.5);
   }
+  if (nq == 0 || nq == g) {
+    return 1;
+  }
+  return (int) (exp(LnFactorial(g)-LnFactorial(nq)-LnFactorial(g-nq))+0.5);
 }
 
 /* 
@@ -413,10 +422,10 @@ int ShellsFromString(char *scfg, double *dnq, SHELL **shell) {
   int nn, nkl, nkappa;
   int n[16];
   int kl[512];
-  int kappa[1024], nr[1024];
+  int kappa[1024], nr[1024], mu[1024];
   int i, j, t, k, kl2, ns, iu;
   char *s;
-    
+
   SetParserQuote("[", "]");
   SetParserBreak(all_spec_symbols);
   SetParserWhite("");
@@ -446,28 +455,48 @@ int ShellsFromString(char *scfg, double *dnq, SHELL **shell) {
   }
   if (brkpos >= 0) {
     kl[0] = brkpos/2;
-    if (kl[0] == MAX_SPEC_SYMBOLS) {
+    iu = brkpos%2;
+    if (iu && TrueUTA(0) && _nrm > 0) iu = 2;
+    if (kl[0] == MAX_SPEC_SYMBOLS && iu < 2) {
       if (n[nn-1] >= 512) {
 	printf("not all L-terms are allowed for n >= %d\n", 512);
 	exit(1);
       }
       nkl = n[nn-1];
       for (i = 0; i < nkl; i++) {
-	kl[i] = i;
+	kl[i] = i;	
+	if (iu == 0 && IsShellNR(n[0], kl[i])) {
+	  mu[i] = 2;
+	} else {
+	  mu[i] = iu;
+	}
       }
     } else {
       nkl = 1;
+      mu[0] = iu;
+      if (iu == 2 && kl[0] == MAX_SPEC_SYMBOLS) kl[0] = -1;
     }
-    iu = brkpos%2;
     nkappa = 0;
-    for (i = 0; i < nkl; i++) {
-      kl2 = 2*kl[i];
-      if (kl2 > 0) {
+    if (iu == 2) {
+      for (i = 0; i < nkl; i++) {
 	nr[nkappa] = iu;
-	kappa[nkappa++] = GetKappaFromJL(kl2-1, kl2);	
+	kappa[nkappa++] = 2*kl[i];
       }
-      nr[nkappa] = iu;
-      kappa[nkappa++] = GetKappaFromJL(kl2+1, kl2);
+    } else {
+      for (i = 0; i < nkl; i++) {
+	kl2 = 2*kl[i];
+	if (mu[i] == 2) {
+	  nr[nkappa] = 2;
+	  kappa[nkappa++] = kl2;
+	} else {
+	  if (kl2 > 0) {
+	    nr[nkappa] = iu;
+	    kappa[nkappa++] = GetKappaFromJL(kl2-1, kl2);	
+	  }
+	  nr[nkappa] = iu;
+	  kappa[nkappa++] = GetKappaFromJL(kl2+1, kl2);
+	}
+      }
     }
     *dnq = atof(&(scfg[next]));
     if (*dnq < 0) {
@@ -486,14 +515,23 @@ int ShellsFromString(char *scfg, double *dnq, SHELL **shell) {
     for (k = 0; k < nkl; k++) {
       while (*s == ' ' || *s == '\t') s++;
       iu = GetJLFromSymbol(s, &j, &kl[k]);
-      kl2 = 2*kl[k];
-      if (j != 1 && kl2 > 0) {
-	nr[nkappa] = iu;
-	kappa[nkappa++] = GetKappaFromJL(kl2-1, kl2);
+      if (iu == 0 && IsShellNR(n[0], kl[k])) {
+	iu = 1;
+	if (iu && TrueUTA(0) && _nrm > 0) iu = 2;
       }
-      if (j != -1) {
+      kl2 = 2*kl[k];
+      if (iu == 2) {
 	nr[nkappa] = iu;
-	kappa[nkappa++] = GetKappaFromJL(kl2+1, kl2);
+	kappa[nkappa++] = kl2;
+      } else {
+	if (j != 1 && kl2 > 0) {
+	  nr[nkappa] = iu;
+	  kappa[nkappa++] = GetKappaFromJL(kl2-1, kl2);
+	}
+	if (j != -1) {
+	  nr[nkappa] = iu;
+	  kappa[nkappa++] = GetKappaFromJL(kl2+1, kl2);
+	}
       }
       while (*s) s++;
       s++;
@@ -503,13 +541,16 @@ int ShellsFromString(char *scfg, double *dnq, SHELL **shell) {
   } else {
     return -1;
   }
-
   *shell = (SHELL *) malloc(sizeof(SHELL)*nn*nkappa);
   t = 0;
   for (i = nn-1; i >= 0; i--) {
     for (k = nkappa-1; k >= 0; k--) {
-      kl2 = GetLFromKappa(kappa[k]);
-      if (kl2/2 >= n[i]) continue;
+      if (nr[k] < 2) {
+	kl2 = GetLFromKappa(kappa[k]);
+	if (kl2/2 >= n[i]) continue;
+      } else {
+	if (kappa[k]/2 >= n[i]) continue;
+      }
       (*shell)[t].n = n[i];
       (*shell)[t].kappa = kappa[k];
       (*shell)[t].nr = nr[k];
@@ -841,10 +882,25 @@ int DistributeElectrons(CONFIG **cfg, double *nq, char *scfg, int *nqp) {
   maxq = (int *) malloc(sizeof(int)*ns);
   maxq[ns-1] = 0;
   for (i = ns-2; i >= 0; i--) {
-    maxq[i] = maxq[i+1] + 2*abs(shell[i+1].kappa);
+    if (shell[i+1].nr == 2) {
+      if (shell[i+1].kappa >= 0) {
+	maxq[i] = maxq[i+1] + 2*(shell[i+1].kappa+1);
+      } else {
+	maxq[i] = maxq[i+1] + 2*shell[i+1].n*shell[i].n;
+      }
+    } else {
+      maxq[i] = maxq[i+1] + 2*abs(shell[i+1].kappa);
+    }
   }
-  mnq = maxq[0] + 2*abs(shell[0].kappa);
-  
+  if (shell[0].nr == 2) {
+    if (shell[0].kappa >= 0) {
+      mnq = maxq[0] + 2*(shell[0].kappa+1);
+    } else {
+      mnq = maxq[0] + 2*shell[0].n*shell[0].n;
+    }
+  } else {
+    mnq = maxq[0] + 2*abs(shell[0].kappa);
+  }
   inq = (int) dnq;
   if (inq > mnq) {
     printf("electrons > maximum allowed in %s\n", scfg);
@@ -1335,7 +1391,11 @@ int GetJLFromSymbol(char *s, int *j, int *kl) {
     if (isdigit(s0[0])) *kl = atoi(s0);
     else {
       if (isupper(s0[0])) {
-	iu = 1;
+	if (j == 0 && TrueUTA(0) && _nrm > 0) {
+	  iu = 2;
+	} else {
+	  iu = 1;
+	}
 	s0[0] = tolower(s0[0]);
       } else {
 	iu = 0;
@@ -1367,7 +1427,10 @@ int GetJLFromSymbol(char *s, int *j, int *kl) {
 **              returned as "[kl]".
 */
 int SpecSymbol(char *s, int kl) {
-  if (kl < MAX_SPEC_SYMBOLS) {
+  if (kl < 0) {
+    s[0] = 'a';
+    s[1] = '\0';
+  } else if (kl < MAX_SPEC_SYMBOLS) {
     s[0] = spec_symbols[kl];
     s[1] = '\0';
   } else {
@@ -1950,14 +2013,24 @@ int GetSingleShell(CONFIG *cfg) {
 void UnpackShell(SHELL *s, int *n, int *kl, int *j, int *nq) {
   *n = s->n;
   *nq = s->nq;
-  *j = 2*abs(s->kappa) - 1;
-  *kl = (s->kappa < 0)? (*j - 1):(*j + 1);
+  if (s->nr < 2) {
+    *j = 2*abs(s->kappa) - 1;
+    *kl = (s->kappa < 0)? (*j - 1):(*j + 1);
+  } else {
+    *j = 0;
+    *kl = s->kappa;
+  }
 }
 
 void PackShell(SHELL *s, int n, int kl, int j, int nq){
   s->n = n;
   s->nq = nq;
-  s->kappa = (kl - j)*(j + 1)/2;
+  if (j == 0) {
+    s->kappa = kl;
+    s->nr = 2;
+  } else {
+    s->kappa = (kl - j)*(j + 1)/2;
+  }
 }
 
 void UnpackNRShell(int *s, int *n, int *kl, int *nq) {
@@ -1988,9 +2061,23 @@ int GetJ(SHELL *s){
 
 int GetL(SHELL *s){
   int j;
-  j = 2*abs(s->kappa) - 1;
-  return (s->kappa < 0)? (j - 1):(j + 1);
-} 
+  if (s->nr == 2) {
+    if (s->kappa >= 0) {
+      return s->kappa/2;
+    } else {
+      return s->kappa;
+    }
+  } else {
+    j = 2*abs(s->kappa) - 1;
+    return (s->kappa < 0)? (j - 1):(j + 1);
+  }
+}
+
+int GetKappa(SHELL *s) {
+  if (s->nr < 2) return s->kappa;
+  if (s->kappa >= 0) return -(1+s->kappa/2);
+  return -1;
+}
 
 /* 
 ** FUNCTION:    ShellClosed
@@ -2528,11 +2615,13 @@ int ConfigExists(CONFIG *cfg) {
 int FactorNR(CONFIG *c, int n, int k) {
   int kl, i, q;
 
+  if (c->nr == 0) return 0;
+  
   kl = GetLFromKappa(k);
 
   q = 0;
   for (i = 0; i < c->n_shells; i++) {
-    if (c->shells[i].nr &&
+    if (c->shells[i].nr == 1 &&
 	n == c->shells[i].n &&
 	GetLFromKappa(c->shells[i].kappa) == kl) {
       q += c->shells[i].nq;
@@ -2559,6 +2648,7 @@ void ConfigNonRel(CONFIG_GROUP *g) {
   if (g->nr > 0) return;
   g->nr = 1;
   c = (CONFIG *) ArrayGet(&(g->cfg_list), 0);
+  if (TrueUTA(c->shells[0].n) && _nrm > 0) g->nr = 2;
   k = c->igroup;
   for (i = 0; i < MAX_SYMMETRIES; i++) {
     sym = GetSymmetry(i);
@@ -2587,7 +2677,7 @@ void ConfigNonRel(CONFIG_GROUP *g) {
     cs[i].nrs = NULL;
     cs[i].symstate = NULL;
     for (m = 0; m < cs[i].n_shells; m++) {
-      cs[i].shells[m].nr = 1;
+      cs[i].shells[m].nr = g->nr;
     }
   }
   ArrayFree(&(cfg_groups[k].cfg_list), FreeConfigData);
@@ -2663,21 +2753,49 @@ void ConfigUTA(CONFIG_GROUP *g, int iu) {
 int AddConfigToList(int k, CONFIG *cfg) {
   ARRAY *clist;  
   int n0, kl0, j0, nq0, nq1, np, klp, jp;
-  int nqp, m, i, n, kl, p, j, nq, dp, nsp;
+  int nqp, ka, m, i, n, kl, p, j, nq, dp, nsp;
   int dq, dq1;
   
   if (k < 0 || k >= n_groups) return -1;
   cfg->parity = 0;
   for (i = 0; i < cfg->n_shells; i++) {
-    m = abs(GetOrbNMax(cfg->shells[i].kappa, 0));
+    if (cfg->shells[i].nr == 2) {
+      j = cfg->shells[i].kappa;
+      if (j < 0) {
+	ka = -1;
+	m = 1000000;
+	for (p = 0; p < 2*cfg->shells[i].n-1; p++) {
+	  n = abs(GetOrbNMax(ka, 0));
+	  m = Min(m, n);
+	  if (ka < 0) ka = -ka;
+	  else ka = -(ka+1);
+	}
+      } else {
+	ka = GetKappaFromJL(j+1, j);	
+	m = abs(GetOrbNMax(ka, 0));
+	if (j > 0) {
+	  ka = GetKappaFromJL(j-1, j);
+	  n = abs(GetOrbNMax(ka, 0));
+	  m = Min(m, n);
+	}
+      }
+    } else {
+      m = abs(GetOrbNMax(cfg->shells[i].kappa, 0));
+    }
     if (m && cfg->shells[i].n > m) {
       FreeConfigData(cfg);
-      return 0;
+      return 0;      
     }
-    cfg->parity += (cfg->shells[i].nq)*GetL(&(cfg->shells[i]));
+    p = GetL(&(cfg->shells[i]));
+    if (p < 0) {
+      cfg->parity = -1;
+    } else if (cfg->parity >= 0) {
+      cfg->parity += (cfg->shells[i].nq)*GetL(&(cfg->shells[i]));
+    }
   }
-  cfg->parity = IsOdd(cfg->parity/2);
-  
+  if (cfg->parity >= 0) {
+    cfg->parity = IsOdd(cfg->parity/2);
+  }
   if (cfg_groups[k].n_cfgs > 0 && cfg_groups[k].n_csfs == 0) {
     if (cfg->n_csfs > 0) {
       if (cfg->symstate) free(cfg->symstate);
@@ -2703,20 +2821,26 @@ int AddConfigToList(int k, CONFIG *cfg) {
   cfg->sweight = 1.0;
   p = 0;
   nsp = 0;
+  //restrict configs for Non-Relativistic approx.
   for (i = 0; i < cfg->n_shells; i++) {    
     UnpackShell(cfg->shells+i, &n, &kl, &j, &nq);
     if (kl == 0) {
+      if (cfg->shells[i].nr == 2) {
+	cfg->shells[i].kappa =-1;
+	j = 1;
+      }
       cfg->shells[i].nr = 0;
     } else {
       if (cfg->shells[i].nr == 0) {
 	if (cfg_groups[k].nr == 0) {
 	  cfg->shells[i].nr = IsShellNR(n, kl/2);
 	} else {
-	  cfg->shells[i].nr = 1;
+	  cfg->shells[i].nr = cfg_groups[k].nr;
 	}
       }
     }
-    if (IsOdd(kl/2) && IsOdd(nq)) p++;
+    if (kl < 0) p = -1;
+    else if (p >= 0 && IsOdd(kl/2) && IsOdd(nq)) p++;
     if (n == n0 && kl == kl0) {
       np = n0;
       klp = kl0;
@@ -2727,8 +2851,8 @@ int AddConfigToList(int k, CONFIG *cfg) {
       nsp++;
     } else {
       if (nq0 > 0) {
-	if (cfg->shells[i-1].nr) {
-	  if (j0 > kl0) {
+	if (cfg->shells[i-1].nr == 1) {
+	  if (j0 > kl0 && nq0 > 1) {
 	    break;
 	  }
 	  if (klp == kl0 && np == n0) {
@@ -2762,8 +2886,15 @@ int AddConfigToList(int k, CONFIG *cfg) {
       nq0 = nq;
       j0 = j;
     }
-    if (!cfg->shells[i].nr) {
+    if (cfg->shells[i].nr == 0) {
       dq = ShellDegeneracy(j+1, nq);
+      cfg->sweight *= dq;
+    } else if (cfg->shells[i].nr == 2) {
+      if (kl >= 0) {
+	dq = ShellDegeneracy(2*(kl+1), nq);
+      } else {
+	dq = ShellDegeneracy(2*n*n, nq);
+      }
       cfg->sweight *= dq;
     }
   }
@@ -2777,7 +2908,7 @@ int AddConfigToList(int k, CONFIG *cfg) {
   if (nq0 > 0) {
     PackNRShell(cfg->nrs+m, n0, kl0, nq0);
     m++;
-    if (cfg->shells[i-1].nr) {
+    if (cfg->shells[i-1].nr == 1) {
       if (j0 > kl0 || (klp == kl0 && nq0-nqp < j0+1)) {
 	cfg->nnrs = 0;
 	free(cfg->nrs);    
@@ -2788,8 +2919,7 @@ int AddConfigToList(int k, CONFIG *cfg) {
       cfg->sweight *= dq;
     }
   }
-  if (IsOdd(p)) cfg->sweight = -cfg->sweight;
-  
+  if (p > 0 && IsOdd(p)) cfg->sweight = -cfg->sweight;
   cfg->nnrs = m;
   if (m < cfg->n_shells) {
     cfg->nrs = ReallocNew(cfg->nrs, sizeof(int)*m);
@@ -2801,6 +2931,12 @@ int AddConfigToList(int k, CONFIG *cfg) {
   cfg->icfg = cfg_groups[k].n_cfgs;
   CONFIG *acfg = ArrayAppend(clist, cfg, InitConfigData);
   if (acfg == NULL) return -1;
+  acfg->nr = 0;
+  for (i = 0; i < acfg->n_shells; i++) {
+    if (acfg->shells[i].nr > acfg->nr) {
+      acfg->nr = acfg->shells[i].nr;
+    }
+  }
   cfg_groups[k].gweight *= fabs(cfg->sweight);
   if (cfg_groups[k].n_cfgs == 0) {
     cfg_groups[k].n_electrons = cfg->n_electrons;
@@ -3027,17 +3163,34 @@ int ConstructConfigName(char *s, int n, CONFIG *c) {
   m = 0;
   s[0] = '\0';
   for (i = c->n_shells-1; i >= 0; i--) {
-    GetJLFromKappa(c->shells[i].kappa, &j, &k);
-    SpecSymbol(a, k/2);
-    if (c->shells[i].nr) {
+    if (c->shells[i].nr < 2) {
+      GetJLFromKappa(c->shells[i].kappa, &j, &k);
+    } else {
+      k = c->shells[i].kappa;
+      j = 0;
+    }
+    if (k >= 0) {
+      SpecSymbol(a, k/2);
+    } else {
+      SpecSymbol(a, k);
+    }
+    if (c->shells[i].nr && k >= 0) {
       a[0] = toupper(a[0]);
     }
-    if (j > k) x = '+';
-    else x = '-';
-    if (i > 0) {
-      sprintf(b, "%d%s%c%d ", c->shells[i].n, a, x, c->shells[i].nq);
+    if (c->shells[i].nr < 2) {
+      if (j > k) x = '+';
+      else x = '-';
+      if (i > 0) {
+	sprintf(b, "%d%s%c%d ", c->shells[i].n, a, x, c->shells[i].nq);
+      } else {
+	sprintf(b, "%d%s%c%d", c->shells[i].n, a, x, c->shells[i].nq);
+      }
     } else {
-      sprintf(b, "%d%s%c%d", c->shells[i].n, a, x, c->shells[i].nq);
+      if (i > 0) {
+	sprintf(b, "%d%s%d ", c->shells[i].n, a, c->shells[i].nq);
+      } else {
+	sprintf(b, "%d%s%d", c->shells[i].n, a, c->shells[i].nq);
+      }
     }
     m += strlen(b);
     if (m >= n) return -1;
@@ -3226,10 +3379,10 @@ int GetAverageConfig(int ng, int *kg, int ic, double *weight, int wm,
 #define M 2500 /* max # of shells may be present in an average config */
 
   double tnq[M];
-  int i, j, k, n, kappa, t;
+  int i, j, k, n, kappa, t, i0, i1, k0, k1;
   ARRAY *c;
   CONFIG *cfg;
-  double a;
+  double a, w0, w1;
 
   if (ng <= 0) return -1;
   for(i = 0; i < M; i++) tnq[i] = 0.0;
@@ -3279,9 +3432,33 @@ int GetAverageConfig(int ng, int *kg, int ic, double *weight, int wm,
       for (j = 0; j < cfg->n_shells; j++) {
 	n = cfg->shells[j].n;
 	kappa = cfg->shells[j].kappa;
-	k = ShellToInt(n, kappa);
-	if (k >= M) k = M-1;
-	tnq[k] += (((double)(cfg->shells[j].nq)) * acfg->weight[i]*a);
+	if (cfg->shells[j].nr < 2) {
+	  i0 = kappa;
+	  i1 = kappa;
+	  k0 = i0;
+	  w0 = 2.0*abs(kappa);
+	} else {
+	  if (kappa >= 0) {
+	    i1 = -(1+kappa/2);
+	    i0 = -(i1+1);
+	    k0 = i0;
+	    w0 = 2*(kappa+1.0);
+	  } else {
+	    i0 = 0;
+	    i1 = 2*n-2;
+	    k0 = -1;
+	    w0 = 2.0*n*n;
+	  }
+	}
+	kappa = k0;
+	for (k1 = abs(i0); k1 <= abs(i1); k1++) {
+	  k = ShellToInt(n, kappa);
+	  if (k >= M) k = M-1;
+	  w1 = ((double)(cfg->shells[j].nq))*2*abs(kappa)/w0;
+	  tnq[k] += w1*acfg->weight[i]*a;
+	  if (kappa < 0) kappa = -kappa;
+	  else kappa = -(kappa+1);
+	}
       }
     }
     acfg->n_cfgs += cfg_groups[kg[i]].n_cfgs;
@@ -3420,7 +3597,7 @@ int CompareShell(const void *ts1, const void *ts2) {
   s2 = (SHELL *) ts2;
   if (s1->n > s2->n) return 1;
   else if (s1->n < s2->n) return -1;
-  else {
+  else if (s1->nr < 2 && s2->nr < 2) {
     if (s1->kappa == s2->kappa) return 0;
     else {
       ak1 = abs(s1->kappa);
@@ -3431,6 +3608,27 @@ int CompareShell(const void *ts1, const void *ts2) {
 	if (s1->kappa < s2->kappa) return -1;
 	else return 1;
       }
+    }
+  } else {
+    if ((s1->nr == 2 && s1->kappa < 0) || (s2->nr == 2 && s2->kappa < 0)) return 0;
+    if (s1->nr == 2 && s2->nr == 2) {
+      if (s1->kappa == s2->kappa) return 0;
+      else if (s1->kappa > s2->kappa) return 1;
+      else return -1;
+    } else {
+      if (s1->nr == 2) {
+	ak1 = abs(s1->kappa);
+      } else {
+	ak1 = GetLFromKappa(s1->kappa);
+      }
+      if (s2->nr == 2) {
+	ak2 = abs(s2->kappa);
+      } else {
+	ak2 = GetLFromKappa(s2->kappa);
+      }
+      if (ak1 == ak2) return 0;
+      else if (ak1 > ak2) return 1;
+      else return -1;
     }
   }
 }
@@ -3662,6 +3860,10 @@ void SetOptionConfig(char *s, char *sp, int ip, double dp) {
       n = ip/10;
       for (i = n; i <= MAXNRN; i++) _nrk[i] = (ip)%10;
     }
+    return;
+  }
+  if (0 == strcmp(s, "config:nrm")) {
+    _nrm = ip;
     return;
   }
   if (0 == strcmp(s, "config:sfac_addcfg")) {

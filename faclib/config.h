@@ -164,6 +164,7 @@ typedef struct _CONFIG_ {
   int icfg;
   int iulev;
   int parity;
+  int nr;
   double sweight;
   double energy;
   double delta;
@@ -288,6 +289,7 @@ int          PackSymState(int s, int k);
 void         UnpackSymState(int st, int *s, int *k);
 int          GetJ(SHELL *shell);
 int          GetL(SHELL *shell);
+int          GetKappa(SHELL *shell);
 int          GetNq(SHELL *shell);
 void         GetJLFromKappa(int kappa, int *j, int *kl);
 int          GetLFromKappa(int kappa); 

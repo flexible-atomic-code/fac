@@ -4245,6 +4245,8 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
       if (brts->rates->dim == 0) continue;
       if (iuta) {
 	brdev = (BLK_RATE *) ArrayGet(ion->tr_sdev, i);
+      } else {
+	brdev = NULL;
       }
       iblk = brts->iblock;
       fblk = brts->fblock;
@@ -4306,10 +4308,12 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
 	    s = r.strength*e;
 	    if (s < strength_threshold*smax) continue;
 	    if (s > smax) smax = s;
-	    if (iuta) {
+	    if (iuta && brdev) {
 	      dev = (RATE *) ArrayGet(brdev->rates, m);
 	      r.energy = dev->dir;
 	      rx.sdev = dev->inv;
+	    } else {
+	      rx.sdev = 0.0;
 	    }
 	    if (_sp_trm == 0) {
 	      r.rrate = a;
@@ -6938,7 +6942,7 @@ int DumpRates(char *fn, int k, int m, int imax, int a) {
 	    x = ion->iblock[t]->rc1[q];
 	    FWRITE(&x, sizeof(double), 1, f);	    
 	  } else {
-	    sprintf(s, "%3d %6d %6d %6d %2d %4d %4d %15.8E %10.4E %10.4E %10.4E %10.4E %10.4E\n", 
+	    sprintf(s, "%3d %6d %6d %6d %6d %4d %4d %15.8E %10.4E %10.4E %10.4E %10.4E %10.4E\n", 
 		    nele, t, ion->iblock[t]->ib, q, ion->j[t],
 		    ion->ibase[t], ion->vnl[t], ion->energy[t],
 		    ion->iblock[t]->n[q],

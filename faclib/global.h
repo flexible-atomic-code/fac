@@ -34,14 +34,13 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-#define PMALLOC_CHECK 2
-
-#if PMALLOC_CHECK == 1
-#include "pmalloc.h"
-#elif PMALLOC_CHECK == 2
+#define PMALLOC_CHECK 1
+#if PMALLOC_CHECK == 0
+#include "omalloc.h"
+#elif PMALLOC_CHECK == 1
 #include "mmalloc.h"
 #else
-#include "omalloc.h"
+#include "pmalloc.h"
 #endif
 
 #include "sysdef.h"
