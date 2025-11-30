@@ -30,6 +30,7 @@ USE (rcsid);
 #include "rates.h"
 #include "cf77.h"
 #include "init.h"
+#include "global.h"
 
 #define NEINT 240
 

@@ -23,6 +23,7 @@ USE (rcsid);
 #endif
 
 #include "parser.h"
+#include "global.h"
 
 /*
 ** I found the original version of this string parser (the Parse() function) 

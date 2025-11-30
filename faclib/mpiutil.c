@@ -16,6 +16,7 @@
  *   along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "global.h"
 #include "mpiutil.h"
 #include "parser.h"
 #include "stdarg.h"

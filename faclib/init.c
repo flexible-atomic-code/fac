@@ -22,6 +22,7 @@ static char *rcsid="$Id$";
 USE (rcsid);
 #endif
 
+#include "global.h"
 #include "init.h"
 #include "mpiutil.h"
 

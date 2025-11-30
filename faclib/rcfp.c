@@ -18,6 +18,7 @@
 
 #include "angular.h"
 #include "rcfp.h"
+#include "global.h"
 
 static char *rcsid="$Id: rcfp.c,v 1.10 2005/08/20 21:26:19 mfgu Exp $";
 #if __GNUC__ == 2

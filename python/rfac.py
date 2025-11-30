@@ -482,15 +482,16 @@ def read_lev(filename):
             if line.strip() == '':  # if empty
                 blocks = read_blocks(lines[i+1:])
                 return (block, ) + blocks
-            block['ILEV'][i] = int(line[:6])
-            block['IBASE'][i] = int(line[7:13])
-            block['ENERGY'][i] = float(line[14:30])
-            block['P'][i] = int(line[30:31])
-            block['VNL'][i] = int(line[32:37])
-            block['2J'][i] = int(line[38:42])
-            block['ncomplex'][i] = get_lcomplex(line)
-            block['sname'][i] = get_lsname(line)
-            block['name'][i] = get_lname(line)
+            a = line.split()            
+            block['ILEV'][i] = int(a[0])
+            block['IBASE'][i] = int(a[1])
+            block['ENERGY'][i] = float(a[2])
+            block['P'][i] = int(a[3])
+            block['VNL'][i] = int(a[4])
+            block['2J'][i] = int(a[5])
+            block['ncomplex'][i] = a[6]
+            block['sname'][i] = a[7]
+            block['name'][i] = a[8]
 
         return (block, )
 
@@ -525,10 +526,11 @@ def read_enf(filename):
             if line.strip() == '':  # if empty
                 blocks = read_blocks(lines[i+1:])
                 return (block, ) + blocks
-            block['ilev'][i] = int(line[:6])
-            block['energy'][i] = float(line[6:29])
-            block['pbasis'][i] = int(line[29:36])
-            block['mbasis'][i] = int(line[36:41])
+            a = line.split()
+            block['ilev'][i] = int(a[0])
+            block['energy'][i] = float(a[1])
+            block['pbasis'][i] = int(a[2])
+            block['mbasis'][i] = int(a[3])
         return (block, )
 
     return header, read_blocks(lines)
@@ -619,28 +621,23 @@ def read_tr(filename):
             if line.strip() == '':  # if empty
                 blocks = read_blocks(lines[i+1:])
                 return (block, ) + blocks
-            if header['uta'] == 0:
-                block['upper_index'][i] = int(line[:6])
-                block['upper_2J'][i] = int(line[7:9])
-                block['lower_index'][i] = int(line[10:16])
-                block['lower_2J'][i] = int(line[17:19])
-                block['Delta E'][i] = float(line[20:33])
-                block['gf'][i] = float(line[34:47])
-                block['rate'][i] = float(line[48:61])
-                block['multipole'][i] = float(line[62:75])
-            else:
-                a = line.split()
-                block['upper_index'][i] = int(a[0])
-                block['upper_2J'][i] = int(a[1])
-                block['lower_index'][i] = int(a[2])
-                block['lower_2J'][i] = int(a[3])
-                block['Delta E'][i] = float(a[4])
+            a = line.split()
+            block['upper_index'][i] = int(a[0])
+            block['upper_2J'][i] = int(a[1])
+            block['lower_index'][i] = int(a[2])
+            block['lower_2J'][i] = int(a[3])
+            block['Delta E'][i] = float(a[4])
+            if header['uta'] > 0:
                 block['sdev'][i] = float(a[5])
                 block['gf'][i] = float(a[6])
                 block['rate'][i] = float(a[7])
                 block['multipole'][i] = float(a[8])
                 block['rci'][i] = float(a[9])
-                
+            else:
+                block['gf'][i] = float(a[5])
+                block['rate'][i] = float(a[6])
+                block['multipole'][i] = float(a[7])
+            
         return (block, )
 
     return header, read_blocks(lines)
@@ -678,13 +675,14 @@ def read_ai(filename):
             if line.strip() == '':  # if empty
                 blocks = read_blocks(lines[i+1:])
                 return (block, ) + blocks
-            block['bound_index'][i] = int(line[:6])
-            block['bound_2J'][i] = int(line[7:9])
-            block['free_index'][i] = int(line[10:16])
-            block['free_2J'][i] = int(line[17:19])
-            block['Delta E'][i] = float(line[20:31])
-            block['AI rate'][i] = float(line[32:43])
-            block['DC strength'][i] = float(line[44:55])
+            a = line.split()
+            block['bound_index'][i] = int(a[0])
+            block['bound_2J'][i] = int(a[1])
+            block['free_index'][i] = int(a[2])
+            block['free_2J'][i] = int(a[3])
+            block['Delta E'][i] = float(a[4])
+            block['AI rate'][i] = float(a[5])
+            block['DC strength'][i] = float(a[6])
 
         return (block, )
 
@@ -751,11 +749,12 @@ def read_ce(filename):
         for tr in range(ntrans):
             line = lines[0]
             lines = lines[1:]
-            block['lower_index'][tr] = int(line[:6].strip())
-            block['lower_2J'][tr] = int(line[7:9].strip())
-            block['upper_index'][tr] = int(line[10:16].strip())
-            block['upper_2J'][tr] = int(line[17:19].strip())
-            block['Delta E'][tr] = float(line[20:30].strip())
+            a = line.split()
+            block['lower_index'][tr] = int(a[0])
+            block['lower_2J'][tr] = int(a[1])
+            block['upper_index'][tr] = int(a[2])
+            block['upper_2J'][tr] = int(a[3])
+            block['Delta E'][tr] = float(a[4])
             nsub = int(line[31:])
             if block['MSUB']:
                 block['collision strength'][tr] = np.zeros(
@@ -851,12 +850,13 @@ def read_ci(filename):
         for tr in range(ntrans):
             line = lines[0]
             lines = lines[1:]
-            block['bound_index'][tr] = int(line[:6])
-            block['bound_2J'][tr] = int(line[7:9])
-            block['free_index'][tr] = int(line[10:16])
-            block['free_2J'][tr] = int(line[17:19])
-            block['Delta E'][tr] = float(line[20:31])
-            block['Delta L'][tr] = int(line[32:])
+            a = line.split()
+            block['bound_index'][tr] = int(a[0])
+            block['bound_2J'][tr] = int(a[1])
+            block['free_index'][tr] = int(a[2])
+            block['free_2J'][tr] = int(a[3])
+            block['Delta E'][tr] = float(a[4])
+            block['Delta L'][tr] = int(a[5])
             block['parameters'][tr] = [float(l) for l in lines[0].split()]
             lines = lines[1:]
             for i in range(nusr):
@@ -926,12 +926,13 @@ def read_rr(filename):
         for tr in range(ntrans):
             line = lines[0]
             lines = lines[1:]
-            block['bound_index'][tr] = int(line[:6])
-            block['bound_2J'][tr] = int(line[7:9])
-            block['free_index'][tr] = int(line[10:16])
-            block['free_2J'][tr] = int(line[17:19])
-            block['Delta E'][tr] = float(line[20:31])
-            block['Delta L'][tr] = int(line[32:])
+            a = line.split()
+            block['bound_index'][tr] = int(a[0])
+            block['bound_2J'][tr] = int(a[1])
+            block['free_index'][tr] = int(a[2])
+            block['free_2J'][tr] = int(a[3])
+            block['Delta E'][tr] = float(a[4])
+            block['Delta L'][tr] = int(a[5])
             block['parameters'][tr] = [float(l) for l in lines[0].split()]
             lines = lines[1:]
             for i in range(nusr):
@@ -1068,20 +1069,10 @@ def read_wfun(fn, npi=0, rmax=None):
 def read_pot(fn, cfg=None, header=None):
     if cfg is None and header is None:
         return np.loadtxt(fn, unpack=1)
-    if not header is None:
-        rs = np.loadtxt(fn, unpack=1, max_rows=nw, comments='@',
-                        usecols=1, dtype=str)
-        rd = np.loadtxt(fn, unpack=1, max_rows=nw, comments='@', usecols=3)
-        r = {}
-        for i in range(len(rs)):
-            r[rs[i]] = rd[i]
-        if len(header) == 0:
-            return r
-        return r[header]
     nw = 0
     nc = 0
     with open(fn, 'r') as f:
-        rs = f.readlines(1000)
+        rs = f.readlines(30000)
         for i in range(len(rs)):
             if (len(rs[i]) > 7 and rs[i][:7] == '#    0 '):
                 nw = i
@@ -1093,6 +1084,16 @@ def read_pot(fn, cfg=None, header=None):
             if len(rs[i]) < 7:
                 break
             nc = nc+1
+    if not header is None:
+        rs = np.loadtxt(fn, unpack=1, max_rows=nw, comments='@',
+                        usecols=1, dtype=str)
+        rd = np.loadtxt(fn, unpack=1, max_rows=nw, comments='@', usecols=3)
+        r = {}
+        for i in range(len(rs)):
+            r[rs[i]] = rd[i]
+        if len(header) == 0:
+            return r
+        return r[header]
     d = np.loadtxt(fn, unpack=1, comments='@', skiprows=nw,
                    max_rows=nc, usecols=range(1,10))
     if len(cfg) == 0:
@@ -1100,22 +1101,23 @@ def read_pot(fn, cfg=None, header=None):
     if cfg == 'bnd' or cfg == 'ac':
         ns = np.int32(d[1])
         ks = np.int32(d[2])
-        print(ns)
-        print(ks)
+        #print(ns)
+        #print(ks)
         nlq = []
         for n in range(min(ns),max(ns)+1):
             for k in range(n):
                 w = np.where((ns==n)&((ks==k)|(ks==-(k+1))))[0]
                 if len(w) == 0:
                     continue
-                if cfg == 'bnd' and np.mean(d[-1][w]) >= 0:
+                e = np.mean(d[-1][w])
+                if cfg == 'bnd' and e >= 0:
                     continue
                 nq = np.sum(d[3][w])
                 if nq >= 1e-4:
                     if cfg == 'bnd':                    
                         nlq.append((n,k,round(nq,4)))
                     else:
-                        nlq.append((n,k,nq))
+                        nlq.append((n,k,nq,e*const.Hartree_eV))
         if cfg == 'bnd':
             return cfgnr(nlq)
         else:            

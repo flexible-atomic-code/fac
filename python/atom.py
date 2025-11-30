@@ -54,7 +54,7 @@ def dist_iqs(iw0, iw1, iqs):
             rs.append([iq]+iw)
     return rs
 
-def cfgene(a, gc, pref=None):
+def cfgene(a, gc, pref=None, en=1):
     if type(a)==type(''):
         z = ATOMICSYMBOL.index(a)
     else:
@@ -90,19 +90,27 @@ def cfgene(a, gc, pref=None):
 
     if pref is None:
         pref = 'z%03d/k%03d'%(z,qt)
+    if not os.path.exists(pref):
+        os.system('mkdir -p %s'%pref)
     p = pref+'/ce'
     GetPotential(p+'a.pot')
-    Structure(p+'b.en', ['g'])
-    PrintTable(p+'b.en', p+'a.en')
-    Closed()
-    Reinit(0)
-    r = rfac.FLEV(p+'a.en')
-    i = np.argmin(r.e)
-    if len(cs) > 0:
-        gc = cs.replace(' ', '.')+'.'+r.s[i]
+    bc = rfac.read_pot(p+'a.pot', cfg='ac')
+    if en > 0:
+        Structure(p+'b.en', ['g'])
+        PrintTable(p+'b.en', p+'a.en')
+        Closed()
+        Reinit(0)
+        r = rfac.FLEV(p+'a.en')
+        i = np.argmin(r.e)
+        if len(cs) > 0:
+            gc = cs.replace(' ', '.')+'.'+r.s[i]
+        else:
+            gc = r.s[i]
+        e0 = r.e[i]
     else:
-        gc = r.s[i]
-    return r.e[i],gc
+        e0 = 0.0
+        
+    return r.e[i],gc,bc
 
 def gen_cfgs(ks, qt, qmin, qmax):
     nk = len(ks)
@@ -288,6 +296,17 @@ def c2i(c, n):
         ic[a[0]-1,a[1]] = a[2]
     return ic
 
+def gvn(z, k):
+    if k <= 2:
+        return (1,0)
+    g0 = grdcfg0(z, k)
+    g1 = grdcfg0(z, k-1)
+    c0 = c2i(g0, 10)
+    c1 = c2i(g1, 10)
+    dq = c0-c1
+    w = np.where(dq > 0)
+    return (w[0][-1]+1,w[1][-1])    
+    
 def i2c(r):
     w = np.where(r > 0)
     return rfac.cfgnr([(w[0][i]+1,w[1][i],r[w[0][i],w[1][i]]) for i in range(len(w[0]))])

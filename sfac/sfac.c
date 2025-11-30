@@ -26,6 +26,7 @@ USE (rcsid);
 #include "cf77.h"
 #include "stoken.h"
 #include "mpiutil.h"
+#include "global.h"
 
 static int PPrint(int argc, char *argv[], int argt[], ARRAY *variables) {
   int i;

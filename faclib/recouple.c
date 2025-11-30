@@ -19,6 +19,7 @@
 #include "recouple.h"
 #include "structure.h"
 #include "cf77.h"
+#include "global.h"
 
 static char *rcsid="$Id: recouple.c,v 1.28 2006/08/28 23:44:17 mfgu Exp $";
 #if __GNUC__ == 2

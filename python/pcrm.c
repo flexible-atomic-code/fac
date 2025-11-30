@@ -28,6 +28,7 @@ USE (rcsid);
 #include <string.h>
 
 #include "crm.h"
+#include "global.h"
 
 #if PY_MAJOR_VERSION >= 3
   #define PyUnicode_AsString(x) PyBytes_AsString(PyUnicode_AsEncodedString((x), "utf-8", "strict"))

@@ -18,6 +18,7 @@
 
 #include "array.h"
 #include "mpiutil.h"
+#include "global.h"
 
 static char *rcsid="$Id: array.c,v 1.17 2005/07/20 19:43:19 mfgu Exp $";
 #if __GNUC__ == 2

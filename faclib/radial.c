@@ -15,13 +15,13 @@
  *   You should have received a copy of the GNU General Public License
  *   along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-
+#include <errno.h>
 #include "radial.h"
 #include "mpiutil.h"
 #include "init.h"
 #include "cf77.h"
 #include "structure.h"
-#include <errno.h>
+#include "global.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2

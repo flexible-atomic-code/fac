@@ -25,6 +25,7 @@ USE (rcsid);
 #include "stoken.h"
 #include "polarization.h"
 #include "init.h"
+#include "global.h"
 
 static int PPrint(int argc, char *argv[], int argt[], ARRAY *variables) {
   int i;

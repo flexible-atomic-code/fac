@@ -19,6 +19,7 @@
 #include "interpolation.h"
 #include "cf77.h"
 #include "nucleus.h"
+#include "global.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2

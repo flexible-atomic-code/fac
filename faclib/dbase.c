@@ -25,6 +25,7 @@
 #include "recombination.h"
 #include "ionization.h"
 #include "cf77.h"
+#include "global.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -2969,7 +2970,7 @@ void RemoveClosedShell(EN_RECORD *r) {
 
 int FindNRShells(int nele, EN_RECORD *r, int nm, short *nqc, short *nqs) {
   const int nmax=32;
-  const int nmax2 = (nmax*(nmax+1))/2;
+  const int nmax2 = (nmax*(nmax+3))/2;
   int ncq[nmax], npq[nmax], nk[nmax];
   int nsq[nmax2], jmq[nmax2], jpq[nmax2];
   int nmj[nmax2], npj[nmax2], nmt[nmax2], npt[nmax2];
@@ -3069,7 +3070,12 @@ int FindNRShells(int nele, EN_RECORD *r, int nm, short *nqc, short *nqs) {
       if (k >= 0) {
 	n = atoi(&sn0[i0]);
 	kp = k;
-	ik = (n*(n-1))/2 + kp;
+	ik = ((n+2)*(n-1))/2 + kp;
+	i0 = i+1;
+      } else if (c == 'a' || c == 'A') {
+	n = atoi(&sn0[i0]);
+	kp = n;
+	ik = ((n+2)*(n-1))/2 + kp;
 	i0 = i+1;
       } else if (c == '.' || c == '\0') {
 	nq = atoi(&sn0[i0]);
@@ -3145,7 +3151,7 @@ int FindNRShells(int nele, EN_RECORD *r, int nm, short *nqc, short *nqs) {
 
 int FillClosedShell(int nele, EN_RECORD *r, char *nc, char *sn, char *nm) {
   const int nmax=32;
-  const int nmax2 = (nmax*(nmax+1))/2;
+  const int nmax2 = (nmax*(nmax+3))/2;
   int ncq[nmax], npq[nmax], nk[nmax];
   int nsq[nmax2], jmq[nmax2], jpq[nmax2];
   int nmj[nmax2], npj[nmax2], nmt[nmax2], npt[nmax2];
@@ -3243,7 +3249,12 @@ int FillClosedShell(int nele, EN_RECORD *r, char *nc, char *sn, char *nm) {
     if (k >= 0) {
       n = atoi(&sn0[i0]);
       kp = k;
-      ik = (n*(n-1))/2 + kp;
+      ik = ((n+2)*(n-1))/2 + kp;
+      i0 = i+1;
+    } else if (c == 'a' || c == 'A') {
+      n = atoi(&sn0[i0]);
+      kp = n;
+      ik = ((n+2)*(n-1))/2 + kp;
       i0 = i+1;
     } else if (c == '.' || c == '\0') {
       nq = atoi(&sn0[i0]);
@@ -3291,7 +3302,13 @@ int FillClosedShell(int nele, EN_RECORD *r, char *nc, char *sn, char *nm) {
     if (k >= 0) {
       n = atoi(&nm0[i0]);
       kp = k;
-      ik = (n*(n-1))/2 + kp;
+      ik = ((n+2)*(n-1))/2 + kp;
+      i0 = i+1;
+      continue;
+    } else if (c == 'a' || c == 'A') {
+      n = atoi(&nm0[i0]);
+      kp = n;
+      ik = ((n+2)*(n-1))/2 + kp;
       i0 = i+1;
       continue;
     }
@@ -3311,7 +3328,7 @@ int FillClosedShell(int nele, EN_RECORD *r, char *nc, char *sn, char *nm) {
   }
   
   for (n = 1; n <= nmax; n++) {
-    i0 = (n*(n-1))/2;
+    i0 = ((n+2)*(n-1))/2;
     if (ncq[n-1] > npq[n-1]) {
       dq = ncq[n-1] - npq[n-1];
       mk = -1;
@@ -3377,7 +3394,7 @@ int FillClosedShell(int nele, EN_RECORD *r, char *nc, char *sn, char *nm) {
   sn[0] = '\0';
   nm[0] = '\0';
   for (n = 1; n <= nmax; n++) {
-    i0 = (n*(n-1))/2;
+    i0 = ((n+2)*(n-1))/2;
     if (ncq[n-1] > 0) {
       sprintf(nc, "%s%d*%d.", nc, n, ncq[n-1]);
     }
@@ -3402,6 +3419,10 @@ int FillClosedShell(int nele, EN_RECORD *r, char *nc, char *sn, char *nm) {
 	  }
 	}
       }
+    }
+    if (nsq[i0+n] > 0) {
+      sprintf(sn, "%s%da%d.", sn, n, nsq[i0+n]);
+      sprintf(nm, "%s%da%d.", nm, n, nsq[i0+n]);
     }
   }
   n = strlen(nc);
@@ -5295,7 +5316,7 @@ int PrintENTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
     fprintf(f2, "\n");
     fprintf(f2, "NELE\t= %d\n", h.nele);
     fprintf(f2, "NLEV\t= %d\n", h.nlevels);
-    fprintf(f2, "  ILEV  IBASE    ENERGY       P   VNL   2J\n");
+    fprintf(f2, "  ILEV  IBASE    ENERGY       P   VNL         2J\n");
     for (i = 0; i < h.nlevels; i++) {
       n = ReadENRecord(f1, &r, swp);
       if (n == 0) break;
@@ -5313,7 +5334,7 @@ int PrintENTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
       }
       j = JFromENRecord(&r);
       ibase = IBaseFromENRecord(&r);
-      fprintf(f2, "%6d %6d %15.8E %1d %5d %4d %-32s %-48s %-s\n",
+      fprintf(f2, "%6d %6d %15.8E %1d %5d %10d %-32s %-48s %-s\n",
 	      r.ilev, ibase, e, p, vnl, j, r.ncomplex, r.sname, r.name);
     }
     nb += 1;
@@ -5446,7 +5467,7 @@ int PrintTRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 	  gf = OscillatorStrength(h.multipole, e, r.strength, &a);
 	  a /= (mem_en_table[r.upper].j + 1.0);
 	  a *= RATE_AU;
-	  fprintf(f2, "%6d %4d %6d %4d %13.6E %11.4E %13.6E %13.6E %13.6E %10.3E\n",
+	  fprintf(f2, "%6d %10d %6d %10d %13.6E %11.4E %13.6E %13.6E %13.6E %10.3E\n",
 		  r.upper, mem_en_table[r.upper].j, 
 		  r.lower, mem_en_table[r.lower].j,
 		  (e*HARTREE_EV), 
@@ -5462,7 +5483,7 @@ int PrintTRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 	  gf = OscillatorStrength(h.multipole, e, (double)r.strength, &a);
 	  a /= (mem_en_table[r.upper].j + 1.0);
 	  a *= RATE_AU;
-	  fprintf(f2, "%6d %2d %6d %2d %13.6E %13.6E %13.6E %13.6E\n",
+	  fprintf(f2, "%6d %6d %6d %6d %13.6E %13.6E %13.6E %13.6E\n",
 		  r.upper, mem_en_table[r.upper].j,
 		  r.lower, mem_en_table[r.lower].j,
 		  (e*HARTREE_EV), gf, a, r.strength);
@@ -5696,7 +5717,7 @@ int PrintCETable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
       if (n == 0) break;
       if (v) {
 	e = mem_en_table[r.upper].energy - mem_en_table[r.lower].energy;
-	fprintf(f2, "%6d %2d %6d %2d %11.4E %d\n",
+	fprintf(f2, "%6d %10d %6d %10d %11.4E %d\n",
 		r.lower, mem_en_table[r.lower].j,
 		r.upper, mem_en_table[r.upper].j,
 		e*HARTREE_EV, r.nsub);
@@ -6295,14 +6316,14 @@ int PrintRRTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
       if (v) {
 	if (r.f >= 0) {
 	  e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
-	  fprintf(f2, "%6d %2d %6d %2d %11.4E %6d\n",
+	  fprintf(f2, "%6d %10d %6d %10d %11.4E %6d\n",
 		  r.b, mem_en_table[r.b].j, 
 		  r.f, mem_en_table[r.f].j,
 		  (e*HARTREE_EV), r.kl);
 	} else {
 	  e = (double)(*((float *) &r.kl));
 	  r.kl = -r.f;
-	  fprintf(f2, "%6d %2d %6d %2d %11.4E %6d\n",
+	  fprintf(f2, "%6d %10d %6d %10d %11.4E %6d\n",
 		  r.b, mem_en_table[r.b].j, 
 		  r.f, -1,
 		  (e*HARTREE_EV), r.kl);
@@ -6428,7 +6449,7 @@ int PrintAITable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
 	} else {
 	  sdr = 0.0;
 	}
-	fprintf(f2, "%6d %2d %6d %2d %11.4E %11.4E %11.4E\n",
+	fprintf(f2, "%6d %10d %6d %10d %11.4E %11.4E %11.4E\n",
 		r.b, mem_en_table[r.b].j,
 		r.f, r.f>=0?mem_en_table[r.f].j:-1,
 		e*HARTREE_EV, (RATE_AU*r.rate), sdr);
@@ -6666,7 +6687,7 @@ int PrintCITable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
       
       if (v) {
 	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
-	fprintf(f2, "%6d %2d %6d %2d %11.4E %2d\n",
+	fprintf(f2, "%6d %10d %6d %10d %11.4E %2d\n",
 		r.b, mem_en_table[r.b].j,
 		r.f, mem_en_table[r.f].j,
 		e*HARTREE_EV, r.kl);
@@ -10111,7 +10132,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
       int gauges[3] = {1, 2, 10};
       int i0, i1, ig, ib, nm, nm2, nmx, nmx1, nmx2, nmx3, nmx4;
       double *efu;
-      short **nq, *nqs;
+      short **nq, *nqs, nq0, nq1;
       char c, nc0[LNCOMPLEX], *p0, *p1;
       TRANSMOD *sd;
 
@@ -10256,8 +10277,10 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 		    if (nlo == 0 && nup == 0) {
 		      i0 = nm;
 		      for (m = 1; m <= nm; m++) {
-			for (i1 = 0; i1 < m; i1++) {			 
-			  if (nq[s][i0] != nq[t][i0]) {
+			for (i1 = 0; i1 < m; i1++) {
+			  nq0 = nq[s][i0];
+			  nq1 = nq[t][i0];
+			  if (nq0 != nq1) {
 			    nlo = m;
 			    nup = nlo;
 			    break;
