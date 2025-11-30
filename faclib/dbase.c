@@ -85,6 +85,7 @@ static int _ncombex[N_ELEMENTS1];
 static char **_pcombex[N_ELEMENTS1];
 static char _scombex[N_ELEMENTS1][2048];
 static int _adj_ip = 1;
+static int _exk2h = 0;
 
 static int _ic_iai[100];
 static int _ix_iai[100];
@@ -8473,7 +8474,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
   double elow2ph[3], eup2ph[3];
   int nexc, ncap, nt, nd, ix, ibx, ifx, ib, cn0, cn1, cn2;
   int ia, *nm, *nklevs, *igk, *ifk, kk, kk1;
-  short ***nc;
+  short ***nc, nqc[N_ELEMENTS1];
   double zh, t0, dt, d0, dd, *egk, **eo, eip, wt0, wt1, tt0, tt1;
   float ***pai;
   int nt1, nt2, nt3, nt4, nt5, nt6, nt3a, nt3b;
@@ -8482,7 +8483,8 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 
   tt0 = WallTime();
   ncap = 0;
-  nexc = nexc0;
+  if (nexc0 <= 0) nexc0 = 99;
+  nexc = nexc0;  
   nt = 0;
   nd = 0;
   d0 = 0.0;
@@ -8736,7 +8738,14 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	  n = ReadENRecord(f0, &r0, swp);
 	  vn = abs(r0.p)/100;
 	  if (nb == 0 && i == 0) vn0 = vn;
-	  vni = VNIFromSName(r0.sname)/100;
+	  vni = VNIFromSName(r0.sname)/100;	      
+	  if ((nexc > 0 && vn > nexc) ||
+	      (ncap > 0 && vn > ncap && vni > vn0 && r0.energy > e1)) {
+	    continue;
+	  }
+	  if (im[r0.ilev] == -2) {
+	    continue;
+	  }
 	  if (_ncombex[k] > 0) {
 	    for (ix = 0; ix < _ncombex[k]; ix++) {
 	      if (strstr(r0.sname, _pcombex[k][ix])) {
@@ -8745,12 +8754,13 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	    }
 	    if (ix < _ncombex[k]) continue;
 	  }
-	  if ((nexc > 0 && vn > nexc) ||
-	      (ncap > 0 && vn > ncap && vni > vn0 && r0.energy > e1)) {
-	    continue;
-	  }
-	  if (im[r0.ilev] == -2) {
-	    continue;
+	  if ((k == 2 && (_exk2h&1)) ||
+	      (k > 2 && k <= 10 && (_exk2h&2)) ||
+	      (k > 10 && k <= 28 && (_exk2h&4)) ||
+	      (k > 28 && (_exk2h&8))) {
+	    if (0 == FindNRShells(k, &r0, vn+1, nqc, NULL)) {
+	      if (nqc[0] == 0) continue;
+	    }
 	  }
 	  im[r0.ilev] = clevs;
 	  clevs++;
@@ -8802,11 +8812,28 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	    if (nilevs >= _nilast) continue;
 	    vn = abs(r0.p)/100;
 	    if (nb == 0 && i == 0) vn0 = vn;
-	    vni = VNIFromSName(r0.sname)/100;	    
+	    vni = VNIFromSName(r0.sname)/100;	
+	    t = k-1;
+	    if (_ncombex[t] > 0) {
+	      for (ix = 0; ix < _ncombex[t]; ix++) {
+		if (strstr(r0.sname, _pcombex[t][ix])) {
+		  break;
+		}
+	      }
+	      if (ix < _ncombex[t]) continue;
+	    }
+	    if ((t == 2 && (_exk2h&1)) ||
+		(t > 2 && t <= 10 && (_exk2h&2)) ||
+		(t > 10 && t <= 28 && (_exk2h&4)) ||
+		(t > 28 && (_exk2h&8))) {
+	      if (0 == FindNRShells(t, &r0, vn+1, nqc, NULL)) {
+		if (nqc[0] == 0) continue;
+	      }
+	    }	        
 	    if ((nexc > 0 && vn > nexc) ||
 		(ncap > 0 && vn > ncap && vni > vn0 && r0.energy > e1)) {
 	      continue;
-	    }
+	    }  
 	    im[r0.ilev] = clevs;
 	    nilevs++;
 	    clevs++;
@@ -11625,6 +11652,10 @@ void SetCombEx(char *s) {
 void SetOptionDBase(char *s, char *sp, int ip, double dp) {
   if (0 == strcmp(s, "dbase:combex")) {
     SetCombEx(sp);
+    return;
+  }
+  if (0 == strcmp(s, "dbase:exk2h")) {
+    _exk2h = ip;
     return;
   }
   if (0 == strcmp(s, "dbase:cmpetol")) {
