@@ -17,6 +17,7 @@
  */
 
 #include "cfp.h"
+#include "global.h"
 
 static char *rcsid="$Id: cfp.c,v 1.5 2003/09/26 19:42:52 mfgu Exp $";
 #if __GNUC__ == 2

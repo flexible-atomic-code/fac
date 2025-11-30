@@ -19,6 +19,7 @@
 #include "ionization.h"
 #include "recombination.h"
 #include "cf77.h"
+#include "global.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2

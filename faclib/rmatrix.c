@@ -18,6 +18,7 @@
 
 #include "rmatrix.h"
 #include "cf77.h"
+#include "global.h"
 
 static char *rcsid="$Id: rmatrix.c,v 1.8 2004/12/23 21:31:03 mfgu Exp $";
 #if __GNUC__ == 2

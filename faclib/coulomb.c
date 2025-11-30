@@ -19,6 +19,7 @@
 #include "coulomb.h"
 #include "interpolation.h"
 #include "cf77.h"
+#include "global.h"
 
 /*************************************************************
   Implementation for module "coulomb". 

@@ -22,6 +22,7 @@
 #include "errms.h"
 #include "grdcfg.h"
 #include "grdcfg1.h"
+#include "global.h"
 
 static char *rcsid="$Id: nucleus.c,v 1.14 2005/01/17 05:39:41 mfgu Exp $";
 #if __GNUC__ == 2

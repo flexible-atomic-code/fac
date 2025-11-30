@@ -16,9 +16,10 @@
  *   along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <time.h>
 #include "transition.h"
 #include "mbpt.h"
-#include <time.h>
+#include "global.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2

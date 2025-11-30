@@ -28,6 +28,7 @@ USE (rcsid);
 #include "interpolation.h"
 #include "cf77.h"
 #include "orbital.h"
+#include "global.h"
 
 static PyObject *ErrorObject;
 #define onError(message) {PyErr_SetString(ErrorObject, message);}

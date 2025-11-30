@@ -21,6 +21,7 @@
 #include "orbital.h"
 #include "cf77.h"
 #include "parser.h"
+#include "global.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2

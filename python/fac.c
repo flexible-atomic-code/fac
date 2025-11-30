@@ -23,6 +23,7 @@
 #include "init.h"
 #include "cf77.h"
 #include "mpiutil.h"
+#include "global.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -6798,6 +6799,9 @@ static PyObject *PFillClosedShell(PyObject *self, PyObject *args) {
   strncpy(r.ncomplex, c, LNCOMPLEX);
   strncpy(r.sname, s, LSNAME);
   strncpy(r.name, n, LNAME);
+  nc[0] = '\0';
+  sn[0] = '\0';
+  nm[0] = '\0';
   k = FillClosedShell(i, &r, nc, sn, nm);
   if (k != 0) return Py_BuildValue("i", k);
   return Py_BuildValue("sss", nc, sn, nm);

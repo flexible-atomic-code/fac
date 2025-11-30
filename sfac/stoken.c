@@ -23,6 +23,7 @@ USE (rcsid);
 #endif
 
 #include "stoken.h"
+#include "global.h"
 
 static char _mod_name0[128];
 static char _mod_name1[128];
