@@ -8474,7 +8474,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
   double elow2ph[3], eup2ph[3];
   int nexc, ncap, nt, nd, ix, ibx, ifx, ib, cn0, cn1, cn2;
   int ia, *nm, *nklevs, *igk, *ifk, kk, kk1;
-  short ***nc, nqc[N_ELEMENTS1];
+  short ***nc, nqc[N_ELEMENTS1], *muta, iuta0;
   double zh, t0, dt, d0, dd, *egk, **eo, eip, wt0, wt1, tt0, tt1;
   float ***pai;
   int nt1, nt2, nt3, nt4, nt5, nt6, nt3a, nt3b;
@@ -8511,9 +8511,11 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
   mbk = 10;
   sbk = mbk*(mbk+1);
   eo = malloc(sizeof(double *)*nk);
+  muta = malloc(sizeof(short)*nk);
   for (k = k0; k <= k1; k++) {
     eo[k-k0] = malloc(sizeof(double)*sbk);  
     for (i = 0; i < sbk; i++) eo[k-k0][i] = 0;
+    muta[k-k0] = 0;
   }
   if (frp1 != NULL) {
     for (k = k1; k >= k0; k--) {
@@ -8564,9 +8566,17 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
       strcpy(a, fh.symbol);
     }
     if (fh.nthreads > nth) nth = fh.nthreads;
+    muta[k-k0] = iuta;
     FCLOSE(f0);
   }
-  
+  iuta = 0;
+  for (k = k1; k >= k0; k--) {
+    if (muta[k-k0]) {
+      iuta = muta[k-k0];
+      break;
+    }
+  }
+  iuta0 = iuta;
   for (i = 0; i < 7; i++) {
     sprintf(ofn, "%s%02d%02db.%s", pref, k0, k1, ext[i]);
     fh1[i].atom = z;
@@ -8864,11 +8874,14 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
     fflush(stdout);
     e0 = 1e30;
     for (nb = 0; nb < fh.nblocks; nb++) {
+      iuta = muta[k-k0];
       n = ReadENHeader(f0, &h0, swp);
       if (n == 0) break;
-      if (h0.nele == k) {	
-	InitFile(f1[0], &fh1[0], &h0);
+      if (h0.nele == k) {
+	iuta = iuta0;
+	InitFile(f1[0], &fh1[0], &h0);	
 	for (i = 0; i < h0.nlevels; i++) {
+	  iuta = muta[k-k0];
 	  n = ReadENRecord(f0, &r0, swp);
 	  if (im[r0.ilev] < 0) continue;
 	  vn = abs(r0.p)/100;
@@ -8879,6 +8892,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	  r0.energy += de[k-k0];
 	  if (r0.energy < e0) e0 = r0.energy;
 	  Match2PhotonLevels(k, &r0, ilow2ph, iup2ph, elow2ph, eup2ph);
+	  iuta = iuta0;
 	  WriteENRecord(f1[0], &r0);
 	  if (nm[k-k0] < vn) nm[k-k0] = vn;
 	  if (ifk[k-k0] < 0) {
@@ -8927,6 +8941,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	    }
 	  }
 	}
+	iuta = iuta0;
 	DeinitFile(f1[0], &fh1[0]);
       } else {
 	FSEEK(f0, h0.length, SEEK_CUR);
@@ -8936,11 +8951,14 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
     if (k == k0) {
       FSEEK(f0, SIZE_F_HEADER, SEEK_SET);
       for (nb = 0; nb < fh.nblocks; nb++) {
+	iuta = muta[k-k0];
 	n = ReadENHeader(f0, &h0, swp);
 	if (n == 0) break;
-	if (h0.nele == k-1) {	
+	if (h0.nele == k-1) {
+	  iuta = iuta0;
 	  InitFile(f1[0], &fh1[0], &h0);
 	  for (i = 0; i < h0.nlevels; i++) {
+	    iuta = muta[k-k0];
 	    n = ReadENRecord(f0, &r0, swp);
 	    if (im[r0.ilev] < 0) continue;
 	    if (!iuta && r0.ibase >= 0) {
@@ -8950,8 +8968,10 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	    if (eip > 0) {
 	      r0.energy = e0 + eip;
 	    }
+	    iuta = iuta0;
 	    WriteENRecord(f1[0], &r0);
 	  }
+	  iuta = iuta0;
 	  DeinitFile(f1[0], &fh1[0]);
 	} else {
 	  FSEEK(f0, h0.length, SEEK_CUR);
@@ -9009,6 +9029,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
     printf("processing %d %d ... ", z, k);
     fflush(stdout);
     im = ima[k-k0];
+    iuta = muta[k-k0];
     sprintf(ifn, "%s%02db.en", pref, k);
     MemENTable(ifn);
     sprintf(ifn, "%s%02db.tr", pref, k);
@@ -9023,19 +9044,24 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
     nt3b = 0;
     if (f0 != NULL && fh.type == DB_TR) {
       for (nb = 0; nb < fh.nblocks; nb++) {
+	iuta = muta[k-k0];
 	n = ReadTRHeader(f0, &h1, swp);
 	if (n == 0) break;
-	InitFile(f1[1], &fh1[1], &h1);
+	iuta = iuta0;
+	InitFile(f1[1], &fh1[1], &h1);	
 	for (i = 0; i < h1.ntransitions; i++) {
+	  iuta = muta[k-k0];
 	  n = ReadTRRecord(f0, &r1, &r1x, swp);
 	  if (n == 0) break;
 	  if (im[r1.lower] >= 0 && im[r1.upper] >= 0) {
 	    r1.lower = im[r1.lower];
 	    r1.upper = im[r1.upper];
+	    iuta = iuta0;
 	    WriteTRRecord(f1[1], &r1, &r1x);
 	    nt1++;
 	  }
 	}
+	iuta = iuta0;
 	DeinitFile(f1[1], &fh1[1]);
       }
       double r2p = 0.0;
@@ -9056,6 +9082,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	h1.ntransitions = 1;
 	h1.gauge = G_TWOPHOTON;
 	h1.multipole = 0;
+	iuta = iuta0;
 	InitFile(f1[1], &fh1[1], &h1);
 	r1.lower = ilow2ph[i];
 	r1.upper = iup2ph[i];
@@ -9063,6 +9090,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	WriteTRRecord(f1[1], &r1, &r1x);
 	nt1++;
       }
+      iuta = iuta0;
       DeinitFile(f1[1], &fh1[1]);
       FCLOSE(f0);
     }
@@ -9071,21 +9099,26 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 != NULL && fh.type == DB_CE) {
       for (nb = 0; nb < fh.nblocks; nb++) {
+	iuta = muta[k-k0];
 	n = ReadCEHeader(f0, &h2, swp);
 	if (n == 0) break;
+	iuta = iuta0;
 	InitFile(f1[2], &fh1[2], &h2);
 	for (i = 0; i < h2.ntransitions; i++) {
+	  iuta = muta[k-k0];
 	  n = ReadCERecord(f0, &r2, swp, &h2);
 	  if (n == 0) break;
 	  if (im[r2.lower] >= 0 && im[r2.upper] >= 0) {
 	    r2.lower = im[r2.lower];
-	    r2.upper = im[r2.upper];	    
+	    r2.upper = im[r2.upper];
+	    iuta = iuta0;
 	    WriteCERecord(f1[2], &r2);
 	    nt2++;
 	  }
 	  if (h2.qk_mode == QK_FIT) free(r2.params);
 	  free(r2.strength);
-	}	
+	}
+	iuta = iuta0;
 	DeinitFile(f1[2], &fh1[2]);
 	free(h2.tegrid);
 	free(h2.egrid);
@@ -9098,10 +9131,13 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 != NULL && fh.type == DB_RR) {
       for (nb = 0; nb < fh.nblocks; nb++) {
+	iuta = muta[k-k0];
 	n = ReadRRHeader(f0, &h3, swp);
 	if (n == 0) break;
+	iuta = iuta0;
 	InitFile(f1[3], &fh1[3], &h3);
 	for (i = 0; i < h3.ntransitions; i++) {
+	  iuta = muta[k-k0];
 	  n = ReadRRRecord(f0, &r3, swp, &h3);
 	  if (n == 0) break;
 	  ibx = r3.b;
@@ -9112,6 +9148,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	      r3.f = im[r3.f];
 	      tde = metable[r3.f].energy - metable[r3.b].energy;
 	      if (tde > 0) {
+		iuta = iuta0;
 		WriteRRRecord(f1[3], &r3);
 		nbk = r3.kl/1000;
 		kbk = r3.kl%1000;
@@ -9138,6 +9175,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 		r3.f = -r3.kl;
 		fde = tde;
 		r3.kl = *((int *) &fde);
+		iuta = iuta0;
 		WriteRRRecord(f1[3], &r3);
 		nt3a++;
 	      }
@@ -9146,6 +9184,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	  free(r3.params);
 	  free(r3.strength);
 	}
+	iuta = iuta0;
 	DeinitFile(f1[3], &fh1[3]);
 	free(h3.tegrid);
 	free(h3.egrid);
@@ -9270,6 +9309,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 		      for (t = 0; t < h3.n_usr; t++) {
 			r3.strength[t] *= tde;
 		      }
+		      iuta = iuta0;
 		      WriteRRRecord(f1[3], &r3);
 		      nt3b++;
 		    }
@@ -9277,7 +9317,8 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 		}
 	      }
 	    }
-	  }       
+	  }
+	  iuta = iuta0;
 	  DeinitFile(f1[3], &fh1[3]);
 	  free(h3.tegrid);
 	  free(h3.egrid);
@@ -9300,10 +9341,13 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 != NULL && fh.type == DB_CI) {
       for (nb = 0; nb < fh.nblocks; nb++) {
+	iuta = muta[k-k0];
 	n = ReadCIHeader(f0, &h4, swp);
 	if (n == 0) break;
+	iuta = iuta0;
 	InitFile(f1[4], &fh1[4], &h4);
 	for (i = 0; i < h4.ntransitions; i++) {
+	  iuta = muta[k-k0];
 	  n = ReadCIRecord(f0, &r4, swp, &h4);
 	  if (n == 0) break;
 	  if (im[r4.b] >= 0 && im[r4.f] >= 0) {
@@ -9311,6 +9355,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	    r4.f = im[r4.f];
 	    tde = metable[r4.f].energy-metable[r4.b].energy;
 	    if (tde > 0) {
+	      iuta = iuta0;
 	      WriteCIRecord(f1[4], &r4);
 	      nt4++;
 	    }
@@ -9318,6 +9363,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	  free(r4.params);
 	  free(r4.strength);
 	}
+	iuta = iuta0;
 	DeinitFile(f1[4], &fh1[4]);
 	free(h4.tegrid);
 	free(h4.egrid);
@@ -9330,10 +9376,13 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 != NULL && fh.type == DB_AI) {
       for (nb = 0; nb < fh.nblocks; nb++) {
+	iuta = muta[k-k0];
 	n = ReadAIHeader(f0, &h5, swp);
 	if (n == 0) break;
+	iuta = iuta0;
 	InitFile(f1[5], &fh1[5], &h5);
 	for (i = 0; i < h5.ntransitions; i++) {
+	  iuta = muta[k-k0];
 	  n = ReadAIRecord(f0, &r5, swp);
 	  if (n == 0) break;
 	  if (im[r5.b] >= 0 && im[r5.f] >= 0) {
@@ -9341,6 +9390,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	    r5.f = im[r5.f];
 	    tde = metable[r5.b].energy - metable[r5.f].energy;
 	    if (tde > 0 && r5.rate > 0) {
+	      iuta = iuta0;
 	      WriteAIRecord(f1[5], &r5);
 	      nt5++;
 	      if (k > k0 && k > 2 && _nc_iai > 0) {
@@ -9355,6 +9405,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	    }
 	  }
 	}
+	iuta = iuta0;
 	DeinitFile(f1[5], &fh1[5]);
 	free(h5.egrid);
       }
@@ -9373,12 +9424,15 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
     f0 = OpenFileRO(ifn, &fh, &swp);
     if (f0 != NULL && fh.type == DB_RC) {
       for (nb = 0; nb < fh.nblocks; nb++) {
+	iuta = muta[k-k0];
 	n = ReadRCHeader(f0, &h6, swp);
 	if (n == 0) break;
 	if (h6.ntransitions == 0) continue;
 	h6.mexc = nexc0;
+	iuta = iuta0;
 	InitFile(f1[6], &fh1[6], &h6);
 	for (i = 0; i < h6.ntransitions; i++) {
+	  iuta = muta[k-k0];
 	  n = ReadRCRecord(f0, &r6, swp, &h6);
 	  if (n == 0) break;
 	  if (im[r6.lower] >= 0 && im[r6.upper] >= 0) {
@@ -9386,12 +9440,14 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	    r6.upper = im[r6.upper];
 	    tde = metable[r6.upper].energy - metable[r6.lower].energy;
 	    if (tde > 0) {
+	      iuta = iuta0;
 	      WriteRCRecord(f1[6], &r6);
 	      nt6++;
 	    }
 	  }
 	  free(r6.rc);
 	}
+	iuta = iuta0;
 	DeinitFile(f1[6], &fh1[6]);
       }
       FCLOSE(f0);
@@ -9414,6 +9470,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	h5.nele = k;
 	h5.n_egrid = 1;
 	h5.egrid = &eai[kk][ia];
+	iuta = iuta0;
 	InitFile(f1[5], &fh1[5], &h5); 
 	for (i = 0; i < nklevs[kk1]; i++) {
 	  j = i + ifk[kk1];
@@ -9425,6 +9482,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	      eai[kk1][ia] = eai[kk][ia];
 	      r5.rate = d0;
 	      r5.b = j;
+	      iuta = iuta0;
 	      WriteAIRecord(f1[5], &r5);
 	    }
 	  }
@@ -9433,6 +9491,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	if (ai_header.ntransitions > 0) {
 	  printf("inner shell ai: %3d %6d %5d %12.5E %.3e\n", k, -r5.f, ai_header.ntransitions, h5.egrid[0], wt1-wt0);
 	}
+	iuta = iuta0;
 	DeinitFile(f1[5], &fh1[5]);      
       }
     }
@@ -9442,6 +9501,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
   free(ei);
   free(nplevs);
   for (i = 1; i < 7; i++) {
+    iuta = iuta0;
     CloseFile(f1[i], &fh1[i]);
   }
   if (_nc_iai > 0) {
@@ -9469,6 +9529,7 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
     if (eo[k-k0]) free(eo[k-k0]);
   }
   if (eo) free(eo);
+  free(muta);
   free(rrq);
   if (ic > 0) {
     n = ic;
