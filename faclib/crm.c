@@ -4236,7 +4236,7 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
       r.trate = blk->total_rate[p];
       rx.sdev = 0.0;
       r.strength = blk->n[p];
-      WriteSPRecord(f, &r, &rx);
+      WriteSPRecord(f, &r, &rx, iuta);
 	/*}*/
     }
     if (ib >= 0) DeinitFile(f, &fhdr);
@@ -4325,7 +4325,7 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
 	      r.trate = iblk->rc1[ion->ilev[rt->i]];
 	      r.trate += fblk->rc1[ion->ilev[rt->f]];
 	    }
-	    WriteSPRecord(f, &r, &rx);
+	    WriteSPRecord(f, &r, &rx, iuta);
 	  }
 	}
       }
@@ -4367,7 +4367,7 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
 	    rx.sdev = 0.0;
 	    r.rrate = rt->dir*electron_density;
 	    r.trate = iblk->total_rate[j];
-	    WriteSPRecord(f, &r, &rx);
+	    WriteSPRecord(f, &r, &rx, iuta);
 	  }
 	}
       }
@@ -4454,8 +4454,9 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   smax = 0.0;
   int ne0 = 10000;
   int ne1 = 0;
+  int utr;
   for (nb = 0; nb < fh.nblocks; nb++) {
-    n = ReadSPHeader(f1, &h, swp);
+    n = ReadSPHeader(f1, &h, swp, &utr);
     if (h.ntransitions == 0) continue;
     if (nele >= 0 && h.nele != nele) goto LOOPEND;
     if (ne0 > h.nele) ne0 = h.nele;
@@ -4488,7 +4489,7 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
       }
     }
     for (i = 0; i < h.ntransitions; i++) {
-      n = ReadSPRecord(f1, &r, &rx, swp);
+      n = ReadSPRecord(f1, &r, &rx, swp, utr);
       if (n == 0) break;
       if (fmin >= 0) {
 	r.energy = fabs(r.energy);
@@ -4630,7 +4631,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   int t, t0, t1, t2;
   int r0, r1;
   double e;
-  int m, k, nsp;
+  int m, k, nsp, utr;
   double *sp, *tsp, *xsp, *kernel, *wsp;
   double de10, de01;
   double a, sig, factor;
@@ -4686,7 +4687,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   double sav = 0.0;
   smax =  0.0;
   for (nb = 0; nb < fh.nblocks; nb++) {
-    n = ReadSPHeader(f1, &h, swp);
+    n = ReadSPHeader(f1, &h, swp, &utr);
     if (n == 0) break;
     if (h.ntransitions == 0) continue;
     if (nele >= 0 && h.nele != nele) goto LOOPEND0; 
@@ -4711,7 +4712,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
       }
     }
     for (i = 0; i < h.ntransitions; i++) {
-      n = ReadSPRecord(f1, &r, &rx, swp);
+      n = ReadSPRecord(f1, &r, &rx, swp, utr);
       if (n == 0) break;
       e = r.energy;
       a = r.strength * e;
@@ -4763,7 +4764,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   }
 
   for (nb = 0; nb < fh.nblocks; nb++) {
-    n = ReadSPHeader(f1, &h, swp);
+    n = ReadSPHeader(f1, &h, swp, &utr);
     if (n == 0) break;
     if (h.ntransitions == 0) continue;
     if (nele >= 0 && h.nele != nele) goto LOOPEND; 
@@ -4792,7 +4793,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
     lines = (double *) malloc(sizeof(double)*m);  
     k = 0;
     for (i = 0; i < h.ntransitions; i++) {
-      n = ReadSPRecord(f1, &r, &rx, swp);
+      n = ReadSPRecord(f1, &r, &rx, swp, utr);
       if (n == 0) break;
       e = r.energy;
       a = r.strength * e;
@@ -5781,8 +5782,7 @@ int SetTRRates(int inv) {
       continue;
     }
     for (nb = 0; nb < fh.nblocks; nb++) {
-      n = ReadTRHeader(f, &h, swp);
-      iuta = IsUTA();
+      n = ReadTRHeader(f, &h, swp, &iuta);
       if (h.nele == ion->nele-1) {
 	if (k > 0 || ion0.nionized > 0) {
 	  FSEEK(f, h.length, SEEK_CUR);
@@ -5794,7 +5794,7 @@ int SetTRRates(int inv) {
       nrb = Min(h.ntransitions, NRTB);
       jb = 0;
       for (i = 0; i < h.ntransitions; i++) {
-	n = ReadTRRecord(f, &r[jb], &rx[jb], swp);
+	n = ReadTRRecord(f, &r[jb], &rx[jb], swp, iuta);
 	jb++;
 	if (jb == nrb) {
 	  ResetWidMPI();
@@ -5974,8 +5974,7 @@ int SetTRRates(int inv) {
 	continue;
       }
       for (nb = 0; nb < fh.nblocks; nb++) {
-	n = ReadTRHeader(f, &h, swp);
-	iuta = IsUTA();
+	n = ReadTRHeader(f, &h, swp, &iuta);
 	if (h.nele != ion0.nele) {
 	  FSEEK(f, h.length, SEEK_CUR);
 	  continue;
@@ -5985,7 +5984,7 @@ int SetTRRates(int inv) {
 	nrb = Min(h.ntransitions, NRTB);
 	jb = 0;
 	for (i = 0; i < h.ntransitions; i++) {
-	  n = ReadTRRecord(f, &r[jb], &rx[jb], swp);
+	  n = ReadTRRecord(f, &r[jb], &rx[jb], swp, iuta);
 	  jb++;	
 	  if (jb == nrb) {
 	    ResetWidMPI();
@@ -7012,7 +7011,7 @@ void TabNLTE(char *fn1, char *fn2, char *fn3, char *fn,
   double ne, ni, gpbf, gcbf, gaut, gpbb, gcbb, rtot;
   double zbar, m2, m3, adx, *xg, *eg, *yg[3], tmp;
   int nmaxt, *nmax, i, j, t, k, z, n, *ilev;
-  int swp1, swp2, swp3, m, nx, nions, nlevs;
+  int swp1, swp2, swp3, m, nx, nions, nlevs, utr;
   NCOMPLEX cmpx[MAXNCOMPLEX];
   F_HEADER fh1, fh2, fh3;
   SP_HEADER h1;
@@ -7294,10 +7293,10 @@ void TabNLTE(char *fn1, char *fn2, char *fn3, char *fn,
   a = DLOGAM(alpha+1.0);
   a = 1.0/(exp(a)*pow(te, alpha+1.0));
   for (m = 0; m < fh1.nblocks; m++) {
-    n = ReadSPHeader(f1, &h1, swp1);
+    n = ReadSPHeader(f1, &h1, swp1, &utr);
     if (n == 0) break;
     for (t = 0; t < h1.ntransitions; t++) {
-      n = ReadSPRecord(f1, &r1, &rx, swp1);
+      n = ReadSPRecord(f1, &r1, &rx, swp1, utr);
       if (n == 0) break;
       if (h1.type == 0) continue;
       r1.energy *= HARTREE_EV;
@@ -8505,7 +8504,7 @@ void LoadLineRec(int id0, int it0, int nele,
       (type < 0 || _interpsp.r[id0][it0].type == type) &&
       _interpsp.r[id0][it0].nmin == nmin &&
       _interpsp.r[id0][it0].nmax == nmax) return;
-  int i, j;
+  int i, j, utr;
   double ts0 = TotalSize();
   double ts1;
   if (_interpsp.maxmem > 0 && _interpsp.tsize > _interpsp.maxmem) {    
@@ -8567,7 +8566,7 @@ void LoadLineRec(int id0, int it0, int nele,
   imin = -1;
   imax = -1;
   for (nb = 0; nb < fh.nblocks; nb++) {
-    n = ReadSPHeader(f1, &h, swp);
+    n = ReadSPHeader(f1, &h, swp, &utr);
     if (n == 0) break;
     if (h.ntransitions == 0) continue;
     if (h.nele != nele) goto LOOPEND0;
@@ -8579,7 +8578,7 @@ void LoadLineRec(int id0, int it0, int nele,
       if (r1 > nmax) goto LOOPEND0;
     }
     for (i = 0; i < h.ntransitions; i++) {
-      n = ReadSPRecord(f1, &r, &rx, swp);
+      n = ReadSPRecord(f1, &r, &rx, swp, utr);
       if (n == 0) break;
       if (h.type == 0) {
 	if (imin < 0 || imin > r.upper) {
@@ -8625,7 +8624,7 @@ void LoadLineRec(int id0, int it0, int nele,
   rec->nr = nr;
   nr = 0;  
   for (nb = 0; nb < fh.nblocks; nb++) {
-    n = ReadSPHeader(f1, &h, swp);
+    n = ReadSPHeader(f1, &h, swp, &utr);
     if (n == 0) break;
     if (h.ntransitions == 0) continue;
     if (h.nele != nele) goto LOOPEND;
@@ -8637,7 +8636,7 @@ void LoadLineRec(int id0, int it0, int nele,
       if (r1 > nmax) goto LOOPEND;
     }
     for (i = 0; i < h.ntransitions; i++) {
-      n = ReadSPRecord(f1, &r, &rx, swp);
+      n = ReadSPRecord(f1, &r, &rx, swp, utr);
       if (n == 0) break;
       if (h.type == 0) {
 	if (h.nele == nele) {

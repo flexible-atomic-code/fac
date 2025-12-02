@@ -6997,7 +6997,7 @@ void SaveTransitionMBPT(MBPT_TR *mtr) {
 	  } else {
 	    r.strength = s0;	    
 	  }
-	  WriteTRRecord(f, &r, NULL);
+	  WriteTRRecord(f, &r, NULL, 0);
 	}
       }
       }

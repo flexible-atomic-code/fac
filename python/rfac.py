@@ -613,7 +613,12 @@ def read_tr(filename):
         block['gf'] = np.zeros(ntrans, dtype=float)
         block['rate'] = np.zeros(ntrans, dtype=float)
         block['multipole'] = np.zeros(ntrans, dtype=float)
-        if header['uta'] > 0:
+        block['uta'] = header['uta']
+        if len(lines) > 0 and lines[0].strip() != '':
+            a = lines[0].split()
+            if len(a) == 10:
+                block['uta'] = 1                
+        if block['uta'] > 0:
             block['sdev'] = np.zeros(ntrans, dtype=float)
             block['rci'] = np.zeros(ntrans, dtype=float)
 
@@ -627,7 +632,7 @@ def read_tr(filename):
             block['lower_index'][i] = int(a[2])
             block['lower_2J'][i] = int(a[3])
             block['Delta E'][i] = float(a[4])
-            if header['uta'] > 0:
+            if block['uta'] > 0:
                 block['sdev'][i] = float(a[5])
                 block['gf'][i] = float(a[6])
                 block['rate'][i] = float(a[7])

@@ -179,7 +179,7 @@ int SetMLevels(char *fn, char *tfn) {
   TFILE *f;  
   int n, k, m, t, t0, p, k0;
   int m1, m2, j1, j2;
-  int swp;
+  int swp, utr;
   double a, b, z, e;
 
   if (nlevels > 0) {
@@ -346,7 +346,7 @@ int SetMLevels(char *fn, char *tfn) {
     }
     
     while (1) {
-      n = ReadTRHeader(f, &h1, swp);
+      n = ReadTRHeader(f, &h1, swp, &utr);
       if (n == 0) break;
       ntr += h1.ntransitions;
       FSEEK(f, h1.length, SEEK_CUR);
@@ -431,11 +431,11 @@ int SetMLevels(char *fn, char *tfn) {
     }
     
     while (1) {
-      n = ReadTRHeader(f, &h1, swp);
+      n = ReadTRHeader(f, &h1, swp, &utr);
       if (n == 0) break;
       k0 = abs(h1.multipole)*2;
       for (t = 0; t < h1.ntransitions; t++) {
-	n = ReadTRRecord(f, &r1, &r1x, swp);
+	n = ReadTRRecord(f, &r1, &r1x, swp, utr);
 	if (n == 0) break;
 	j1 = levels[r1.lower].j;
 	j2 = levels[r1.upper].j;

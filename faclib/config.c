@@ -467,13 +467,21 @@ int ShellsFromString(char *scfg, double *dnq, SHELL **shell) {
       for (i = 0; i < nkl; i++) {
 	kl[i] = i;	
 	if (iu == 0 && IsShellNR(n[0], kl[i])) {
-	  mu[i] = 2;
-	} else {
-	  mu[i] = iu;
+	  iu = 1;	
+	  if (TrueUTA(0) && _nrm > 0) {
+	    iu = 2;
+	  }
 	}
+	mu[i] = iu;
       }
     } else {
       nkl = 1;
+      if (iu == 0 && IsShellNR(n[0], kl[0])) {
+	iu = 1;
+	if (TrueUTA(0) && _nrm > 0) {
+	  iu = 2;
+	}
+      }
       mu[0] = iu;
       if (iu == 2 && kl[0] == MAX_SPEC_SYMBOLS) kl[0] = -1;
     }
@@ -518,7 +526,7 @@ int ShellsFromString(char *scfg, double *dnq, SHELL **shell) {
       iu = GetJLFromSymbol(s, &j, &kl[k]);
       if (iu == 0 && IsShellNR(n[0], kl[k])) {
 	iu = 1;
-	if (iu && TrueUTA(0) && _nrm > 0) iu = 2;
+	if (TrueUTA(0) && _nrm > 0) iu = 2;
       }
       kl2 = 2*kl[k];
       if (iu == 2) {
@@ -2855,7 +2863,7 @@ int AddConfigToList(int k, CONFIG *cfg) {
 	if (cfg->shells[i-1].nr == 1) {
 	  if (j0 > kl0 && nq0 > 1) {
 	    break;
-	  }
+	  }	  
 	  if (klp == kl0 && np == n0) {
 	    nq1 = nq0-nqp;
 	    dp = nq1 - nqp;
@@ -2907,18 +2915,31 @@ int AddConfigToList(int k, CONFIG *cfg) {
   }
 
   if (nq0 > 0) {
-    PackNRShell(cfg->nrs+m, n0, kl0, nq0);
-    m++;
     if (cfg->shells[i-1].nr == 1) {
-      if (j0 > kl0 || (klp == kl0 && nq0-nqp < j0+1)) {
+      int skip = 0;
+      if (j0 > kl0 && nq0 > 1) skip = 1;
+      else if (klp == kl0 && np == n0) {
+	nq1 = nq0-nqp;
+	dp = nq1-nqp;
+	if (dp > 1 || (dp < 0 && nq1 < j0+1)) skip = 1;
+      }
+      dq = ShellDegeneracy(2*(kl0+1), nq0);
+      if (nq0 <= j0+1) {
+	dq1 = dq/2;
+	if (nsp > 0) dq1 = dq-dq1;
+	if (dq1 == 0) skip = 1;
+	dq = dq1;
+      }
+      if (skip) {
 	cfg->nnrs = 0;
 	free(cfg->nrs);    
 	FreeConfigData(cfg);
 	return 0;
       }      
-      dq = ShellDegeneracy(2*(kl0+1), nq0);
       cfg->sweight *= dq;
     }
+    PackNRShell(cfg->nrs+m, n0, kl0, nq0);
+    m++;
   }
   if (p > 0 && IsOdd(p)) cfg->sweight = -cfg->sweight;
   cfg->nnrs = m;
