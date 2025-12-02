@@ -1358,7 +1358,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 		}
 	      }
 	    }
-	    WriteTRRecord(f, &(rd[ir].r), &(rd[ir].rx));
+	    WriteTRRecord(f, &(rd[ir].r), &(rd[ir].rx), iuta);
 	  } else {
 	    int iuf, iuu;
 	    if (rd[ir].r.lower < 0 && rd[ir].r.upper >= 0) {
@@ -1465,7 +1465,7 @@ int SaveTransition0(int nlow, int *low, int nup, int *up,
 	  if (!_tr_all && a[i] < (transition_option.eps * trd)) continue;
 	  r.lower = low[i];
 	  r.strength = s[i];
-	  WriteTRRecord(f, &r, NULL);
+	  WriteTRRecord(f, &r, NULL, iuta);
 	}
       }      
       free(a);

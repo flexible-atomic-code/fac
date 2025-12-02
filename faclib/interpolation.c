@@ -3405,7 +3405,7 @@ void ModifyEN(int nc, MOD_RECORD *mr, int nr, MOD_RECORD *pr,
 
 void ModifyTR(int nc, MOD_RECORD *mr, int nr, MOD_RECORD *pr,
 	      TFILE *f0, TFILE *f1, F_HEADER *fh, int swp) {
-  int n, i, k;
+  int n, i, k, utr;
   TR_HEADER h;
   TR_RECORD r, *r0;
   TR_EXTRA rx;
@@ -3413,11 +3413,11 @@ void ModifyTR(int nc, MOD_RECORD *mr, int nr, MOD_RECORD *pr,
   double a;
 
   while (1) {
-    n = ReadTRHeader(f0, &h, swp);
+    n = ReadTRHeader(f0, &h, swp, &utr);
     if (n == 0) break;
     InitFile(f1, fh, &h);
     for (i = 0; i < h.ntransitions; i++) {
-      n = ReadTRRecord(f0, &r, &rx, swp);
+      n = ReadTRRecord(f0, &r, &rx, swp, utr);
       if (n == 0) break;
       if (nr == 0) {
 	mr0.m = h.multipole;
@@ -3446,7 +3446,7 @@ void ModifyTR(int nc, MOD_RECORD *mr, int nr, MOD_RECORD *pr,
 	  }
 	}
       }
-      WriteTRRecord(f1, &r, &rx);
+      WriteTRRecord(f1, &r, &rx, utr);
     }
     DeinitFile(f1, fh);
   }
@@ -3681,7 +3681,7 @@ int ReadTRTable(char *fn, int *nh, TR_HEADER **h,
   F_HEADER fh;
   TR_HEADER h0;
   TR_EXTRA rx;
-  int n, swp, i, j, m;
+  int n, swp, utr, i, j, m;
   TFILE *f;
 
   f = OpenFileRO(fn, &fh, &swp);
@@ -3695,7 +3695,7 @@ int ReadTRTable(char *fn, int *nh, TR_HEADER **h,
   *nh = fh.nblocks;
   *nr = 0;
   while (1) {
-    n = ReadTRHeader(f, &h0, swp);
+    n = ReadTRHeader(f, &h0, swp, &utr);
     if (n == 0) break;
     *nr += h0.ntransitions;
     FSEEK(f, h0.length, SEEK_CUR);
@@ -3714,10 +3714,10 @@ int ReadTRTable(char *fn, int *nh, TR_HEADER **h,
   i = 0;
   j = 0;
   while (1) {
-    n = ReadTRHeader(f, (*h)+i, swp);
+    n = ReadTRHeader(f, (*h)+i, swp, &utr);
     if (n == 0) break;
     for (m = 0; m < (*h)[i].ntransitions; m++) {
-      n = ReadTRRecord(f, (*r)+j, &rx, swp);
+      n = ReadTRRecord(f, (*r)+j, &rx, swp, utr);
       if (n == 0) break;
       if (mr) {
 	(*mr)[j].m = (*h)[i].multipole;
