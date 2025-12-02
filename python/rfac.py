@@ -617,7 +617,9 @@ def read_tr(filename):
         if len(lines) > 0 and lines[0].strip() != '':
             a = lines[0].split()
             if len(a) == 10:
-                block['uta'] = 1                
+                block['uta'] = 1
+            else:
+                block['uta'] = 0
         if block['uta'] > 0:
             block['sdev'] = np.zeros(ntrans, dtype=float)
             block['rci'] = np.zeros(ntrans, dtype=float)
@@ -760,7 +762,7 @@ def read_ce(filename):
             block['upper_index'][tr] = int(a[2])
             block['upper_2J'][tr] = int(a[3])
             block['Delta E'][tr] = float(a[4])
-            nsub = int(line[31:])
+            nsub = int(a[5])
             if block['MSUB']:
                 block['collision strength'][tr] = np.zeros(
                     (nusr, nsub), dtype=float)
@@ -769,9 +771,10 @@ def read_ce(filename):
 
             line = lines[0]
             lines = lines[1:]
-            block['bethe'][tr] = float(line[:11].strip())
-            block['born'][tr, 0] = float(line[12:23].strip())
-            block['born'][tr, 1] = float(line[24:36].strip())
+            a = line.split()
+            block['bethe'][tr] = float(a[0])
+            block['born'][tr, 0] = float(a[1])
+            block['born'][tr, 1] = float(a[2])
 
             for sub in range(nsub):
                 if block['MSUB']:
@@ -781,9 +784,9 @@ def read_ce(filename):
                     for i in range(nusr):
                         line = lines[0]
                         lines = lines[1:]
-                        block['collision strength'][tr][i, sub] = float(
-                            line[12:23])
-                        block['crosssection'][tr][i, sub] = float(line[24:])
+                        a = line.split()
+                        block['collision strength'][tr][i, sub] = float(a[1])
+                        block['crosssection'][tr][i, sub] = float(a[2])
                     if sub < nsub - 1:
                         line = lines[0]
                         lines = lines[1:]  # skip separator -----
@@ -792,8 +795,9 @@ def read_ce(filename):
                     for i in range(nusr):
                         line = lines[0]
                         lines = lines[1:]
-                        block['collision strength'][tr, i] = float(line[12:23])
-                        block['crosssection'][tr, i] = float(line[24:])
+                        a = line.split()
+                        block['collision strength'][tr, i] = float(a[1])
+                        block['crosssection'][tr, i] = float(a[2])
 
         if len(lines) < 3:
             return (block, )
@@ -867,8 +871,9 @@ def read_ci(filename):
             for i in range(nusr):
                 line = lines[0]
                 lines = lines[1:]
-                block['collision strength'][tr, i] = float(line[12:23])
-                block['crosssection'][tr, i] = float(line[24:])
+                a = line.split()
+                block['collision strength'][tr, i] = float(a[1])
+                block['crosssection'][tr, i] = float(a[2])
 
             if len(lines) < 3:
                 return (block, )
@@ -943,9 +948,10 @@ def read_rr(filename):
             for i in range(nusr):
                 line = lines[0]
                 lines = lines[1:]
-                block['RR crosssection'][tr, i] = float(line[12:23])
-                block['PI crosssection'][tr, i] = float(line[24:35])
-                block['gf'][tr, i] = float(line[36:])
+                a = line.split()
+                block['RR crosssection'][tr, i] = float(a[1])
+                block['PI crosssection'][tr, i] = float(a[2])
+                block['gf'][tr, i] = float(a[3])
 
             if len(lines) < 3:
                 return (block, )
@@ -992,13 +998,13 @@ def read_sp(filename):
         for tr in range(ntrans):
             line = lines[0]
             lines = lines[1:]
-
-            block['block'][tr] = int(line[:6])
-            block['level'][tr] = int(line[7:13])
-            block['abs. energy'][tr] = float(line[14:27])
-            block['population'][tr] = float(line[28:39])
-            block['Delta E'][tr] = float(line[14:27])
-            block['emissivity'][tr] = float(line[28:39])
+            a = line.split()
+            block['block'][tr] = int(a[0])
+            block['level'][tr] = int(a[1])
+            block['abs. energy'][tr] = float(a[2])
+            block['population'][tr] = float(a[3])
+            block['Delta E'][tr] = float(a[4])
+            block['emissivity'][tr] = float(a[5])
 
         for i, line in enumerate(lines):
             if line.strip() == '':  # if empty

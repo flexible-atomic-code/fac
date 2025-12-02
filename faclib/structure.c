@@ -3808,9 +3808,7 @@ int SolveStructure(char *fn, char *hfn,
   if (cfg->n_csfs == 0) {
     AddToLevels(NULL, ng0, kg);
   } else {
-    if (IsUTA()) {
-      AddToULevels(ng0, kg);
-    }
+    AddToULevels(ng0, kg);
     double wtb = WallTime();
     if (rh == 0) {
       for (i = 0; i < ns; i++) {

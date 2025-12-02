@@ -371,7 +371,10 @@ def rank_cfg(r, r0, nv, kv):
 
 def cs(z, k, nd=0, nm=0, na=0, km=7):
     if k == 0:
-        return {'g0':[('1s0',1,1,1,1,1,1,1,1),('1a0',1,1,1,1,1,1,1,1)]}
+        if km < 0:
+            return {'nm':1, 'nd':0, 'na':1, 'km':0,'z':z,'k':k}
+        else:
+            return {'g0':[('1s0',1,1,1,1,1,1,1,1),('1a0',1,1,1,1,1,1,1,1)]}
     
     c = grdcfg0(z, k)
     r = rfac.nlqs(c)
