@@ -987,7 +987,7 @@ int RRRadialQk(double *rqc, double te, int k0, int k1, int m, int u) {
 
   LOCK *lock = NULL;
   int locked = 0;
-  double **p, *pp;
+  double **p = NULL, *pp = NULL;
   if (u && uta_tegrid) {
     p = (double **) MultiSet(qku_array, &k0, NULL, &lock, InitPointerData, FreeRecPkData);
 #pragma omp atomic read
@@ -1040,7 +1040,7 @@ int RRRadialQk(double *rqc, double te, int k0, int k1, int m, int u) {
       UVIP3P(np, n_tegrid, tegrid, rq, nd, &x0, &rqc[i]);
     }
   }
-  if (u && uta_tegrid) {
+  if (p) {
     pp = (double *) malloc(sizeof(double)*n_egrid);
     for (i = 0; i < n_egrid; i++) {
       pp[i] = rqc[i];
@@ -1803,13 +1803,11 @@ double AutoionizeRateUTA0I(double pe, double log_e, ORBITAL *orb0, ORBITAL *orb1
   index[2] = kb;
   LOCK *lock = NULL;
   int locked = 0;
-  double **p, *pp;
+  double **p = NULL, *pp = NULL;
   if (uta_egrid) {
     pe = ek;
     if (pe < 0) return 0.0;
     log_e = log(pe);
-  }
-  if (uta_egrid) {
     p = (double **) MultiSet(aiu_array, index, NULL, &lock, InitPointerData, FreeRecPkData);
 #pragma omp atomic read
     pp = *p;
@@ -1937,7 +1935,7 @@ double AutoionizeRateUTA0I(double pe, double log_e, ORBITAL *orb0, ORBITAL *orb1
       ni++;
     }
   }
-  if (uta_egrid) {
+  if (p) {
     pp = (double *) malloc(sizeof(double));
     *pp = r;
     if (p) {

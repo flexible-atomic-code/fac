@@ -255,7 +255,9 @@ void InitializeMPI(int n, int m) {
     }
   } else if (n == 0) {
     omp_set_num_threads(1);
-  }  
+  }
+  omp_set_dynamic(0);
+  omp_set_nested(0);
 #pragma omp parallel
   {
     mpi.wid = 0;

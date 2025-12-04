@@ -2005,7 +2005,7 @@ int CollisionStrengthUTA0I(double *qkc, double *e, double *bethe0,
 	*bethe0 = 0.0;
       }
     }
-    if (uta_tegrid && p) {
+    if (p) {
       pp = (double *) malloc(sizeof(double)*(n_egrid1+2));
       for (ie = 0; ie < n_egrid1; ie++) {
 	pp[ie] = qkc[ie];
