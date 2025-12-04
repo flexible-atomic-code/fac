@@ -115,7 +115,8 @@ static int DecodeGroupArgs(int **kg, int n, int *n0, char *argv[], int argt[],
     if (argt[0] == LIST || argt[0] == TUPLE) {
       if (ng > 1) {
 	printf("there should be only one list or tuple\n");
-	return -1;
+	ng = -1;
+	goto END;
       }
       ng = DecodeArgs(argv[0], v, t, variables);
       nv = ng;
@@ -140,7 +141,8 @@ static int DecodeGroupArgs(int **kg, int n, int *n0, char *argv[], int argt[],
 	if (t[i] != STRING) {
 	  printf("argument must be a group name\n");
 	  free((*kg));
-	  return -1;
+	  ng = -1;
+	  goto END;
 	}
 	s = v[i];
 	k = GroupExists(s);      
@@ -157,7 +159,7 @@ static int DecodeGroupArgs(int **kg, int n, int *n0, char *argv[], int argt[],
       if (ng <= 0) {
 	//printf("all cfg groups invalid\n");
 	free(*kg);
-	return ng;
+	goto END;
       }
     }
   } else {
@@ -165,7 +167,8 @@ static int DecodeGroupArgs(int **kg, int n, int *n0, char *argv[], int argt[],
     (*kg) = malloc(sizeof(int)*ng);
     for (i = 0; i < ng; i++) (*kg)[i] = i;
   }
- 
+
+ END:
   for (i = 0; i < nv; i++) free(v[i]);
   
   return ng;
@@ -196,7 +199,8 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
   } else if (argt == NUMBER) {
     *t = malloc(sizeof(int));
     (*t)[0] = atof(argv);
-    return 1;
+    rv = 1;
+    goto END;
   } else {
     n = DecodeArgs(argv, v, at, variables);
     nv = n;
@@ -224,7 +228,8 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
       }
       free(nti);
       free(ti);
-      return n;
+      rv = n;
+      goto END;
     }
   }
   if (n > 0) {
@@ -342,7 +347,8 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
       for (i = 0; i < n; i++) {
 	if (at[i] != NUMBER) {
 	  free(*t);
-	  return -1;
+	  rv = -1;
+	  goto END;
 	}
 	(*t)[i] = atoi(v[i]);
       }
@@ -359,14 +365,14 @@ static int SelectLevels(int **t, char *argv, int argt, ARRAY *variables) {
 
 static int ConfigListToC(char *clist, CONFIG **cfg, ARRAY *variables) {
   SHELL *shells;
-  int i, j, k, m;
+  int i, j, k, m, rv;
   int n_shells, n;
   char *argv[MAXNARGS], *sv[MAXNARGS];
   int argt[MAXNARGS], st[MAXNARGS], na, ns;
   
   na = 0;
   ns = 0;
-
+  rv = 0;
   (*cfg) = (CONFIG *) malloc(sizeof(CONFIG));
   n_shells = DecodeArgs(clist, argv, argt, variables);
   na = n_shells;
@@ -375,10 +381,16 @@ static int ConfigListToC(char *clist, CONFIG **cfg, ARRAY *variables) {
   shells = (*cfg)->shells;
 
   for (i = 0, m = n_shells-1; i < n_shells; i++, m--) {
-    if (argt[i] != TUPLE) return -1;
+    if (argt[i] != TUPLE) {
+      rv = -1;
+      goto END;
+    }
     n = DecodeArgs(argv[i], sv, st, variables);
     ns = n;
-    if (n != 4) return -1;
+    if (n != 4) {
+      rv = -1;
+      goto END;
+    }
     shells[m].n = atoi(sv[0]);
     k = atoi(sv[1]);
     j = atoi(sv[2]);
@@ -387,10 +399,11 @@ static int ConfigListToC(char *clist, CONFIG **cfg, ARRAY *variables) {
     shells[m].nq = atoi(sv[3]);
   }
 
+ END:
   for (i = 0; i < na; i++) free(argv[i]);
   for (i = 0; i < ns; i++) free(sv[i]);
 
-  return 0;     
+  return rv;     
 }  
 
 static int PAvgConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
@@ -531,7 +544,11 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   if (argt[0] == NUMBER) {
     int ng, *kg, ngb, *kgb, n0, n1, k0, k1, m, n0d, n1d;
     double sth;
-    
+
+    ng = 0;
+    ngb = 0;
+    kg = NULL;
+    kgb = NULL;
     m = atoi(argv[0]);
     if (m == 0) {
       if (argt[1] != STRING) return -1;
@@ -573,12 +590,21 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
 	nf = 0;
       } else {
 	nf = DecodeArgs(argv[1], v, vt, variables);
-	if (nf < 1 || nf > 2) return -1;
-	if (vt[0] != STRING) return -1;
+	if (nf < 1 || nf > 2) {
+	  t = -1;
+	  goto END;
+	}
+	if (vt[0] != STRING) {
+	  t = -1;
+	  goto END;
+	}
 	gn1 = v[0];
 	gn2 = NULL;
 	if (nf > 1) {
-	  if (vt[1] != STRING) return -1;
+	  if (vt[1] != STRING) {
+	    t = -1;
+	    goto END;
+	  }
 	  gn2 = v[1];
 	}
       }
@@ -627,10 +653,9 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
       }
       t = ConfigSD(m, ng, kg, s, gn1, gn2, n0, n1, n0d, n1d, k0, k1,
 		   ngb, kgb, sth);
-      if (nf > 0) {
-	for (i = 0; i < nf; i++) {
-	  free(v[i]);
-	}
+    END:
+      for (i = 0; i < nf; i++) {
+	free(v[i]);
       }
       if (ng > 0) free(kg);
       if (ngb > 0 && kgb && kgb != kg) free(kgb);
@@ -1009,13 +1034,15 @@ static int PAdjustEnergy(int argc, char *argv[], int argt[],
 			 ARRAY *variables) {
   int nlevs, k, *ilevs;
   double e, *elevs;
-  int i, ie, ii;
+  int i, ie, ii, rv;
   FILE *f;
   char *iv[MAXNARGS], *ev[MAXNARGS];
   int it[MAXNARGS], et[MAXNARGS];
 
   ii = 0; 
   ie = 0;
+  nlevs = 0;
+  rv = 0;
   if (argc == 2) {
     if (argt[0] != STRING) return -1;
     if (argt[1] != NUMBER) return -1;
@@ -1056,12 +1083,18 @@ static int PAdjustEnergy(int argc, char *argv[], int argt[],
     }
     ii = DecodeArgs(argv[0], iv, it, variables);
     ie = DecodeArgs(argv[1], ev, et, variables);
-    if (ii != ie) return -1;
+    if (ii != ie) {
+      rv = -1;
+      goto END;
+    }
     nlevs = ii;
     ilevs = (int *) malloc(sizeof(int)*nlevs);
     elevs = (double *) malloc(sizeof(double)*nlevs);
     for (i = 0; i < nlevs; i++) {
-      if (it[i] != NUMBER || et[i] != NUMBER) return -1;
+      if (it[i] != NUMBER || et[i] != NUMBER) {
+	rv = -1;
+	goto END;
+      }
       k = atoi(iv[i]);
       e = atof(ev[i]);
       e /= HARTREE_EV;
@@ -1071,6 +1104,7 @@ static int PAdjustEnergy(int argc, char *argv[], int argt[],
     AdjustEnergy(nlevs, ilevs, elevs, argv[2], argv[3], argv[4], argv[5]);
   }
 
+ END:
   for (i = 0; i < ii; i++) free(iv[i]);
   for (i = 0; i < ie; i++) free(ev[i]);
   if (nlevs > 0) {
@@ -1078,12 +1112,12 @@ static int PAdjustEnergy(int argc, char *argv[], int argt[],
     free(elevs);
   }
   
-  return 0;
+  return rv;
 }
 
 static int PCorrectEnergy(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
-  int n, k, kref;
+  int n, k, kref, rv;
   double e;
   int i, ie, ii, nmin;
   FILE *f;
@@ -1093,6 +1127,8 @@ static int PCorrectEnergy(int argc, char *argv[], int argt[],
   ii = 0; 
   ie = 0;
   kref = 0;
+  rv = 0;
+  
   if (argc == 2) {
     if (argt[0] != STRING) {
       return -1;
@@ -1123,10 +1159,16 @@ static int PCorrectEnergy(int argc, char *argv[], int argt[],
     nmin = atoi(argv[2]);
     ii = DecodeArgs(argv[0], iv, it, variables);
     ie = DecodeArgs(argv[1], ev, et, variables);
-    if (ii != ie) return -1;
+    if (ii != ie) {
+      rv = -1;
+      goto END;
+    }
     n = ii;
     for (i = 0; i < n; i++) {
-      if (it[i] != NUMBER || et[i] != NUMBER) return -1;
+      if (it[i] != NUMBER || et[i] != NUMBER) {
+	rv = -1;
+	goto END;
+      }
       k = atoi(iv[i]);
       e = atof(ev[i]);
       e /= HARTREE_EV;
@@ -1139,13 +1181,15 @@ static int PCorrectEnergy(int argc, char *argv[], int argt[],
       AddECorrection(kref, k, e, nmin);
     }
   } else {
-    return -1;
+    rv -1;
+    goto END;
   }
 
+ END:
   for (i = 0; i < ii; i++) free(iv[i]);
   for (i = 0; i < ie; i++) free(ev[i]);
 
-  return 0;
+  return rv;
 }
 
 static int PExit(int argc, char *argv[], int argt[], ARRAY *variables) {
@@ -1289,7 +1333,7 @@ static int POptimizeGroup(int argc, char *argv[], int argt[],
 
 static int POptimizeRadial(int argc, char *argv[], int argt[], 
 			   ARRAY *variables) {
-  int ng, i, k;
+  int ng, i, k, rv;
   int *kg;
   double z;
   double *weight;
@@ -1297,7 +1341,9 @@ static int POptimizeRadial(int argc, char *argv[], int argt[],
   int iw[MAXNARGS], ni;
   
   ni = 0;
-
+  rv = 0;
+  kg = NULL;
+  weight = NULL;
   ng = argc;
   if (ng == 0) {
     ng = 0; 
@@ -1321,13 +1367,15 @@ static int POptimizeRadial(int argc, char *argv[], int argt[],
       ni = k;
       if (k < 0 || k > ng) {
 	printf("weights must be a sequence\n");
-	return -1;
+	rv = -1;
+	goto END1;
       } 
       weight = (double *) malloc(sizeof(double)*ng);
       z = 0.0;
       for (i = 0; i < k; i++) {
 	if (iw[i] != NUMBER) {
-	  return -1;
+	  rv = -1;
+	  goto END1;
 	} 
 	weight[i] = atof(vw[i]);
 	z += weight[i];
@@ -1345,14 +1393,13 @@ static int POptimizeRadial(int argc, char *argv[], int argt[],
  END:
   if (ng == 0) kg = NULL;
   if (OptimizeRadial(ng, kg, -1, weight, 0) < 0) {
-    if (kg) free(kg);
-    if (weight) free(weight);
-    return -1;
+    rv = -1;
   }
+ END1:
   if (weight) free(weight);
   if (kg) free(kg);
   for (i = 0; i < ni; i++) free(vw[i]);
-  return 0;
+  return rv;
 }
 
 static int PAverageAtom(int argc, char *argv[], int argt[], 
@@ -1998,7 +2045,7 @@ static int PSetAtom(int argc, char *argv[], int argt[],
 
 static int PSetAvgConfig(int argc, char *argv[], int argt[], 
 			 ARRAY *variables) {
-  int ns, i, j;
+  int ns, i, j, rv;
   int *n, *kappa;
   double *nq;
   char *vc[MAXNARGS], *vs[MAXNARGS];
@@ -2008,7 +2055,8 @@ static int PSetAvgConfig(int argc, char *argv[], int argt[],
     printf("SetAvgConfig arg is List\n");
     return -1;
   }
-  
+
+  rv = 0;
   ns = DecodeArgs(argv[0], vc, ic, variables);
   n = malloc(sizeof(int)*ns);
   kappa = malloc(sizeof(int)*ns);
@@ -2018,7 +2066,9 @@ static int PSetAvgConfig(int argc, char *argv[], int argt[],
     j = DecodeArgs(vc[i], vs, is, variables);
     if (j != 4) {
       printf("SetAvgConfig has 4-tuple: %d %d %s\n", i, j, vc[i]);
-      return -1;
+      for (i = 0; i < j; i++) free(vs[i]);
+      rv = -1;
+      goto END;
     }
     n[i] = atoi(vs[0]);
     kappa[i] = atoi(vs[1]);
@@ -2027,14 +2077,16 @@ static int PSetAvgConfig(int argc, char *argv[], int argt[],
     for (j = 0; j < 4; j++) free(vs[j]);
   }
   
-  for (j = 0; j < ns; j++) free(vc[j]);
+  rv = SetAverageConfig(ns, n, kappa, nq);
 
-  if (SetAverageConfig(ns, n, kappa, nq) < 0) return -1;
-  free(n);
-  free(kappa);
-  free(nq);
-
-  return 0;
+ END:
+  if (ns > 0) {
+    for (j = 0; j < ns; j++) free(vc[j]);
+    free(n);
+    free(kappa);
+    free(nq);
+  }
+  return rv;
 }
 
 static int PSetCEGrid(int argc, char *argv[], int argt[], 
@@ -2241,12 +2293,14 @@ static int PSetCEPWGridType(int argc, char *argv[], int argt[],
 
 static int PSetCEPWGrid(int argc, char *argv[], int argt[], 
 			ARRAY *variables) {
-  int ns, i;
+  int ns, ns2, i;
   int n;
   int *m, *step;
   char *v1[MAXNARGS], *v2[MAXNARGS];
   int t1[MAXNARGS], t2[MAXNARGS];
 
+  ns = 0;
+  ns2 = 0;
   n = argc;
   if (n == 1) {
     if (argt[0] != NUMBER) return -1;
@@ -2256,7 +2310,12 @@ static int PSetCEPWGrid(int argc, char *argv[], int argt[],
     if (argt[0] != LIST || argt[1] != LIST) return -1;
     ns = DecodeArgs(argv[0], v1, t1, variables);
     if (ns <= 0) return -1;
-    if (ns != DecodeArgs(argv[1], v2, t2, variables)) return -1;
+    ns2 = DecodeArgs(argv[1], v2, t2, variables);
+    if (ns2 != ns) {
+      for (i = 0; i < ns; i++) free(v1[i]);
+      for (i = 0; i < ns2; i++) free(v1[i]);
+      return -1;
+    }
     m = (int *) malloc(ns*sizeof(int));
     step = (int *) malloc(ns*sizeof(int));
     for (i = 0; i < ns; i++) {
@@ -2502,7 +2561,8 @@ static int PSetCIPWOptions(int argc, char *argv[], int argt[],
 }
 
 static int PSetCIPWGrid(int argc, char *argv[], int argt[], 
-			ARRAY *variables) {  int ns, i;
+			ARRAY *variables) {
+  int ns, ns2, i;
   int n;
   int *m, *step;
   char *v1[MAXNARGS], *v2[MAXNARGS];
@@ -2517,7 +2577,12 @@ static int PSetCIPWGrid(int argc, char *argv[], int argt[],
     if (argt[0] != LIST || argt[1] != LIST) return -1;
     ns = DecodeArgs(argv[0], v1, t1, variables);
     if (ns <= 0) return -1;
-    if (ns != DecodeArgs(argv[1], v2, t2, variables)) return -1;
+    ns2 =DecodeArgs(argv[1], v2, t2, variables);
+    if (ns2 != ns) {
+      for (i = 0; i < ns; i++) free(v1[i]);
+      for (i = 0; i < ns2; i++) free(v2[i]);
+      return -1;
+    }
     m = (int *) malloc(ns*sizeof(int));
     step = (int *) malloc(ns*sizeof(int));
     for (i = 0; i < ns; i++) {
@@ -3445,7 +3510,10 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
     if (argt[2] != LIST) return -1;
     n1 = DecodeArgs(argv[2], v, t, variables);
     for (i = 0; i < n1; i++) {
-      if (t[i] != STRING) return -1;
+      if (t[i] != STRING) {
+	for (i = 0; i < n1; i++) free(v[i]);
+	return -1;
+      }
     }
     if (n1 <= 0) return -1;
     StructureReadMBPT(argv[0], argv[1], n1, v, n, s, n3);
@@ -3469,12 +3537,16 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
 	hfn0 = v[1];
       }
     }
-    if (argt[6] != NUMBER) return -1;
+    if (argt[6] != NUMBER) {
+      for (i = 0; i < nf; i++) free(v[i]);
+      return -1;
+    }
     n3 = atoi(argv[6]);
     if (argt[2] == LIST) {
       n = DecodeGroupArgs(&s, 1, &n3, &(argv[2]), &(argt[2]), variables);      
       if (n <= 0) {
 	printf("First configuration group does not exist\n");
+	for (i = 0; i < nf; i++) free(v[i]);
 	return -1;
       }
     } else {
@@ -3499,6 +3571,7 @@ static int PStructureMBPT(int argc, char *argv[], int argt[],
       nk = atoi(argv[3]) + 1;
       nkm = NULL;
     } else {
+      for (i = 0; i < nf; i++) free(v[i]);
       return -1;
     }
     int icp = 0;
@@ -4490,7 +4563,7 @@ static int PRMatrixRefine(int argc, char *argv[], int argt[],
 static int PRMatrixCE(int argc, char *argv[], int argt[], 
 		      ARRAY *variables) {
   double emin, emax, *de;
-  int np, m, i, mb, nde;
+  int np, np1, m, i, mb, nde;
   char *v0[MAXNARGS], *v1[MAXNARGS];
   int t0[MAXNARGS], t1[MAXNARGS];
   
@@ -4509,7 +4582,10 @@ static int PRMatrixCE(int argc, char *argv[], int argt[],
   }
 
   np = DecodeArgs(argv[1], v0, t0, variables);
-  if (DecodeArgs(argv[2], v1, t1, variables) != np) {
+  np1 = DecodeArgs(argv[2], v1, t1, variables);
+  if (np1 != np) {
+    for (i = 0; i < np; i++) free(v0[i]);
+    for (i = 0; i < np1; i++) free(v1[i]);
     return -1;
   }
   

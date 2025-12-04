@@ -773,7 +773,7 @@ int IonizeStrengthUTA0I(double *qku, double *te, double *bethe, ORBITAL *orb,
   klb = GetLFromKappa(orb->kappa)/2;
   LOCK *lock = NULL;
   int locked = 0;
-  double **p, *pp = NULL;
+  double **p = NULL, *pp = NULL;
 
   if (uta_tegrid) {
     p = (double **) MultiSet(ciu_array, &kb, NULL, &lock, InitPointerData, FreeIonizationQkData);
@@ -828,7 +828,7 @@ int IonizeStrengthUTA0I(double *qku, double *te, double *bethe, ORBITAL *orb,
     }
     ip = CIRadialQkIntegrated(qku, *te, kb, kb);
   }
-  if(uta_tegrid) {
+  if(p) {
     pp = (double *) malloc(sizeof(double)*(n_egrid+1));
     for (i = 0; i < n_egrid; i++) {
       pp[i] = qku[i];
