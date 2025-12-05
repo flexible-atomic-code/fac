@@ -754,7 +754,7 @@ void LimitMultiSize(MULTI *ma, double r) {
 }
 
 double TotalSize() {
-#if PMALLOC_CHECK > 0
+#if PMALLOC != 1
   return (double) msize();
 #else
   return _totalsize;

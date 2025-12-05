@@ -34,16 +34,15 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-#define PMALLOC_CHECK 1
-#if PMALLOC_CHECK == 0
-#include "omalloc.h"
-#elif PMALLOC_CHECK == 1
+#include "sysdef.h"
+
+#if PMALLOC == 0
 #include "mmalloc.h"
+#elif PMALLOC < 10
+#include "omalloc.h"
 #else
 #include "pmalloc.h"
 #endif
-
-#include "sysdef.h"
 
 #if USE_MPI == 1
 #include <mpi.h>

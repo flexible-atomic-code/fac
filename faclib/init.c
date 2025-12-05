@@ -177,8 +177,8 @@ int InitFac(void) {
     return ierr;
   }
 
-#if PMALLOC_CHECK >= 2
-  printf("using malloc check mode: %d\n", PMALLOC_CHECK);
+#if PMALLOC >= 10
+  printf("using malloc check mode: %d\n", PMALLOC);
 #endif
   InitMultiStats();
   InitNucleus();

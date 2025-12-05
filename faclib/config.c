@@ -1697,26 +1697,42 @@ int Couple(CONFIG *cfg) {
     }
     switch (ns) {
     case 1:
+      if (_ncsf1[idx[id[0]]] > 0) {
+	free(_csf1[idx[id[0]]]);
+      }
       _ncsf1[idx[id[0]]] = ncsf;
       _csf1[idx[id[0]]] = csf;
       break;
     case 2:
+      if (_csf2[idx[id[0]]][idx[id[1]]] > 0) {
+	free(_csf2[idx[id[0]]][idx[id[1]]]);
+      }
       _ncsf2[idx[id[0]]][idx[id[1]]] = ncsf;
       _csf2[idx[id[0]]][idx[id[1]]] = csf;
       break;
     case 3:
+      if (_ncsf3[idx[id[0]]][idx[id[1]]][idx[id[2]]] > 0) {
+	free(_csf3[idx[id[0]]][idx[id[1]]][idx[id[2]]]);
+      }
       _ncsf3[idx[id[0]]][idx[id[1]]][idx[id[2]]] = ncsf;
       _csf3[idx[id[0]]][idx[id[1]]][idx[id[2]]] = csf;
       break;
     case 4:
+      if (_ncsf4[idx[id[0]]][idx[id[1]]][idx[id[2]]][idx[id[3]]] > 0) {
+	free(_csf4[idx[id[0]]][idx[id[1]]][idx[id[2]]][idx[id[3]]]);
+      }
       _ncsf4[idx[id[0]]][idx[id[1]]][idx[id[2]]][idx[id[3]]] = ncsf;
       _csf4[idx[id[0]]][idx[id[1]]][idx[id[2]]][idx[id[3]]] = csf;
       break;
     case 5:
+      if (_ncsf5[idx[id[0]]][idx[id[1]]][idx[id[2]]][idx[id[3]]][idx[id[4]]]>0) {
+	free(_csf5[idx[id[0]]][idx[id[1]]][idx[id[2]]][idx[id[3]]][idx[id[4]]]);
+      }
       _ncsf5[idx[id[0]]][idx[id[1]]][idx[id[2]]][idx[id[3]]][idx[id[4]]] = ncsf;
       _csf5[idx[id[0]]][idx[id[1]]][idx[id[2]]][idx[id[3]]][idx[id[4]]] = csf;
       break;
     default:
+      free(csf);
       break;
     }
   }
