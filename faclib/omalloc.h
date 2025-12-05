@@ -19,7 +19,20 @@
 #ifndef _OMALLOC_H_
 #define _OMALLOC_H_ 1
 
+#include "sysdef.h"
+
 #define msize() omsize()
+
+#if PMALLOC == 2
+#include <gperftools/tcmalloc.h>
+#include <gperftools/malloc_extension_c.h>
+#define malloc(x)      tc_malloc((x))
+#define calloc(n, x)   tc_calloc((n),(x))
+#define realloc(p, n)  tc_realloc((p),(n))
+#define free(p)        tc_free((p))
+#elif PMALLOC == 3
+#include <jemalloc/jemalloc.h>
+#endif
 
 size_t omsize(void);
 

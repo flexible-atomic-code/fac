@@ -16,8 +16,6 @@
  *   along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define _PMALLOC_H_ 1
-
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -50,7 +48,7 @@ void *pmalloc(size_t size, char *f, int nline) {
   mem_alloc[n_alloc].ff = NULL;
   mem_alloc[n_alloc].nlf = 0;
   mem_alloc[n_alloc].size = size;
-#if PMALLOC_CHECK == 3
+#if PMALLOC == 11
   fprintf(pmalloc_log, "%8s %8d %lx %16s %5d %zu\n", "MALLOC:", n_alloc, (long)(&p[1]), f, nline, size);
   fflush(pmalloc_log);
 #endif
@@ -79,7 +77,7 @@ void *pcalloc(size_t n, size_t size, char *f, int nline) {
   mem_alloc[n_alloc].ff = NULL;
   mem_alloc[n_alloc].nlf = 0;
   mem_alloc[n_alloc].size = ns;
-#if PMALLOC_CHECK == 3
+#if PMALLOC == 11
   fprintf(pmalloc_log, "%8s %8d %lx %16s %5d %zu\n", "CALLOC:", n_alloc, (long)(&p[1]), f, nline, ns);
   fflush(pmalloc_log);
 #endif
@@ -115,7 +113,7 @@ void *prealloc(void *p, size_t size, char *f, int nline) {
       mem_alloc[*ps].ff = f;
       mem_alloc[*ps].nlf = nline;
     }
-#if PMALLOC_CHECK == 3
+#if PMALLOC == 11
     fprintf(pmalloc_log, "%8s %8ld %lx %16s %5d\n", "REALLOC:", *ps, (long)(&ps[1]), f, nline);
     fflush(pmalloc_log);
 #endif
@@ -167,7 +165,7 @@ void pfree(void *p, char *f, int nline) {
     mem_alloc[*ps].nlf = nline;
   }
 
-#if PMALLOC_CHECK == 3
+#if PMALLOC == 11
   fprintf(pmalloc_log, "%8s %8d %lx %16s %5d\n", "FREE:", *ps, (long) (&ps[1]), f, nline);
   fflush(pmalloc_log);
 #endif

@@ -19,7 +19,7 @@
 #undef pgiFortran
 #undef AbsoftProFortran
 #undef MOD_F2C
-
+#undef PMALLOC
 #undef USE_MPI
 
 #endif

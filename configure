@@ -711,6 +711,7 @@ with_mpi
 with_mpicompile
 with_mpilink
 with_mpifflag
+with_pmalloc
 with_extrainc
 with_extralib
 with_blaslib
@@ -1369,6 +1370,7 @@ Optional Packages:
  --with-mpicompile	MPI compile flags
  --with-mpilink	MPI link flags
  --with-mpifflag	MPI f77 flags
+ --with-pmalloc	alt. malloc lib
  --with-extrainc	Extra compile flags
  --with-extralib	Extra Libs
  --with-blaslib	BLAS Libs
@@ -5127,6 +5129,12 @@ if test "${with_mpifflag+set}" = set; then :
 fi
 
 
+# Check whether --with-pmalloc was given.
+if test "${with_pmalloc+set}" = set; then :
+  withval=$with_pmalloc;  pmalloc=$withval
+fi
+
+
 # Check whether --with-extrainc was given.
 if test "${with_extrainc+set}" = set; then :
   withval=$with_extrainc; extrainc=$withval
@@ -5174,6 +5182,23 @@ fi
 echo "PYPREFIX = ${PYPREFIX}"
 
 # setup libs
+if test "x$pmalloc" == "x"
+then
+  pmalloc=0
+fi
+cat >>confdefs.h <<_ACEOF
+#define PMALLOC $pmalloc
+_ACEOF
+
+if test "x$pmalloc" == "x2"
+then
+  LDFLAGS="$LDFLAGS -ltcmalloc"
+fi
+if test "x$pmalloc" == "x3"
+then
+  LDFLAGS="$LDFLAGS -ljemalloc"
+fi
+
 if test "x$blaslib" == "x"
 then
   blaslib="-lmblas"

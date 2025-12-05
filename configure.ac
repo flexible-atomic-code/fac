@@ -182,6 +182,9 @@ AC_ARG_WITH(mpilink,
 AC_ARG_WITH(mpifflag,
 	[ --with-mpifflag	MPI f77 flags],
 	[mpifflag=$withval])
+AC_ARG_WITH(pmalloc,
+	[ --with-pmalloc	alt. malloc lib],
+	[ pmalloc=$withval])
 AC_ARG_WITH(extrainc,
 	[ --with-extrainc	Extra compile flags],
 	[extrainc=$withval])
@@ -218,6 +221,20 @@ fi
 echo "PYPREFIX = ${PYPREFIX}"
 
 # setup libs
+if test "x$pmalloc" == "x"
+then
+  pmalloc=0
+fi
+AC_DEFINE_UNQUOTED([PMALLOC], [$pmalloc])
+if test "x$pmalloc" == "x2"
+then
+  LDFLAGS="$LDFLAGS -ltcmalloc"
+fi
+if test "x$pmalloc" == "x3"
+then
+  LDFLAGS="$LDFLAGS -ljemalloc"
+fi
+
 if test "x$blaslib" == "x"
 then
   blaslib="-lmblas"

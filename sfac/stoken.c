@@ -212,6 +212,7 @@ int TokenizeLine(int nline, char *line, METHOD *methods,
     if (r) {
       fs->argc = 0;
     } else {
+      fs->argc = 0;
       if (quotepos != 2) return ERR_SYNTAX;
       fs->argc = DecodeArgs(token, fs->argv, fs->argt, variables);
       if (fs->argc < 0) return fs->argc;

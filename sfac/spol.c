@@ -406,7 +406,7 @@ int main(int argc, char *argv[]) {
   int i;
   FILE *f;
 
-#if PMALLOC_CHECK >= 2
+#if PMALLOC >= 10
   pmalloc_open();
 #endif
 
@@ -416,7 +416,7 @@ int main(int argc, char *argv[]) {
 
   ParseArgs(argc, argv, methods);
 
-#if PMALLOC_CHECK >= 2
+#if PMALLOC >= 10
   pmalloc_check();
 #endif
 
