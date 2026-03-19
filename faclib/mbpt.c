@@ -37,18 +37,18 @@ static int mbpt_msort = 0;
 static double mbpt_asort = 10.0;
 static int mbpt_prepyk = 0;
 static int mbpt_nbreit = -1;
-static double mbpt_warn = 0.0;
-static double mbpt_nwarn = 10.0;
-static double mbpt_xwarn = 1.0;
-static double mbpt_mwarn = 0.0;
-static double mbpt_wwarn = 0.5;
-static double mbpt_ewarn = 0; //1e-3/_HARTREE_EV;
+static double mbpt_warn = 0.05;
+static double mbpt_nwarn = 0.01;
+static double mbpt_xwarn = 0.0001;
+static double mbpt_mwarn = 0.5;
+static double mbpt_wwarn = 0.01;
+static double mbpt_ewarn = 1e-3/_HARTREE_EV;
 static double mbpt_ewarn12 = 0;//1e-1/HARTREE_EV;
 static double mbpt_ewarn11 = 0;//1e-1/HARTREE_EV;
-static double mbpt_ignore = 50.0;
+static double mbpt_ignore = 0.0;
 static double mbpt_warntr = 1.0;
-static double mbpt_ignoretr = 10.0;
-static int mbpt_ignorep = 0;
+static double mbpt_ignoretr = 0.0;
+static int mbpt_ignorep = 3;
 static long mbpt_ignoren = 0;
 static double mbpt_angzc = 0.75;
 static double mbpt_angzm = 0;
@@ -2273,7 +2273,7 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 	    FreeConfigData(cr);
 	    free(cr);
 	  }
-	  printf("large h22term warn: %s %d %d %d %d %d %d %d %g %g %g %g %g\n",
+	  printf("large h22term warn:  %s %d %d %d %d %d %d %d %g %g %g %g %g\n",
 		 scr, c0->igroup, c0->icfg, c1->igroup, c1->icfg, s0, m0, m1,
 		 sd1w, sd2w, d1, d2, wth);
 	  warned = 2;
@@ -2282,7 +2282,7 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     }
     if (mbpt_ignore > 0) {// && (c0 != c1 || m0 != m1)) {
       if (sd1s > mbpt_ignore || sd2s > mbpt_ignore) {
-	if (warned != 2 && (mbpt_ignorep&1)) {
+	if (mbpt_ignorep&1) {
 	  int na[4], ka[4];
 	  na[0] = nn1;
 	  na[1] = nn3;
@@ -2563,7 +2563,7 @@ void H12Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     }
     if (mbpt_ignore > 0) {// && (c0 != c1 || m0 != m1)) {
       if (sd1s > mbpt_ignore || sd2s > mbpt_ignore) {
-	if (warned != 2 && (mbpt_ignorep&1)) {
+	if (mbpt_ignorep&1) {
 	  int na[2], ka[2];
 	  na[0] = nn5;
 	  na[1] = nn6;
@@ -2733,7 +2733,7 @@ void TR12Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
     }
   }
   if (mbpt_ignoretr > 0 && sd1s > mbpt_ignoretr) {
-    if (!warned && (mbpt_ignorep&2)) {
+    if (mbpt_ignorep&2) {
       //char sc[64];
       char s1[16], s2[16], s3[16], s4[16];
       ShellString(nn1, ka1, -1, s1);
@@ -3031,7 +3031,7 @@ void H11Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
     }
     if (mbpt_ignore > 0) {// && (c0 != c1 || m0 != m1)) {
       if (sd1s > mbpt_ignore || sd2s > mbpt_ignore) {
-	if (warned != 2 && (mbpt_ignorep&1)) {
+	if (mbpt_ignorep&1) {
 	  int na[2], ka[2];
 	  na[0] = orb0->n;
 	  na[1] = orb1->n;
@@ -3172,7 +3172,7 @@ void TR11Term(MBPT_TR *mtr, CONFIG *c0, CONFIG *c1,
     }
   }
   if (mbpt_ignoretr > 0 && sd1s > mbpt_ignoretr) {
-    if (!warned && (mbpt_ignorep&2)) {
+    if (mbpt_ignorep&2) {
       int na[2], ka[2];
       na[0] = orb2->n;
       na[1] = orb3->n;
