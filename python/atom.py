@@ -132,6 +132,37 @@ def gen_cfgs(ks, qt, qmin, qmax):
             qr.append([q]+a)
     return qr        
 
+def split_acfg(c, eps=5e-2, qmh=0.1, mdn=1):
+    r = rfac.nlqs(c)
+    ns = []
+    ks = []
+    qs0 = []
+    qs1 = []
+    qt = 0
+    for a in r:
+        qt = qt + a[2]
+        if a[2] < eps:
+            continue
+        qm = 2*(2*int(a[1])+1)
+        iq = int(a[2])
+        rq = qm-a[2]
+        ns.append(a[0])
+        ks.append(a[1])
+        qs0.append(max(0,iq-mdn))
+        qs1.append(min(qm,iq+mdn))
+    qt = int(qt+0.5)
+    cs = []
+    nq = gen_cfgs(ks, qt, qs0, qs1)
+    nm = 0
+    for q in nq:
+        r = [(ns[i],ks[i],q[i]) for i in range(len(ns))]
+        r = rfac.cfgnr(r)
+        cs.append(r)
+        nsm = np.max(ns)
+        if nsm > nm:
+            nm = nsm
+    return nm,cs
+
 def gck(z, k, pref=None, cleanup=False, nproc=0,
         sc_print=1, aaztol=1e-3, ptol=1e-3, scb_uf=0.0, scb_mte=0.0):
     if pref is None:

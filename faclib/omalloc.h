@@ -26,10 +26,10 @@
 #if PMALLOC == 2
 #include <gperftools/tcmalloc.h>
 #include <gperftools/malloc_extension_c.h>
-#define malloc(x)      tc_malloc((x))
-#define calloc(n, x)   tc_calloc((n),(x))
-#define realloc(p, n)  tc_realloc((p),(n))
-#define free(p)        tc_free((p))
+//#define malloc(x)      tc_malloc((x))
+//#define calloc(n, x)   tc_calloc((n),(x))
+//#define realloc(p, n)  tc_realloc((p),(n))
+//#define free(p)        tc_free((p))
 #elif PMALLOC == 3
 #include <jemalloc/jemalloc.h>
 #endif

@@ -50,8 +50,8 @@ extern void f_lmqn(int *,int,double *,double *,double *,double *,int,void (*)(in
 #define LMQN(a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14) f_lmqn((a0),(a1),(a2),(a3),(a4),(a5),(a6),(a7),(a8),(a9),(a10),(a11),(a12),(a13),(a14))
 extern void f_lmqnbc(int *,int,double *,double *,double *,double *,int,void (*)(int *,double *,double *,double *),double *,double *,int *,int,int,int,double,double,double,double);
 #define LMQNBC(a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17) f_lmqnbc((a0),(a1),(a2),(a3),(a4),(a5),(a6),(a7),(a8),(a9),(a10),(a11),(a12),(a13),(a14),(a15),(a16),(a17))
-extern void f_subplx(double (*)(int *, double *),int,double,int,int,double *,double *,double *,int *,double *,int *,int *);
-#define SUBPLX(a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11) f_subplx((a0),(a1),(a2),(a3),(a4),(a5),(a6),(a7),(a8),(a9),(a10),(a11))
+extern void f_subplx(double (*)(int *, double *),int,double,double,int,int,double *,double *,double *,int *,double *,int *,int *);
+#define SUBPLX(a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12) f_subplx((a0),(a1),(a2),(a3),(a4),(a5),(a6),(a7),(a8),(a9),(a10),(a11),(a12))
 extern double f_argam(double,double);
 #define ARGAM(a0,a1) f_argam((a0),(a1))
 extern double f_dlogam(double);

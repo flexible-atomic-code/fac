@@ -304,19 +304,20 @@ end subroutine
 
 subroutine f_subplx(a0,a1,a2,a3,a4,&
                     a5,a6,a7,a8,a9,&
-                    a10,a11) bind(C, name='f_subplx')
+                    a10,a11,a12) bind(C, name='f_subplx')
 type(c_funptr), value :: a0
 integer(c_int), value :: a1
 real(c_double), value :: a2
-integer(c_int), value :: a3
+real(c_double), value :: a3
 integer(c_int), value :: a4
-real(c_double) :: a5(*)
+integer(c_int), value :: a5
 real(c_double) :: a6(*)
 real(c_double) :: a7(*)
-integer(c_int) :: a8(*)
-real(c_double) :: a9(*)
-integer(c_int) :: a10(*)
+real(c_double) :: a8(*)
+integer(c_int) :: a9(*)
+real(c_double) :: a10(*)
 integer(c_int) :: a11(*)
+integer(c_int) :: a12(*)
 interface
 function c0(n,x) bind(C)
 import :: c_int, c_double
@@ -329,7 +330,7 @@ procedure(c0), pointer :: p0
 call c_f_procpointer(a0,p0)
 call SUBPLX(p0,a1,a2,a3,a4,&
             a5,a6,a7,a8,a9,&
-            a10,a11)
+            a10,a11,a12)
 end subroutine
 
 function f_argam(a0,a1) bind(C, name='f_argam')

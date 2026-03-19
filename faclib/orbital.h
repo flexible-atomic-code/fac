@@ -55,7 +55,7 @@ typedef struct _POTENTIAL_ {
   double *dws;
   double zps, nps, tps, rps, cps, dps, aps, bps, nbt, nbs, nqf;
   double fps, ups, xps, jps, qps, gps, sf0, sf1, efm, eth, ewd;
-  int mps, kps, vxf, ips, sps, iqf, miter, vxm;
+  int mps, kps, vxf, ips, sps, iqf, miter, vxm, zorb;
   double *Z, *dZ, *dZ2, *rad, *rho, *mqrho, *dr_drho, *dr_drho2, *vtr;
   double *a1r, *a2r, *a3r, *a1dr, *a2dr, *a3dr;
   double *Vc, *dVc, *dVc2, *qdist, *U, *dU, *dU2, *W, *dW, *dW2;
@@ -78,6 +78,7 @@ typedef struct _ORBITAL_ {
   double rfn, dn;
   struct _ORBITAL_ *horb;
   struct _ORBITAL_ *rorb;
+  struct _ORBITAL_ *zorb;
 } ORBITAL;
 
 void InitOrbitalData(void *p, int n);
@@ -155,9 +156,13 @@ double SCRSF(void);
 double SCRBF(void);
 double SCBQP(void);
 double SCEWF(void);
+int SCNMF(void);
 int SCEWM(void);
 int OrbPWA(void);
+void SetOrbPWA(int pwa);
 double SPZU(void);
+double VXS(void);
+void SetVXS(double);
 int IonSphBMode(void);
 void PrepFermiNR();
 double FreeEta0(double ne, double te);
@@ -167,12 +172,13 @@ double FreeKe(double u, double te);
 double FreeVe(double u, double te);
 double FreeTe(double u, double ne);
 double InterpFermiNR(int m, double u);
-double BoundFactor(double e, double eth, double de, int mps);
+double SmoothedFD(double xw, double pxw, double xm, double u, int s);
+double BoundFactor(double e, double eth, double de, int mps, int zorb);
 double DrRho(POTENTIAL *p, int i, double x);
 double RadRho(POTENTIAL *p, int i, double x);
 double ExpM1(double x);
 int FirstMaximum(double *p, int i1, int i2, POTENTIAL *pot);
-int LastMaximum(double *p, int i1, int i2, POTENTIAL *pot);
+int LastMaximum(double *p, double e, int i1, int i2, POTENTIAL *pot);
 #endif
 
 

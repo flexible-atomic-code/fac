@@ -542,6 +542,16 @@ static PyObject *PClosed(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
+static PyObject *PClosedShells(PyObject *self, PyObject *args) {
+  if (sfac_file) {
+    SFACStatement("Closed", args, NULL);
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  return Py_BuildValue("s", _closed_shells);
+}
+  
 static PyObject *PGetConfigNR(PyObject *self, PyObject *args) {
   CONFIG *cfg;
   PyObject *q, *r;
@@ -2626,6 +2636,7 @@ static PyObject *PPolarizeCoeff(PyObject *self, PyObject *args) {
 static PyObject *PElectronDensity(PyObject *self, PyObject *args) {
   char *ofn;
   int n, *ilev, t;
+  double te;
   PyObject *p;
   
   if (sfac_file) {
@@ -2634,10 +2645,11 @@ static PyObject *PElectronDensity(PyObject *self, PyObject *args) {
     return Py_None;
   }
   t = 1;
-  if (!PyArg_ParseTuple(args, "sO|i", &ofn, &p, &t)) return NULL;
+  te = 0.0;
+  if (!PyArg_ParseTuple(args, "sO|id", &ofn, &p, &t, &te)) return NULL;
   n = SelectLevels(p, &ilev);
   if (n > 0) {
-    ElectronDensity(ofn, n, ilev, t);
+    ElectronDensity(ofn, n, ilev, t, te);
     free(ilev);
   }
   
@@ -6139,7 +6151,6 @@ static PyObject *PBreitX(PyObject *self, PyObject *args) {
  
 static PyObject *PSavePotential(PyObject *self, PyObject *args) {
   char *fn;
-  POTENTIAL *p;
    
   if (sfac_file) {
     SFACStatement("SavePotential", args, NULL);
@@ -6151,8 +6162,7 @@ static PyObject *PSavePotential(PyObject *self, PyObject *args) {
     return NULL;
   }
 
-  p = RadialPotential();
-  SavePotential(fn, p);
+  SavePotential(fn);
   
   Py_INCREF(Py_None);
   return Py_None;
@@ -6160,7 +6170,6 @@ static PyObject *PSavePotential(PyObject *self, PyObject *args) {
  
 static PyObject *PRestorePotential(PyObject *self, PyObject *args) {
   char *fn;
-  POTENTIAL *p;
    
   if (sfac_file) {
     SFACStatement("RestorePotential", args, NULL);
@@ -6172,8 +6181,7 @@ static PyObject *PRestorePotential(PyObject *self, PyObject *args) {
     return NULL;
   }
 
-  p = RadialPotential();
-  RestorePotential(fn, p);
+  RestorePotential(fn);
   
   Py_INCREF(Py_None);
   return Py_None;
@@ -6182,7 +6190,6 @@ static PyObject *PRestorePotential(PyObject *self, PyObject *args) {
  
 static PyObject *PModifyPotential(PyObject *self, PyObject *args) {
   char *fn;
-  POTENTIAL *p;
    
   if (sfac_file) {
     SFACStatement("ModifyPotential", args, NULL);
@@ -6194,8 +6201,7 @@ static PyObject *PModifyPotential(PyObject *self, PyObject *args) {
     return NULL;
   }
 
-  p = RadialPotential();
-  ModifyPotential(fn, p);
+  ModifyPotential(fn);
   
   Py_INCREF(Py_None);
   return Py_None;
@@ -6886,6 +6892,7 @@ static struct PyMethodDef fac_methods[] = {
   {"ConfigUTA", PConfigUTA, METH_VARARGS},
   {"GroupStat", PGroupStat, METH_VARARGS},
   {"Closed", PClosed, METH_VARARGS},
+  {"ClosedShells", PClosedShells, METH_VARARGS},
   {"CutMixing", PCutMixing, METH_VARARGS},
   {"AvgConfig", PAvgConfig, METH_VARARGS},
   {"AddConfig", PAddConfig, METH_VARARGS},

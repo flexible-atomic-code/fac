@@ -158,7 +158,6 @@ For bugs and suggestions, please report to
 
 # Contact
 
-mfgu@ssl.berkeley.edu
-Ming Feng Gu.
-Space Science Laboratory
-University of California Berkeley
+mingfenggu2003@gmail.com
+
+

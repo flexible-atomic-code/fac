@@ -1,8 +1,8 @@
-      subroutine subplx (f,n,tol,maxnfe,mode,scale,x,fx,nfe,
-     *                   work,iwork,iflag)
+      subroutine subplx (f,n,tol,ftol, maxnfe,mode,scale,
+     *                   x,fx,nfe,work,iwork,iflag)
 c
       integer n,maxnfe,mode,nfe,iwork(*),iflag
-      double precision f,tol,scale(*),x(n),fx,work(*)
+      double precision f,tol,ftol,scale(*),x(n),fx,work(*)
 c
 c                                         Coded by Tom Rowan
 c                            Department of Computer Sciences
@@ -30,6 +30,7 @@ c   n      - problem dimension
 c
 c   tol    - relative error tolerance for x (tol .ge. 0.)
 c
+c  ftol    - absolute tolerance for f(x).
 c   maxnfe - maximum number of function evaluations
 c
 c   mode   - integer mode switch with binary expansion
@@ -98,6 +99,9 @@ c
       integer i,j,ifsptr,ins,insfnl,insptr,ipptr,isptr,
      *        istep,istptr,ns,nsubs
       double precision bnsfac(3,2),dum,scl(1),sfx,xpscl
+      integer ibf, nbf, mbf
+      parameter (nbf=3)
+      double precision bfx(nbf), minfx, maxfx
       logical cmode
 !$OMP THREADPRIVATE(/usubc/,/isubc/)
 c
@@ -219,7 +223,27 @@ c
 c
 c     subplex loop
 c
-   40 continue
+      ibf = 0
+      mbf = 0
+ 40   continue
+      ibf = ibf + 1
+      mbf = mbf + 1
+      if (ibf .gt. nbf) then
+         ibf = 1
+      endif
+      if (mbf .gt. nbf) then
+         minfx = 1d31
+         maxfx = -1d31
+         do i = 1, nbf
+            if (bfx(i) .lt. minfx) minfx = bfx(i)
+            if (bfx(i) .gt. maxfx) maxfx = bfx(i)
+         enddo
+         if (maxfx-minfx .lt. ftol) then
+            iflag = 0
+            goto 110
+         endif
+      endif
+      bfx(ibf) = 1d31
         do 50 i = 1,n
           work(i) = abs(work(i))
    50   continue
@@ -236,8 +260,11 @@ c
           ns = iwork(ins)
    70     continue
           call simplx (f,n,work(istptr),ns,iwork(ipptr),
-     *                 maxnfe,cmode,x,sfx,nfe,work(isptr),
-     *                 work(ifsptr),iflag)
+     *         maxnfe,cmode,x,sfx,nfe,work(isptr),
+     *         work(ifsptr),iflag)
+          if (sfx .lt. bfx(ibf)) then
+             bfx(ibf) = sfx
+          endif
           cmode = .false.
           if (iflag .ne. 0) go to 110
           if (ins .lt. insfnl) then

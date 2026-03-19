@@ -485,6 +485,11 @@ static int PClosed(int argc, char *argv[], int argt[], ARRAY *variables) {
   return 0;
 }
 
+static int PClosedShells(int argc, char *argv[], int argt[], ARRAY *variables) {
+  printf("%s\n", _closed_shells);
+  return 0;
+}
+
 static int PGetConfigNR(int argc, char *argv[], int argt[], ARRAY *variables) {
   CONFIG *cfg;
   int i, j, k, t, ncfg;
@@ -2876,14 +2881,25 @@ static int PSetRadialGrid(int argc, char *argv[], int argt[],
   double rmin, ratio, asym, qr;
   int maxrp;
 
-  if (argc != 4 && argc != 5) return -1;
+  if (argc == 0) return -1;
   
   maxrp = atoi(argv[0]);
-  ratio = atof(argv[1]);
-  asym = atof(argv[2]);
-  rmin = atof(argv[3]);
+  ratio = -1;
+  asym = -1;
+  rmin = -1;
   qr = -1;
-  if (argc == 5) qr = atof(argv[4]);
+  if (argc > 1) {
+    ratio = atof(argv[1]);
+    if (argc > 2) {
+      asym = atof(argv[2]);
+      if (argc > 3) {
+	rmin = atof(argv[3]);
+	if (argc > 4) {
+	  qr = atof(argv[4]);
+	}
+      }
+    }
+  }
 
   return SetRadialGrid(maxrp, ratio, asym, rmin, qr);
 }
@@ -3905,14 +3921,19 @@ static int PPrepAngular(int argc, char *argv[], int argt[],
 static int PElectronDensity(int argc, char *argv[], int argt[], 
 			    ARRAY *variables) {
   int n, *ilev, t;
-  if (argc < 2 || argc > 3) return -1;
+  double te;
+  if (argc < 2 || argc > 4) return -1;
   t = 1;
+  te = 0.0;
   n = SelectLevels(&ilev, argv[1], argt[1], variables);
-  if (argc == 3) {
+  if (argc > 2) {
     t = atoi(argv[2]);
+    if (argc > 3) {
+      te = atof(argv[3]);
+    }
   }
   if (n > 0) {
-    ElectronDensity(argv[0], n, ilev, t);
+    ElectronDensity(argv[0], n, ilev, t, te);
     free(ilev);
   }
   return 0;
@@ -4951,13 +4972,11 @@ static int PPrintNucleus(int argc, char *argv[], int argt[],
 static int PSavePotential(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
   char *fn;
-  POTENTIAL *p;
 
   if (argc != 1) return -1;
   fn = argv[0];
   
-  p = RadialPotential();
-  SavePotential(fn, p);
+  SavePotential(fn);
 
   return 0;
 }
@@ -4965,13 +4984,11 @@ static int PSavePotential(int argc, char *argv[], int argt[],
 static int PRestorePotential(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
   char *fn;
-  POTENTIAL *p;
 
   if (argc != 1) return -1;
   fn = argv[0];
   
-  p = RadialPotential();
-  RestorePotential(fn, p);
+  RestorePotential(fn);
 
   return 0;
 } 
@@ -4979,13 +4996,11 @@ static int PRestorePotential(int argc, char *argv[], int argt[],
 static int PModifyPotential(int argc, char *argv[], int argt[], 
 			  ARRAY *variables) {
   char *fn;
-  POTENTIAL *p;
 
   if (argc != 1) return -1;
   fn = argv[0];
   
-  p = RadialPotential();
-  ModifyPotential(fn, p);
+  ModifyPotential(fn);
 
   return 0;
 }
@@ -5678,6 +5693,7 @@ static METHOD methods[] = {
   {"ClearOrbitalTable", PClearOrbitalTable, METH_VARARGS},
   {"ConfigUTA", PConfigUTA, METH_VARARGS},
   {"Closed", PClosed, METH_VARARGS},
+  {"ClosedShells", PClosedShells, METH_VARARGS},
   {"Config", PConfig, METH_VARARGS},
   {"ReadConfig", PReadConfig, METH_VARARGS},
   {"CutMixing", PCutMixing, METH_VARARGS},
