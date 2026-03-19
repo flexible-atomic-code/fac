@@ -486,7 +486,7 @@ int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m) {
 
   for (j = 0; j < h->dim; j++) {
     s = ArrayGet(st, h->basis[j]);
-    if (m == 0) {
+    if (m == 0 || ci_level < -1) {
       r = ZerothEnergyConfig(GetConfig(s));
     } else {
       r = HamiltonElement(isym, h->basis[j], h->basis[j]);
@@ -623,7 +623,7 @@ int ConstructHamilton(int isym, int k0, int k, int *kg,
 
   if (m1) {
     if (k <= 0) return -1;
-    if (ci_level == -1) {
+    if (ci_level <= -1) {
       return ConstructHamiltonDiagonal(isym, k, kg, 1);
     }
     st = &(sym->states);
@@ -2313,7 +2313,7 @@ int DiagnolizeHamilton(HAMILTON *h) {
 
   lwork = h->lwork;
   liwork = h->liwork;
-  if (ci_level == -1) {
+  if (ci_level <= -1) {
     mixing = h->mixing+n;
     for (i = 0; i < n; i++) {
       h->mixing[i] = h->hamilton[i];
@@ -2926,11 +2926,18 @@ int AddToLevels(HAMILTON *h, int ng, int *kg) {
 	} else {
 	  lev.pj = c->sweight < 0;
 	}
-	if (ci_level < -1) {
+	if (ci_level == -2) {
 	  lev.energy = 0.0;
 	  for (k = 0; k < c->n_shells; k++) {
 	    t = OrbitalIndex((c->shells[k]).n, (c->shells[k]).kappa, 0.0);
 	    a = c->shells[k].nq*(GetOrbital(t)->energy + QED1E(t,t));
+	    lev.energy += a;
+	  }
+	} else if (ci_level < -2) {
+	  lev.energy = 0.0;
+	  for (k = 0; k < c->n_shells; k++) {
+	    t = OrbitalIndex((c->shells[k]).n, (c->shells[k]).kappa, 0.0);
+	    a = c->shells[k].nq*GetOrbital(t)->energy;
 	    lev.energy += a;
 	  }
 	} else {
@@ -4510,10 +4517,10 @@ int ConstructLevelName(char *name, char *sname, char *nc,
 		       int *vnl, STATE *basis) {
   int n, nq, kl, j;
   int nele, i, len;
-  char symbol[20];
+  char symbol[32];
   char jsym;
-  char ashell[16];
-  char av[16];
+  char ashell[64];
+  char av[64];
   CONFIG *c;
   SHELL_STATE *s;
   ORBITAL *orb;

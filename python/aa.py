@@ -70,10 +70,11 @@ class AA:
     """
     def __init__(self, z=1, d=1.0, t=1.0,
                  wm=None, dd=None, pref='',
-                 cc=None, znb=0, nr=6, nc=0, sc=0, pmi=0, bqp=-1E12,
-                 vxf=2, vxm=2, hxs=-10.0, ngrid=0, maxiter=512,
+                 cc=None, znb=0, nr=6, nc=0, scp=0, pmi=0, bqp=-1E12,
+                 pmd=1, rsf=1.0, rbf=1.0, vxf=2, vxm=2, vxs=0.0, nmf=0,
+                 zorb=0, csi=0.0, hxs=-10.0, ngrid=0, maxiter=512,
                  ewm=0, ewf=1.0, vmin=0.2, ztol=-1.0, ids='',
-                 ed=0, mmiter=10, mniter=5):
+                 edn=5.0, mdn=1, emx=25.0, ed=0, mmiter=10, mniter=5):
         if type(z) == type(''):
             z,wm = zw4c(z)
             if len(z) == 1:
@@ -137,13 +138,20 @@ class AA:
         self.pref = pref
         self.dd = dd
         self.nr = nr
-        self.sc = sc
+        self.scp = scp
+        self.rsf = rsf
+        self.rbf = rbf
+        self.vxs = vxs
+        self.zorb = zorb
+        self.nmf = nmf
         self.pmi = pmi
+        self.pmd = pmd
         self.bqp = bqp
         self.znb = znb
         self.vxf = vxf
         self.vxm = vxm
         self.hxs = hxs
+        self.csi = csi
         self.ewm = ewm
         self.ewf = ewf
         self.maxiter = maxiter
@@ -155,6 +163,9 @@ class AA:
         self.niter = 0
         self.mmiter = mmiter
         self.mniter = mniter
+        self.edn = edn
+        self.mdn = mdn
+        self.emx = emx
         if not dd is None:
             if not os.path.exists(dd):
                 os.system('mkdir -p %s'%dd)
@@ -167,17 +178,31 @@ class AA:
         if not cc is None:
             if len(cc) > 1:
                 AvgConfig(cc)
-        if (self.ngrid > 0):
-            SetRadialGrid(self.ngrid, -1, -1, -1, -1)
-        SetOption('radial:sc_print', self.sc)
+        if self.ngrid > 0:
+            ng = self.ngrid
+        else:
+            ng = int(self.rbf*1200)
+        SetRadialGrid(ng, -1, -1, -1, -1)
+        SetOption('radial:sc_print', self.scp)
         SetOption('radial:print_maxiter', self.pmi)
         SetOptimizeMaxIter(self.maxiter)
         SetOption('radial:sc_vxf', self.vxf)
         SetOption('radial:znbaa', self.znb)
+        SetOption('radial:aapmd', self.pmd)
         SetOption('radial:vxm', self.vxm)
+        SetOption('radial:csi', self.csi)
+        SetOption('radial:psemax', self.emx)
+        SetOption('radial:psmdn', self.mdn)
+        SetOption('radial:psedn', self.edn)
+        SetOption('radial:zorb', self.zorb)
         SetOption('orbital:sc_bqp', self.bqp)
         SetOption('orbital:sc_ewm', self.ewm)
         SetOption('orbital:sc_ewf', self.ewf)
+        SetOption('orbital:sc_rsf', self.rsf)
+        SetOption('orbital:sc_rbf', self.rbf)
+        SetOption('orbital:sc_nmf', self.nmf)
+        SetOption('orbital:vxs', self.vxs)
+    
         if (not self.hxs is None):
             SetPotentialMode(0, 1e11, 1e11, -1, self.hxs, 0.0)
         AverageAtom(pref, 4, d, t, self.ztol)
@@ -568,8 +593,6 @@ class AA:
         nm = len(self.wm)
         dtol1 = dtol*1.25
         dtol2 = dtol/1.25
-        SetOption('orbital:sc_rsf', 1.0)
-        SetOption('orbital:sc_rbf', 1.0)
         if init:
             for i in range(nm):
                 self.z = self.zm[i]
@@ -639,7 +662,30 @@ class AA:
                 self.ds[i] = self.d
 
 # AA model at fixed pressure or mass density. t in eV, p in Mbar, d in g/cc
-def AAPD(z, t, d=1.0, p=0.0, dd=None, pref='', ptol=0.01, bqp=1e30):
-    a = AA(z=z, t=t, d=d, dd=dd, pref=pref, bqp=bqp)
+def AAPD(z, t, d=1.0, p=0.0, ptol=0.01, vxs=-1.0, zorb=2, **kw):
+    a = AA(z=z, t=t, d=d, vxs=vxs, zorb=zorb, **kw)
     a.run(p=p, ptol=ptol)
-    
+
+def read_hvs(fmt, hdr, nd, typ='den'):
+    a = AA()
+    if hdr[0].isdigit():
+        v = np.zeros(nd)
+        for i in range(nd):
+            if typ == 'pot':
+                c = rfac.read_pot(fmt%i, cfg=1)
+            else:
+                c = rfac.read_den(fmt%i, cfg=1)
+            c = c.split()
+            for a in c:
+                if a[:len(hdr)] == hdr:
+                    v[i] = float(a[len(hdr):])
+    else:
+        if typ == 'pot':
+            v = np.array([a.rpot(fmt%i, header=hdr) for i in range(nd)])
+        else:
+            v = np.array([a.rden(fmt%i, header=hdr) for i in range(nd)])
+
+    return v
+
+        
+        

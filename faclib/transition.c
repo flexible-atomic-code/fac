@@ -793,9 +793,8 @@ int TRMultipole(double *strength, double *energy,
     m0 = abs(j1-j2);
     if (m0 == 0) m0 += 2;
     m1 = (j1+j2);
-    if (m0 > transition_option.max_m && m0 > transition_option.max_e) {
-      return -1;
-    }
+    m2 = m0 + Max(transition_option.max_m,transition_option.max_e);
+    if (m1 > m2) m1 = m2;
     tr = 0.0;
     nz = AngularZMix(&ang, lower, upper, m0, m1, &nmk, &mbk);
     wm = 0.0;

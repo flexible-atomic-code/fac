@@ -37,12 +37,12 @@ static int mbpt_msort = 0;
 static double mbpt_asort = 10.0;
 static int mbpt_prepyk = 0;
 static int mbpt_nbreit = -1;
-static double mbpt_warn = 0.05;
-static double mbpt_nwarn = 0.01;
-static double mbpt_xwarn = 0.0001;
-static double mbpt_mwarn = 0.5;
-static double mbpt_wwarn = 0.01;
-static double mbpt_ewarn = 1e-3/_HARTREE_EV;
+static double mbpt_warn = 0.0;
+static double mbpt_nwarn = 10.0;
+static double mbpt_xwarn = 1.0;
+static double mbpt_mwarn = 0.0;
+static double mbpt_wwarn = 0.5;
+static double mbpt_ewarn = 0; //1e-3/_HARTREE_EV;
 static double mbpt_ewarn12 = 0;//1e-1/HARTREE_EV;
 static double mbpt_ewarn11 = 0;//1e-1/HARTREE_EV;
 static double mbpt_ignore = 50.0;
@@ -2273,7 +2273,7 @@ void H22Term(MBPT_EFF **meff, CONFIG *c0, CONFIG *c1,
 	    FreeConfigData(cr);
 	    free(cr);
 	  }
-	  printf("large h22term warn:  %s %d %d %d %d %d %d %d %g %g %g %g %g\n",
+	  printf("large h22term warn: %s %d %d %d %d %d %d %d %g %g %g %g %g\n",
 		 scr, c0->igroup, c0->icfg, c1->igroup, c1->icfg, s0, m0, m1,
 		 sd1w, sd2w, d1, d2, wth);
 	  warned = 2;

@@ -185,10 +185,13 @@ static PyObject *PFERINC(PyObject *self, PyObject *args) {
 }
       
 static PyObject *PFM1MP(PyObject *self, PyObject *args) {
-  double x, y;
+  double x, xm, xw0, xw1, y;
   int m;
 
-  if (!PyArg_ParseTuple(args, "id", &m, &x)) return NULL;
+  xm = 0.0;
+  xw0 = 0.0;
+  xw1 = 0.0;
+  if (!PyArg_ParseTuple(args, "id|ddd", &m, &x, &xm, &xw0, &xw1)) return NULL;
   y = 0.0;
   if (m == -1) {
     y = FM1M(x);
@@ -203,6 +206,8 @@ static PyObject *PFM1MP(PyObject *self, PyObject *args) {
   } else if (m == 4) {
     double yi; 
     y = FermiDegeneracy(0.143289792*x, 1.0, &yi);
+  } else if (m >= 5) {
+    y = SmoothedFD(xw0, xw1, xm, x, m-5);
   }
   return Py_BuildValue("d", y);
 }

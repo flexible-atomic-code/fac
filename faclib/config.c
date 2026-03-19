@@ -3515,10 +3515,22 @@ int GetAverageConfig(int ng, int *kg, int ic, double *weight, int wm,
   acfg->kappa = malloc(sizeof(int)*j);
   acfg->nq = malloc(sizeof(double)*j);
   acfg->e = malloc(sizeof(double)*j);
+  acfg->de = malloc(sizeof(double)*j);
+  acfg->pde = malloc(sizeof(double)*j);
+  acfg->ez = malloc(sizeof(double)*j);
+  acfg->dez = malloc(sizeof(double)*j);
+  acfg->pdez = malloc(sizeof(double)*j);
+  acfg->nqz = malloc(sizeof(double)*j);
   if (!acfg->n ||
       !acfg->kappa ||
       !acfg->nq ||
-      !acfg->e) goto ERROR;
+      !acfg->e ||
+      !acfg->de ||
+      !acfg->pde ||
+      !acfg->ez ||
+      !acfg->dez ||
+      !acfg->pdez ||
+      !acfg->nqz) goto ERROR;
 
   for (i = 0, j = 0; i < M; i++) {
     if (tnq[i] > EPS10) {
@@ -3561,6 +3573,13 @@ int GetAverageConfig(int ng, int *kg, int ic, double *weight, int wm,
 	acfg->n = realloc(acfg->n, sizeof(int)*acfg->n_shells);
 	acfg->kappa = realloc(acfg->kappa, sizeof(int)*acfg->n_shells);
 	acfg->nq = realloc(acfg->nq, sizeof(double)*acfg->n_shells);
+	acfg->e = realloc(acfg->e, sizeof(double)*acfg->n_shells);
+	acfg->de = realloc(acfg->e, sizeof(double)*acfg->n_shells);
+	acfg->pde = realloc(acfg->e, sizeof(double)*acfg->n_shells);
+	acfg->ez = realloc(acfg->ez, sizeof(double)*acfg->n_shells);
+	acfg->dez = realloc(acfg->e, sizeof(double)*acfg->n_shells);
+	acfg->pdez = realloc(acfg->e, sizeof(double)*acfg->n_shells);
+	acfg->nqz = realloc(acfg->nqz, sizeof(double)*acfg->n_shells);
 	for (k = acfg->n_shells-1; k > j; k--) {
 	  acfg->n[k] = acfg->n[k-1];
 	  acfg->kappa[k] = acfg->kappa[k-1];
@@ -3573,7 +3592,15 @@ int GetAverageConfig(int ng, int *kg, int ic, double *weight, int wm,
     }
   }
 
-  for (i = 0; i < j; i++) acfg->e[i] = 0.0;
+  for (i = 0; i < j; i++) {
+    acfg->e[i] = 0.0;
+    acfg->de[i] = 0.0;
+    acfg->pde[i] = 0.0;
+    acfg->ez[i] = 0.0;
+    acfg->dez[i] = 0.0;
+    acfg->pdez[i] = 0.0;
+    acfg->nqz[i] = 0.0;
+  }
   return j;
 
  ERROR:
@@ -3582,6 +3609,12 @@ int GetAverageConfig(int ng, int *kg, int ic, double *weight, int wm,
   if (acfg->nq) free(acfg->nq);
   if (acfg->kappa) free(acfg->kappa);
   if (acfg->e) free(acfg->e);
+  if (acfg->de) free(acfg->de);
+  if (acfg->pde) free(acfg->pde);
+  if (acfg->ez) free(acfg->ez);
+  if (acfg->dez) free(acfg->dez);
+  if (acfg->pdez) free(acfg->pdez);
+  if (acfg->nqz) free(acfg->nqz);
   free(acfg->kg);
   free(acfg->weight);
   return -1;

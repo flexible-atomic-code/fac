@@ -1017,17 +1017,26 @@ def read_sp(filename):
 
 def read_wfun(fn, npi=0, rmax=None):
     r = np.loadtxt(fn, unpack=1)
-    d = np.loadtxt(fn, max_rows=24, comments='@',
+    d = np.loadtxt(fn, max_rows=25, comments='@',
                    usecols=0, delimiter='=', dtype=str)
-    for i in range(24):
-        if d[i][1:].strip() == 'ilast':
+    h = np.loadtxt(fn, max_rows=25, comments='@', delimiter='=', usecols=1)
+    n = 0
+    k = 0
+    e = 0.0
+    ze = 0.0
+    for i in range(25):
+        a = d[i][1:].strip()
+        if a == 'n':
+            n = int(h[i])
+        elif a == 'kappa':
+            k = int(h[i])
+        elif a == 'energy':
+            e = float(h[i])
+        elif a == 'zenergy':
+            ze = float(h[i])
+        elif a == 'ilast':
             break
-    h = np.loadtxt(fn, max_rows=24, comments='@', delimiter='=', usecols=1)
     i = int(h[i])+1
-    h = np.loadtxt(fn, comments='@', max_rows=3, usecols=3, unpack=1)
-    n = int(h[0])
-    k = int(h[1])
-    e = float(h[2])
     r0 = r[1][:i]
     p0 = r[4][:i]
     q0 = r[5][:i]
@@ -1075,9 +1084,40 @@ def read_wfun(fn, npi=0, rmax=None):
         r0 = np.append(r0, re)
         p0 = np.append(p0, ae0*np.sin(te))
         q0 = np.append(q0, ae1*np.cos(te)+ae2*np.sin(te))
-    return n,k,e,r0,p0,q0,pa
+    return n,k,e,ze,r0,p0,q0,pa,r
 
-def read_pot(fn, cfg=None, header=None):
+def read_den(fn, cfg=1, rnd=4):
+    if cfg == 0:
+        return np.loadtxt(fn, unpack=1)
+    eps = 10**(-rnd)
+    with open(fn, 'r') as f:
+        rs = f.readlines(1000)
+        nlq = []
+        nq = 0.0
+        for i in range(1,len(rs)):
+            if len(rs[i]) < 1:
+                continue
+            if rs[i][0] != '#':
+                break
+            a = rs[i][1:].split()
+            n = float(a[1])
+            ka = int(a[2])
+            e = float(a[3])
+            if ka < 0:
+                k = -ka-1
+                if cfg > 1 or e < 0:
+                    nq = nq + float(a[4])
+                    nlq.append((n,k,round(nq,rnd)))
+                nq = 0.0
+            else:
+                k = ka
+                if cfg > 1 or e < 0:
+                    nq = float(a[4])
+                else:
+                    nq = 0.0
+    return cfgnr(nlq)
+                
+def read_pot(fn, cfg=None, header=None, rnd=4):
     if cfg is None and header is None:
         return np.loadtxt(fn, unpack=1)
     nw = 0
@@ -1107,29 +1147,33 @@ def read_pot(fn, cfg=None, header=None):
         return r[header]
     d = np.loadtxt(fn, unpack=1, comments='@', skiprows=nw,
                    max_rows=nc, usecols=range(1,10))
-    if len(cfg) == 0:
+    if cfg is None:
         return d
-    if cfg == 'bnd' or cfg == 'ac':
+    if cfg == 'bnd' or cfg == 1 or cfg == 'ac' or cfg == 2:
         ns = np.int32(d[1])
         ks = np.int32(d[2])
         #print(ns)
         #print(ks)
         nlq = []
+        eps = 10**(-rnd)
         for n in range(min(ns),max(ns)+1):
             for k in range(n):
                 w = np.where((ns==n)&((ks==k)|(ks==-(k+1))))[0]
                 if len(w) == 0:
                     continue
                 e = np.mean(d[-1][w])
-                if cfg == 'bnd' and e >= 0:
+                if (cfg == 'bnd' or cfg == 1) and e >= 0:
                     continue
-                nq = np.sum(d[3][w])
-                if nq >= 1e-4:
-                    if cfg == 'bnd':                    
-                        nlq.append((n,k,round(nq,4)))
+                if cfg == 2:
+                    nq = np.sum(d[3][w])
+                else:                    
+                    nq = np.sum(d[3][w])
+                if nq >= eps:
+                    if cfg == 'bnd' or cfg > 0:                    
+                        nlq.append((n,k,round(nq,rnd)))
                     else:
                         nlq.append((n,k,nq,e*const.Hartree_eV))
-        if cfg == 'bnd':
+        if cfg == 'bnd' or cfg == 1 or cfg == 2:
             return cfgnr(nlq)
         else:            
             return nlq
@@ -1163,7 +1207,7 @@ def read_pot(fn, cfg=None, header=None):
         fb = np.sum(d[3][w1])
         eb = np.sum(d[8][w1])/len(w1) * const.Hartree_eV
     return fb,eb
-
+        
 def valence_shells(fn, nr=0):
     z = read_pot(fn, header='Z')
     r = read_pot(fn, cfg='')
@@ -1449,15 +1493,25 @@ def load_fac(fn):
     r = np.loadtxt(valid_lines(fn), unpack=1, ndmin=2)
     return r
 
-def load_atbase(fn):
+def load_atbase(fn, trans=0):
     ks = {'s':0, 'p':1, 'd':2, 'f':3, 'g':4, 'h':5}
-    with open(fn) as f: 
-        d = f.readlines()
+    with open(fn) as f:
+        if trans > 0:
+            d = f.readlines()
+        else:
+            d = []
+            for x in f:
+                if len(x) < 6:
+                    continue
+                d.append(x)
+                if x[2:6] == 'Tran':
+                    break
         nx = len(d)
         ilev = np.zeros(nx, dtype=np.int32)
         e = np.zeros(nx)
         j = ilev.copy()
         wj = j.copy()
+        z = j.copy()
         k = j.copy()
         p = j.copy()
         s = np.chararray(nx, itemsize=128)
@@ -1471,6 +1525,7 @@ def load_atbase(fn):
         ti = j.copy()
         t = 0
         q = -1
+        zi = 0
         for i in range(nx):
             x = d[i]
             if len(x) < 6:
@@ -1478,25 +1533,38 @@ def load_atbase(fn):
             if x[2:6] == 'Tran':
                 q = 0                
             if x[0] == '#':
+                if len(x) > 60 and x[31:44] == 'Atomic number':
+                    zi = int(x[47:54])
                 continue
             if len(x) < 90:
                 continue
+            x = x.strip().split()
             if q >= 0:
-                iup[q] = int(x[:6])
-                ilo[q] = int(x[13:21])
-                ti[q] = int(x[30:39])
-                tt[q] = int(x[48:57])
-                te[q] = float(x[57:74])
-                tf[q] = float(x[74:])
+                if trans == 0:
+                    break                
+                iup[q] = int(x[0])
+                ilo[q] = int(x[1])
+                ti[q] = int(x[2])
+                tt[q] = int(x[3])
+                te[q] = float(x[4])
+                tf[q] = float(x[5])
                 q += 1
                 continue
-            ilev[t] = int(x[:6])
-            k[t] = int(x[6:15])
-            e[t] = float(x[15:33])
-            j[t] = int(2*float(x[53:63]))
-            wj[t] = int(float(x[33:53]))
-            tm[t] = x[72:76]
-            a = x[82:]
+            ilev[t] = int(x[0])
+            z[t] = zi
+            k[t] = int(x[1])
+            e[t] = float(x[2])
+            j[t] = int(2*float(x[4]))
+            wj[t] = int(float(x[3]))
+            if len(x) == 5:
+                tm[t] = ''
+                a = '1s(0)'
+            elif len(x) == 7:
+                tm[t] = x[5]
+                a = x[6]
+            else:
+                tm[t] = x[5] + ' ' + x[6]
+                a = x[7]
             cn[t] = a
             a = a.replace('(','').replace(')','.')
             a = a.strip()
@@ -1513,7 +1581,7 @@ def load_atbase(fn):
                 p[t] = kt%2
                 s[t] = a[1:]
                 t += 1
-        return ilev[:t],k[:t],e[:t],j[:t],p[:t],s[:t],iup[:q],ilo[:q],ti[:q],tt[:q],te[:q],tf[:q],tm[:t],wj[:t],cn[:t]
+        return ilev[:t],k[:t],e[:t],j[:t],p[:t],s[:t],iup[:q],ilo[:q],ti[:q],tt[:q],te[:q],tf[:q],tm[:t],wj[:t],cn[:t],z[:t]
 
 def remove_closed(s):
     b = s.split('.')
@@ -1632,8 +1700,8 @@ class FLEV:
             r = load_atbase(f)
         else:
             r = f
-        w = np.where(r[1] == ki)[0]
-        wi = np.where(r[1] == ki+1)[0]
+        w = np.where((r[-1]==zi) & (r[1] == ki))[0]
+        wi = np.where((r[-1]==zi) & (r[1] == ki+1))[0]
         w = np.append(w,wi[0])
         nw = len(w)
         self.z = zi
@@ -1647,6 +1715,7 @@ class FLEV:
         self.j = r[3][w]
         self.p = r[4][w]
         self.s = np.array([x.decode() for x in r[5][w]])
+        self.c = np.array([nqs(nlqs(x.replace('.',' '))).replace('a', '*').replace(' ', '.') for x in self.s])
         self.n = np.array([x.decode() for x in r[12][w]])
         self.wj = r[13][w]
         w = np.where(self.nele == self.nele[0]-1)[0]
@@ -1739,7 +1808,7 @@ class FLEV:
                         self.ig[i] = 0
                         break
 
-    def match(self, m):
+    def match(self, m, etol0=5.0, etol1=50.0, etol2=0.05, mc=0):
         self.idx = np.arange(len(self.e))
         self.em = np.zeros(len(self.e), dtype=float)
         self.em[:] = -1.0
@@ -1756,8 +1825,12 @@ class FLEV:
             self.im[w] = -1
             self.em[w] = (self.e[w]-self.e0)+(m.ei-ei)
             self.cm[w] = b'.'
-        cs = np.array([remove_closed(m.s[i]) for i in range(len(m.s))])
-        cs0 = np.array([remove_closed(self.s[i]) for i in range(len(self.s))])
+        if mc > 0:
+            cs = m.c
+            cs0 = self.c
+        else:
+            cs = np.array([remove_closed(m.s[i]) for i in range(len(m.s))])
+            cs0 = np.array([remove_closed(self.s[i]) for i in range(len(self.s))])
         uc = np.unique(cs)
         imd = np.zeros(len(m.s),dtype=np.int32)
         for c in uc:
@@ -1786,9 +1859,9 @@ class FLEV:
                     while (i0 < n0 and i1 < n1):
                         wi0 = w0[i0]
                         wi1 = w1[i1]
-                        dex = min(50.0, 5*self.nele[0])
-                        if (m.j[wi1] < 0):
-                            dex *= 0.05
+                        dex = min(etol1, etol0*self.nele[0])
+                        if (m.j[wi1] < 0 and etol2 > 0):
+                            dex *= etol2
                         dex = max(0.25, dex)
                         if abs(ew0[i0]-ew1[i1]) < dex:
                             if m.ilev is None:
@@ -2272,10 +2345,14 @@ def tab_ipd(z, odir, wdir='', k0=0, k1=0, md=0, ifill=True, eth=1e-3):
     if k1 == 0:
         k1 = z
     a = fac.ATOMICSYMBOL[z]
-    if wdir == '':
-        fn = '%s/%s/%s%02d%02db.es'%(odir,a,a,k0,k1)
+    if md == 0:
+        ms = 'b'
     else:
-        fn = '%s/%s%02d%02db.es'%(wdir,a,k0,k1)
+        ms = 'a'
+    if wdir == '':
+        fn = '%s/%s/%s%02d%02d%s.es'%(odir,a,a,k0,k1,ms)
+    else:
+        fn = '%s/%s%02d%02d%s.es'%(wdir,a,k0,k1,ms)
     if md == 0:
         f = open(fn, 'wb')
     else:

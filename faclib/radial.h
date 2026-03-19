@@ -87,9 +87,9 @@ void OrbitalStats(char *s, int nmax, int kmax);
 void CopyPotentialOMP(int i);
 double GetResidualZ(void);
 double GetRMax(void);
-void SetScreenConfig(int iter);
+int SetScreenConfig(int iter, double u, int fix_sco);
 /* solve the dirac equation for the given orbital */
-ORBITAL *SolveAltOrbital(ORBITAL *orb, POTENTIAL *p);
+ORBITAL *SolveAltOrbital(ORBITAL *orb, POTENTIAL *p, int pwa);
 void Orthogonalize(ORBITAL *orb);
 int SolveDirac(ORBITAL *orb);
 int WaveFuncTableOrb(char *s, ORBITAL *orb);
@@ -194,6 +194,7 @@ void PrepYK(int n, int m);
 double ZerothHamilton(ORBITAL *orb0, ORBITAL *orb1);
 int ResidualPotential(double *s, int k0, int k1);
 double MeanPotential(int k0, int k1);
+void FreeOrbitalData(void *p);
 int FreeResidualArray(void);
 int FreeMultipoleArray(void);
 int FreeSlaterArray(void);
@@ -218,9 +219,9 @@ int TestIntegrate(void);
 double IntRadJn(int n0, int k0, double e0,
 		int n1, int k1, double e1,
 		int n, int m, char *fn);
-int RestorePotential(char *fn, POTENTIAL *p);
-int SavePotential(char *fn, POTENTIAL *p);
-int ModifyPotential(char *fn, POTENTIAL *p);
+int RestorePotential(char *fn);
+int SavePotential(char *fn);
+int ModifyPotential(char *fn);
 void OptimizeModSE(int n, int ka, double dr, int ni);
 void RemoveOrbitalLock(void);
 double GetHXS(POTENTIAL *p);
@@ -238,7 +239,7 @@ void AllocWorkSpace(int n);
 void AllocPotMem(POTENTIAL *p, int n);
 void SetPotDP(POTENTIAL *p);
 void ExpectationValue(char *ifn, char *ofn, int n, int *ilev, double a, int t);
-void ElectronDensity(char *ofn, int n, int *ilev, int t);
+void ElectronDensity(char *ofn, int n, int *ilev, int t, double te);
 void SetOptionRadial(char *s, char *sp, int ip, double dp);
 void SaveRadialMultipole(char *fn, int n, int nk, int *ks, int g);
 void LoadRadialMultipole(char *fn);
@@ -248,8 +249,10 @@ void SetOrbNMax(int kmin, int kmax, int nmax);
 int GetOrbNMax(int kappa, int j);
 int SetNMaxKappa(int kappa, int nmax);
 int DensityAsymptote(double *d, double *a, double *b);
-double NBoundAA(int ns, int *n, int *ka, double *nq, double *et, double *nqc,
-		double u, double t, double e0, double *nqf);
+double NBoundAA(int ns, ORBITAL **oa, double *nq, double *nqz,
+		double *et, double *det, double *pdet,
+		double *ez, double *dez, double *pdez,
+		double *nqc, double u, double t, double e0, double *nqf);
 void AverageAtom(char *pref, int m, double d, double t, double ztol);
 void SetPotentialN(void);
 int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md);

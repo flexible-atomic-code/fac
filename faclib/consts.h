@@ -171,6 +171,8 @@ extern double RATE_AU12;
 extern double AREA_AU20;
 #define _VOLUME_AU  1.48184711276E-25
 extern double VOLUME_AU;
+#define _PRESSURE_AU 293.81045624595
+extern double PRESSURE_AU;
 
 /*
 ** VARIABLE:    RBOHR
@@ -215,7 +217,7 @@ extern double AMU;
 
 #define NORBMAP0 500
 #define NORBMAP1 1000
-#define KORBMAP 50
+#define KORBMAP 100
 
 /* radial QK modes */
 #define QK_DEFAULT    -1

@@ -126,21 +126,32 @@ static int _mhx = 0;
 static double _ihxmin = MINIHX;
 static double **_refine_wfb = NULL;
 static double _refine_xtol = EPS5;
-static double _refine_scale = 0.1;
+static double _refine_ftol = EPS3;
+static double _refine_scale = 0.01;
 static int _refine_msglvl = 0;
 static int _refine_np = 6;
-static int _refine_maxfun = 10000;
+static int _refine_maxfun = 100000;
 static int _refine_mode = 1;
 static int _refine_pj = -1;
 static int _refine_em = 0;
 static int _print_spm = 0;
+static int _ipp = -1;
 static int _znbaa = 0;
-static double _psemax = 7.5;
+static double _psedn = 5.0;
+static double _pseot = 0.0;
+static int _psmdn = 1;
+static int _pskdn = 5;
+static double _psemax = 25.0;
 static int _psnfmin = 1;
 static int _psnfmax = 6;
 static int _psnmax = 0;
+static int _senmax = 16;
 static int _psnmin = 0;
-static int _pskmax = 25;
+static int _pskmax = 10;
+static double _fpde = 1.0;
+static double _pseps = EPS4;
+static double _psxps = 0.1;
+static int _aapmd = 1;
 static int _slater_kmax = -1;
 static int _orbnmax_print = 0;
 static double _free_threshold = 0.0;
@@ -158,6 +169,8 @@ static double _intscp3 = 0.025;
 static int _scb_ke = 0;
 static double _scb_uf = 0.05;
 static double _scb_mte = 0.1;
+static int _aap = 0;
+static int _zorb = 0;
 
 static struct {
   int nr, md, jmax;
@@ -216,8 +229,9 @@ static int _norbmap0 = NORBMAP0;
 static int _norbmap1 = NORBMAP1;
 static ORBMAP *_orbmap = NULL;
 
-static AVERAGE_CONFIG average_config = {0, 0, 0, 0, NULL, NULL,
-					NULL, NULL, 0, NULL, NULL};
+static AVERAGE_CONFIG average_config = {0, 0, 0, 0, 0, NULL, NULL, NULL,
+					NULL, NULL, NULL, NULL, NULL,
+					NULL, NULL};
 
 static MULTI *slater_array;
 static MULTI *xbreit_array[5];
@@ -253,7 +267,8 @@ static double _sturm_eref = 0;
 static int _sturm_nref = 0;
 static int _sturm_kref = -1;
 static int _print_maxiter = 0;
-static double _aaztol = 0.0;
+static double _aautol = EPS4;
+static double _aaztol = EPS3;
 static int _sc_print = 0;
 static int _sc_niter = 12;
 static int _sc_miter = 1028;
@@ -402,7 +417,7 @@ void SaveSCPot(int md, char *fn, double sca) {
 
 void SetOptSTA(int i, int iter) {
   int k;
-  double r, r1, r2, d, ri;
+  double r, r1, r2, d, ri, rf;
   if (iter == 0) {
     optimize_control.sta[i] = 1.0;
     return;
@@ -424,7 +439,13 @@ void SetOptSTA(int i, int iter) {
   r1 /= NDPH;
   d /= Max(0.1,optimize_control.sta[i]);
   r = exp(-_dfsta*d)*optimize_control.stabilizer/r1;
-  if (r2 > 0.75) r *= exp(-_rfsta*(r2-0.75));
+  if (r2 > 0.75 && d > 0.05) {
+    rf = _rfsta;
+    if (iter > 2*NDPH) {
+      rf *= (0.5*iter)/NDPH;
+    }
+    r *= exp(-rf*(r2-0.75));
+  }
   if (r > _maxsta) r = _maxsta;
   if (r < _minsta) r = _minsta;
   ri = _incsta/r2;
@@ -461,6 +482,14 @@ void SetOptDPH(int i, double d, int iter) {
       optimize_control.rph[i][k] = 0.75;
     }
     SetOptSTA(i, iter);
+    if (i == 2) {
+      if (optimize_control.sta[0] > optimize_control.sta[2]) {
+	optimize_control.sta[0] = optimize_control.sta[2];
+      }
+      if (optimize_control.sta[1] > optimize_control.sta[2]) {
+	optimize_control.sta[1] = optimize_control.sta[2];
+      }
+    }
   }
 }
 
@@ -912,9 +941,10 @@ void SetOrbMap(int k, int n0, int n1) {
   }
 }
 
-int RestorePotential(char *fn, POTENTIAL *p) {
+int RestorePotential(char *fn) {
   BFILE *f;
   int n, i, k;
+  POTENTIAL *p = potential;
 
   f = BFileOpen(fn, "r", -1);
   if (f == NULL) {
@@ -958,17 +988,25 @@ int RestorePotential(char *fn, POTENTIAL *p) {
   n = BFileRead(&p->rps, sizeof(double), 1, f);
   n = BFileRead(&p->dps, sizeof(double), 1, f);
   n = BFileRead(&p->aps, sizeof(double), 1, f);
+  n = BFileRead(&p->bps, sizeof(double), 1, f);
+  n = BFileRead(&p->nbt, sizeof(double), 1, f);
+  n = BFileRead(&p->nbs, sizeof(double), 1, f);
+  n = BFileRead(&p->nqf, sizeof(double), 1, f);
+  n = BFileRead(&p->efm, sizeof(double), 1, f);
+  n = BFileRead(&p->eth, sizeof(double), 1, f);
+  n = BFileRead(&p->ewd, sizeof(double), 1, f);
   n = BFileRead(&p->fps, sizeof(double), 1, f);
   n = BFileRead(&p->ups, sizeof(double), 1, f);
   n = BFileRead(&p->xps, sizeof(double), 1, f);
   n = BFileRead(&p->jps, sizeof(double), 1, f);
   n = BFileRead(&p->ips, sizeof(int), 1, f);
-  n = BFileRead(&p->sturm_idx, sizeof(double), 1, f);
-  AllocPotMem(p, maxrp);
+  n = BFileRead(&p->sturm_idx, sizeof(double), 1, f);  
+  //AllocPotMem(p, maxrp);
+  AllocWorkSpace(maxrp);
   n = BFileRead(p->dws, sizeof(double), p->nws, f);
   p->atom = GetAtomicNucleus();
   BFileClose(f);
-  ReinitRadial(1);
+  ReinitRadial(2);
   ClearOrbitalTable(0);
   SetPotentialVT(p);
   SetReferencePotential(hpotential, p, 1);
@@ -1030,9 +1068,10 @@ void SetReferencePotential(POTENTIAL *h, POTENTIAL *p, int hlike) {
   SetPotentialVT(h);
 }
 
-int SavePotential(char *fn, POTENTIAL *p) {
+int SavePotential(char *fn) {
   FILE *f;
   int n, i;
+  POTENTIAL *p = potential;
 
   if (MyRankMPI() != 0) return 0;
   
@@ -1078,6 +1117,13 @@ int SavePotential(char *fn, POTENTIAL *p) {
   n = fwrite(&p->rps, sizeof(double), 1, f);
   n = fwrite(&p->dps, sizeof(double), 1, f);
   n = fwrite(&p->aps, sizeof(double), 1, f);
+  n = fwrite(&p->bps, sizeof(double), 1, f);
+  n = fwrite(&p->nbt, sizeof(double), 1, f);
+  n = fwrite(&p->nbs, sizeof(double), 1, f);
+  n = fwrite(&p->nqf, sizeof(double), 1, f);
+  n = fwrite(&p->efm, sizeof(double), 1, f);
+  n = fwrite(&p->eth, sizeof(double), 1, f);
+  n = fwrite(&p->ewd, sizeof(double), 1, f);
   n = fwrite(&p->fps, sizeof(double), 1, f);
   n = fwrite(&p->ups, sizeof(double), 1, f);
   n = fwrite(&p->xps, sizeof(double), 1, f);
@@ -1089,11 +1135,12 @@ int SavePotential(char *fn, POTENTIAL *p) {
   return 0;
 }
 
-int ModifyPotential(char *fn, POTENTIAL *p) {
+int ModifyPotential(char *fn) {
   BFILE *f;
   int n, i, k, np;
   char buf[BUFLN];
   char *c;
+  POTENTIAL *p = potential;
 
   f = BFileOpen(fn, "r", -1);
   if (f == NULL) {
@@ -1465,7 +1512,6 @@ int SetBoundaryMaster(int nmax, double p, double bqp, double rf) {
   ORBITAL *orb;
   int i, j, n, kl, kl2, kappa, k;
   double d1, d2, d;
-
   if (nmax == -100) {
     if (p <= 0.0) {
       printf("2nd argument must be > 0 in SetBoundary(-100,...)\n");
@@ -1495,6 +1541,7 @@ int SetBoundaryMaster(int nmax, double p, double bqp, double rf) {
   if (nmax == 0) {
     potential->ib = 0;
     potential->ib0 = 0;
+    potential->ib1 = 0;
   } else if (nmax < 0) {
     d = GetResidualZ();
     d1 = potential->nb;
@@ -1522,6 +1569,10 @@ int SetBoundaryMaster(int nmax, double p, double bqp, double rf) {
     }
   } else {
     if (p < 0.0) p = 1E-8;
+    potential->ib = 0;
+    potential->ib0 = 0;
+    potential->ib1 = 0;
+    int ib = 0;
     for (n = 1; n <= potential->nb; n++) {
       for (kl = 0; kl < n; kl++) {
 	kl2 = 2*kl;
@@ -1539,10 +1590,11 @@ int SetBoundaryMaster(int nmax, double p, double bqp, double rf) {
 	      break;
 	    }
 	  }
-	  if (potential->ib < i) potential->ib = i;
+	  if (ib < i) ib = i;
 	}
       }
     }
+    potential->ib = ib;
     if (IsEven(potential->ib)) potential->ib++;
     potential->ib0 = potential->ib;
     if (rf > 0) {
@@ -1582,8 +1634,8 @@ int SetBoundaryMaster(int nmax, double p, double bqp, double rf) {
       potential->sturm_idx = _sturm_idx;
       SetPotentialSturm(potential);
     }
+    potential->ib1 = potential->ib;
   }
-  potential->ib1 = potential->ib;
   return 0;
 }
 
@@ -1936,10 +1988,9 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
       }
     }
   } else {
-    b = (potential->N+potential->nqf)/potential->atom->atomic_number;
+    b = (potential->N+potential->nqf)/potential->atom->atomic_number;    
   }
   b = Max(1.0, b);
-  //printf("mps: %d %g %g\n", potential->mps, potential->N1, b);
   for (m = 0; m < potential->maxrp; m++) {
     u[m] = u0[m] - ue[m];
     if (potential->mps <= 2) {
@@ -2134,6 +2185,9 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
       jmax = potential->ips;
     }
   }
+  if (md == 1 && potential->mps > 2 && _zorb > 1) {
+    for (m = 0; m < potential->maxrp; m++) potential->ICF[m] = 0.0;
+  }
   b = 0.0;
   for (i = i0; i < i1; i++) {
     if (acfg->nq[i] <= 0) continue;
@@ -2154,10 +2208,35 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
 	}
       }
     }
+    if (md == 1 && orb->zorb) {
+      for (m = 0; m <= orb->ilast; m++) {
+	large = Large(orb->zorb)[m];
+	small = Small(orb->zorb)[m];
+	u = acfg->nqz[i]*(large*large + small*small);
+	potential->ICF[m] += u;
+	w[m] -= u;
+	if (potential->vxf == 2) {
+	  wx[m] -= u;
+	}
+      }
+    }
     if (jmax < orb->ilast) jmax = orb->ilast;
   }
 
+  if (iter < 0) {
+    for (m = 0; m <= jmax; m++) {
+      w0[m] = w[m];
+      wx0[m] = wx[m];
+    }    
+    for (; m < potential->maxrp; m++) {
+      w0[m] = 0.0;
+      wx0[m] = 0.0;
+    }
+    return 0;
+  }
+  
   if (jmax > 0) {
+    for (m = 0; m < potential->maxrp; m++) potential->ZSE[4][m] = w[m];
     b = 0.0;
     mm = 0;
     for (m = 0; m <= jmax; m++) {
@@ -2175,7 +2254,7 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
       dn0 += a;
       k1++;
     }
-    dn0 /= k1; 
+    dn0 /= k1;
     SetOptDPH(md, dn0, iter);
     if (iter > 2) {
       a = optimize_control.sta[md];
@@ -2210,6 +2289,9 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
       }
     }
     SetOptDPH(md, 0.0, iter);
+  }
+  if (potential->mps >= 3) {
+    potential->aps = potential->bps;
   }
   return jmax;
 }
@@ -2353,7 +2435,6 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
       }
     }
   }
-
   return Max(jmax, jmaxk);
 }
 
@@ -2732,6 +2813,7 @@ int GetPotential(char *s, int m) {
   fprintf(f, "#    kps = %d\n", potential->kps);
   fprintf(f, "#    vxf = %d\n", potential->vxf);
   fprintf(f, "#    vxm = %d\n", potential->vxm);
+  fprintf(f, "#    vxs = %15.8E\n", VXS());
   fprintf(f, "#    mhx = %d\n", _mhx);
   fprintf(f, "#    xhx = %15.8E\n", _xhx);
   fprintf(f, "#    csi = %15.8E\n", _csi);
@@ -2763,10 +2845,15 @@ int GetPotential(char *s, int m) {
   fprintf(f, "#    ips = %d\n", potential->ips);
   fprintf(f, "#    sps = %d\n", potential->sps);
   fprintf(f, "#  sturm = %15.8E\n", potential->sturm_idx);
-  double ea = AverageEnergyAvgConfig(&average_config);
-  double ec = ea;
-  if (average_config.ng > 0) {
-    ec = TotalEnergyGroups(average_config.ng, average_config.kg, NULL);
+
+  double ea = 0.0;
+  double ec = 0.0;
+  if (potential->mps < 0) {
+    ea = AverageEnergyAvgConfig(&average_config);
+    ec = ea;
+    if (average_config.ng > 0) {
+      ec = TotalEnergyGroups(average_config.ng, average_config.kg, NULL);
+    }
   }
   fprintf(f, "#     ea = %15.8E\n", ea);
   fprintf(f, "#     ec = %15.8E\n", ec);
@@ -2776,24 +2863,37 @@ int GetPotential(char *s, int m) {
   fprintf(f, "#   mcns = %d\n", abs(acfg->n_shells));
   fprintf(f, "#   mcnc = %d\n", acfg->n_cores);
   fprintf(f, "#   mcng = %d\n", acfg->ng);
+  fflush(f);
   for (i = 0; i < abs(acfg->n_shells); i++) {
     if (acfg->n_shells > 0) {
       j = OrbitalIndex(acfg->n[i], acfg->kappa[i], 0);
       orb1 = GetOrbitalSolved(j);
       x = 1.0;
-      if (i < acfg->n_cores) nqc += acfg->nq[i];
-      else x = BoundFactor(orb1->energy, potential->eth,
-			   potential->ewd, potential->mps);
-      if (x < 1e-50) x = 0.0;
       e = orb1->energy;
+      if (_zorb > 1) {
+	x = orb1->qr_norm*orb1->dn;
+	if (orb1->zorb) {
+	  nqc = orb1->zorb->energy;
+	  nqt = orb1->dn*orb1->zorb->qr_norm;
+	} else {
+	  nqc = orb1->energy;
+	  nqt = orb1->dn*orb1->qr_norm;
+	}
+	nqb = acfg->nq[i]-acfg->nqz[i];
+      } else {
+	if (i < acfg->n_cores) nqc += acfg->nq[i];
+	else x = BoundFactor(orb1->energy, potential->eth,
+			     potential->ewd, potential->mps, potential->zorb);
+	if (x < 1e-50) x = 0.0;
+	nqb += acfg->nq[i]*x;
+	nqt += acfg->nq[i];
+      }
     } else {
       orb1 = NULL;
       x = 1.0;
       e = -1E30;
     }
-    nqb += acfg->nq[i]*x;
-    nqt += acfg->nq[i];
-    fprintf(f, "# %4d %4d %4d %12.5E %12.5E %12.5E %12.5E %12.5E %15.8E\n",
+    fprintf(f, "# %4d %4d %4d %12.5E %15.8E %12.5E %12.5E %12.5E %15.8E\n",
 	    i, acfg->n[i], acfg->kappa[i], acfg->nq[i],
 	    nqc, nqb, nqt, x, e);
     if (m && orb1) {
@@ -2851,19 +2951,31 @@ int SetAverageConfig(int nshells, int *n, int *kappa, double *nq) {
     free(average_config.nq);
     free(average_config.n);
     free(average_config.e);
+    free(average_config.de);
+    free(average_config.pde);
     if (average_config.ng > 0) {
       free(average_config.kg);
       free(average_config.weight);
     }
+    free(average_config.ez);
+    free(average_config.dez);
+    free(average_config.pdez);
+    free(average_config.nqz);
   }
   if (nshells < 0) {
     return -1;
-  }
+  }  
   if (nshells > 0) {
     average_config.kappa = (int *) malloc(sizeof(int)*nshells);
     average_config.nq = (double *) malloc(sizeof(double)*nshells);
     average_config.n = (int *) malloc(sizeof(int)*nshells);
     average_config.e = (double *) malloc(sizeof(double)*nshells);
+    average_config.de = (double *) malloc(sizeof(double)*nshells);
+    average_config.pde = (double *) malloc(sizeof(double)*nshells);
+    average_config.ez = (double *) malloc(sizeof(double)*nshells);
+    average_config.dez = (double *) malloc(sizeof(double)*nshells);
+    average_config.pdez = (double *) malloc(sizeof(double)*nshells);
+    average_config.nqz = (double *) malloc(sizeof(double)*nshells);
   }
   j = 0;
   for (i = 0; i < nshells; i++) {
@@ -2872,6 +2984,12 @@ int SetAverageConfig(int nshells, int *n, int *kappa, double *nq) {
     average_config.kappa[j] = kappa[i];
     average_config.nq[j] = nq[i];
     average_config.e[j] = 0.0;
+    average_config.de[j] = 0.0;
+    average_config.pde[j] = 0.0;
+    average_config.ez[j] = 0.0;
+    average_config.dez[j] = 0.0;
+    average_config.pdez[j] = 0.0;
+    average_config.nqz[j] = 0.0;
     j++;
   }
   average_config.n_shells = j;
@@ -2881,37 +2999,45 @@ int SetAverageConfig(int nshells, int *n, int *kappa, double *nq) {
     free(average_config.nq);
     free(average_config.n);
     free(average_config.e);
+    free(average_config.de);
+    free(average_config.pde);
+    free(average_config.ez);
+    free(average_config.dez);
+    free(average_config.pdez);
+    free(average_config.nqz);
   }
   average_config.n_cores = j;
   average_config.n_allocs = nshells;
   return 0;
 }
 
-void SetScreenConfig(int iter) {
+int SetScreenConfig(int iter, double uot, int fix_sco) {
   int k, k2, ka, n0, n1, n, i, j, m, nf, nfk;
   AVERAGE_CONFIG *a = &average_config;
-  ORBITAL *orb;
+  ORBITAL *orb, **oa;
   int na = 2000;
-  double e0, ef0, tps, etf;
-  double *nq, *nqc, *et;
+  double e0, ef0, tps, etf, psemax, eot;
+  double *nq, *nqz, *nqc, *et, *ez, *det, *pdet, *dez, *pdez;
   int *np, *kp, it, iti, n_cores;
-  double nb, nbt, nqt, nb0, nb1, u, du, u0, u1, x, nqf, nqf0, eth;
+  double nb, nbt, nqt, nb0, nb1, u, du, fu, u0, u1, x, nqf, nqf0, eth;
 
   if (_scb_ke <= 0) {
-    if (potential->mps < 0 || potential->nbt < 0) return;
+    if (potential->mps < 0 || potential->nbt < 0) return 0;
     if (potential->mps >= 3 && potential->nbt < 1e-10) {
       potential->nqf = 0.0;
       potential->nbs = 0.0;
-      return;
+      return 0;
     }
     n_cores = a->n_cores;
   } else {
     n_cores = 0;
   }
   eth = 0.0;
-  if (potential->rps > 0 && fabs(_free_threshold) > EPS10) {
+  if (_zorb >= 0 && _zorb < 2 &&
+      potential->rps > 0 && fabs(_free_threshold) > EPS10) {
     eth = (1.0/potential->rps)*_free_threshold;
   }
+  potential->zorb = _zorb;
   potential->eth = eth;
   nbt = potential->nbt;
   k = 0;
@@ -2931,6 +3057,11 @@ void SetScreenConfig(int iter) {
     etf = 1.1E31;
     tps = 1.0;
   }
+  if (_psemax > 3.0 && iter < _sc_niter) {
+    psemax = 3.0 + (_psemax-3.0)*pow(((double)iter)/_sc_niter,1.5);
+  } else {
+    psemax = _psemax;
+  }
   if (SCEWM() < 0 && _scb_ke <= 0) {
     a->n_shells = m;
     for (m = 0; m < a->n_shells; m++) {
@@ -2939,7 +3070,7 @@ void SetScreenConfig(int iter) {
     }
     potential->efm = 0.0;
     e0 = potential->efm;    
-  } else if (iter < _sc_niter) {
+  } else if (!fix_sco) {
     if (potential->mps >= 3) {
       e0 = potential->ewd*_psemax;
     } else {
@@ -2948,6 +3079,7 @@ void SetScreenConfig(int iter) {
     it = 0;
     int mb = 0;
     int nqm = 0;
+    int dn = 1;
     nqt = 0.0;
     for (i = 0; i < n_cores; i++) {
       nqt += a->nq[i];
@@ -2977,6 +3109,9 @@ void SetScreenConfig(int iter) {
 	n = k+1;
 	if (n < _psnmin) n = _psnmin;
 	int done = 0;
+	int nnm = 0;
+	double xnm = 0.0;
+	dn = 1;
 	iti = 0;
 	while (1) {
 	  iti++;
@@ -2996,10 +3131,50 @@ void SetScreenConfig(int iter) {
 	    }
 	  }
 	  orb = GetOrbitalSolved(OrbitalIndex(n, ka, 0));
+	  orb->dn = 1.0;
+	  if (orb->zorb) orb->zorb->dn = dn;
+	  if (potential->mps >= 3 && (_zorb > 1 || _zorb < 0)) {
+	    orb->dn = dn;
+	    if (orb->zorb) orb->zorb->dn = dn;
+	  }
 	  if (_scb_ke > 0) {
 	    if (n > 8) done = 1;
 	  } else {
-	    if (potential->mps >= 3 && _psemax > 0 && iter > 1) {
+	    if (_zorb > 1 || _zorb < 0) {
+	      if (iter == 0) {
+		if (orb->n > 1+sqrt(potential->atom->atomic_number/2)) {
+		  done = 2;
+		}
+	      } else {
+		if (orb->zorb) {
+		  xnm = fabs(orb->qr_norm-orb->zorb->qr_norm)/orb->qr_norm;
+		  if (_zorb < 3) {
+		    x = fabs(orb->energy - orb->zorb->energy)/potential->tps;
+		  } else {
+		    x = xnm;
+		  }
+		} else {
+		  xnm = 1.0;
+		  x = 1.0;
+		}
+		eot = orb->energy/potential->tps;
+		if (eot > _pseot && xnm < _psxps) nnm++;
+		u = eot - uot;
+		if (eot > _pseot && (u > _psedn || nnm > 1) &&
+		    dn < _psmdn && n-k >= _pskdn) {
+		  dn *= 2;
+		}
+		if (eot > 0 && ((_zorb > 3 && x < _pseps) ||
+				(x < _pseps*0.1 && xnm < _pseps))) {
+		  done = 2;
+		} else {
+		  if ((eot > 0 && x < _pseps) || u > psemax) {
+		    done++;
+		  }
+		}
+		//printf("dn: %3d %3d %3d %d %d %12.5E %12.5E %12.5E %12.5E\n", iter, ka, n, done, orb->isol, orb->energy, orb->zorb?orb->zorb->energy:0.0, x, u);
+	      }
+	    } else if (potential->mps >= 3 && _psemax > 0 && iter > 1) {
 	      if (k == 0 && orb->energy > eth) {
 		if (_psnfmax > 0 && nf > _psnfmax) {
 		  e0 = 0.5*(ef0+orb->energy);
@@ -3012,24 +3187,26 @@ void SetScreenConfig(int iter) {
 		}
 	      }
 	    } else {	    
-	      if (orb->energy > eth) done = 1;
+	      if (orb->energy > eth) done = 2;
 	      if (iter == 0) {
 		if (n > 5) {
-		  done = 1;
+		  done = 2;
 		} else if ((_psnfmin < 0 || nf > _psnfmin || nf > _psnfmax) &&
 			   (orb->energy > e0 || nqt > nbt+1)) {
-		  done = 1;
+		  done = 2;
 		}
 	      }
 	    }
-	    if ((_psnfmin < 0 || nfk >= _psnfmin) &&
-		orb->energy > eth+_psemax*potential->ewd) {
-	      mb = 2;
-	      break;
-	    }
-	    if (_psnmax > 0 && n > _psnmax) {
-	      mb = 4;
-	      break;
+	    if (_zorb >= 0 && _zorb < 2) {
+	      if ((_psnfmin < 0 || nfk >= _psnfmin) &&
+		  orb->energy > eth+_psemax*potential->ewd) {
+		mb = 2;
+		break;
+	      }
+	      if (_psnmax > 0 && n > _psnmax) {
+		mb = 4;
+		break;
+	      }
 	    }
 	  }
 	  if (m == a->n_allocs) {
@@ -3038,31 +3215,45 @@ void SetScreenConfig(int iter) {
 	      a->n = malloc(sizeof(int)*a->n_allocs);
 	      a->kappa = malloc(sizeof(int)*a->n_allocs);
 	      a->nq = malloc(sizeof(double)*a->n_allocs);
-	      a->e =malloc(sizeof(double)*a->n_allocs);
+	      a->e = malloc(sizeof(double)*a->n_allocs);
+	      a->de = malloc(sizeof(double)*a->n_allocs);
+	      a->pde = malloc(sizeof(double)*a->n_allocs);
+	      a->ez = malloc(sizeof(double)*a->n_allocs);
+	      a->dez = malloc(sizeof(double)*a->n_allocs);
+	      a->pdez = malloc(sizeof(double)*a->n_allocs);
+	      a->nqz = malloc(sizeof(double)*a->n_allocs);
 	    } else {
 	      a->n_allocs += na;	  
 	      a->n = realloc(a->n, sizeof(int)*a->n_allocs);
 	      a->kappa = realloc(a->kappa, sizeof(int)*a->n_allocs);
 	      a->nq = realloc(a->nq, sizeof(double)*a->n_allocs);
 	      a->e = realloc(a->e, sizeof(double)*a->n_allocs);
+	      a->de = realloc(a->de, sizeof(double)*a->n_allocs);
+	      a->pde = realloc(a->pde, sizeof(double)*a->n_allocs);
+	      a->ez = realloc(a->ez, sizeof(double)*a->n_allocs);
+	      a->dez = realloc(a->dez, sizeof(double)*a->n_allocs);
+	      a->pdez = realloc(a->pdez, sizeof(double)*a->n_allocs);
+	      a->nqz = realloc(a->nqz, sizeof(double)*a->n_allocs);
 	    }
 	  }
 	  a->n[m] = n;
 	  a->kappa[m] = ka;
 	  a->e[m] = orb->energy/tps;
+	  if (orb->zorb) a->ez[m] = orb->zorb->energy/tps;
+	  else a->ez[m] = 0.0;
 	  mb = 0;
 	  m++;
 	  if (k == 0 && orb->energy > eth) nf++;
 	  if (orb->energy > eth) nfk++;
-	  if (done) break;
-	  n++;
+	  if (done > 1) break;
+	  n += dn;
 	}
-	if (n <= k+1+_psnfmin) {
+	if (n <= k+1+_psnfmin && iter > 0) {
 	  if (j < 0) donem = 1;
 	  else donep = 1;
 	}
       }
-      if (donem && donep) break;
+      if (_zorb >= 0 && _zorb < 2 && donem && donep) break;
       k++;
       if (_pskmax >= 0 && k > _pskmax) break;
     }
@@ -3073,6 +3264,8 @@ void SetScreenConfig(int iter) {
     for (m = 0; m < a->n_shells; m++) {
       orb = GetOrbitalSolved(OrbitalIndex(a->n[m], a->kappa[m], 0));
       a->e[m] = orb->energy/tps;
+      if (orb->zorb) a->ez[m] = orb->zorb->energy/tps;
+      else a->ez[m] = 0.0;
     }
     e0 = potential->efm;
   }
@@ -3082,16 +3275,26 @@ void SetScreenConfig(int iter) {
   
   int ns = a->n_shells - n_cores;
   if (_scb_ke > 0) a->n_cores = a->n_shells;
-  if (ns <= 0 && e0 < eth) return;
+  if (ns <= 0 && e0 < eth) return 0;
   if (ns > 0) {
     nqc = malloc(sizeof(double)*ns);
+    oa = malloc(sizeof(ORBITAL *)*ns);  
   } else {
     nqc = NULL;
+    oa = NULL;
   }
   np = a->n + n_cores;
   kp = a->kappa + n_cores;
   nq = a->nq + n_cores;
   et = a->e + n_cores;
+  det = a->de + n_cores;
+  pdet = a->pde + n_cores;
+  nqz = a->nqz + n_cores;
+  ez = a->ez + n_cores;
+  dez = a->dez + n_cores;
+  pdez = a->pdez + n_cores;
+
+  k2 = 0;
   for (i = 0; i < ns; i++) {
     nqc[i] = 0.0;
     for (m = 0; m < n_cores; m++) {
@@ -3100,11 +3303,79 @@ void SetScreenConfig(int iter) {
 	break;
       }
     }
+    oa[i] = GetOrbital(OrbitalIndex(np[i], kp[i], 0.0));
+    if (np[i] > k2) k2 = np[i];
+    det[i] = 0.0;
+    pdet[i] = 0.0;
+    dez[i] = 0.0;
+    pdez[i] = 0.0;
   }
-  
+  if (_zorb > 1) {
+    int *si = malloc(sizeof(int)*ns);
+    for (i = 0; i < ns; i++) {
+      k = 2*abs(kp[i]) - ((kp[i]>0)?1:2);
+      nq[i] = k*k2 + np[i]-1;
+    }
+    ArgSort(ns, nq, si);
+    k2 = 1000000;
+    u = 0.0;
+    j = 0;
+    for (k = 0; k < ns; k++) {
+      i = si[k];
+      if (kp[i] != k2) {
+	if (et[i] > 0) {
+	  k2 = kp[i];
+	  det[i] = et[i];
+	  pdet[i] = det[i]*_fpde;
+	  u = et[i];
+	}
+      } else {
+	det[i] = (et[i]-u)-pdet[j];
+	pdet[i] = det[i]*_fpde;
+	u = et[i];
+      }
+      j = i;
+    }
+    k2 = 1000000;
+    u = 0.0;
+    j = 0;
+    for (k = 0; k < ns; k++) {
+      i = si[k];
+      if (kp[i] != k2) {
+	if (ez[i] > 0) {
+	  k2 = kp[i];
+	  dez[i] = ez[i];
+	  pdez[i] = dez[i]*_fpde;
+	  u = ez[i];
+	}
+      } else {
+	dez[i] = (ez[i]-u)-pdez[j];
+	pdez[i] = dez[i]*_fpde;
+	u = ez[i];
+      }
+      j = i;
+    }
+    free(si);
+    
+    for (i = 0; i < ns; i++) {
+      if (det[i] > 0 && 1 == 1+pdet[i]) pdet[i] = det[i];
+      if (dez[i] > 0 && 1 == 1+pdez[i]) pdez[i] = dez[i];
+      //printf("de: %3d %3d %3d %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E\n", i, np[i], kp[i], et[i], ez[i], det[i], pdet[i], dez[i], pdez[i]);
+    }
+    
+  }
+  if (_zorb < 2) {
+    ez = NULL;
+    dez = NULL;
+    pdez = NULL;
+    for (i = 0; i < ns; i++) {
+      nqz[i] = 0.0;
+    }
+  }
   if (nbt < 1e-10) {
     u = potential->aps;
-    nb = NBoundAA(ns, np, kp, nq, et, nqc, u, tps, etf, &nqf);
+    nb = NBoundAA(ns, oa, nq, nqz, et, det, pdet,
+		  ez, dez, pdez, nqc, u, tps, etf, &nqf);
   } else {
     if (ns > 0) {
       double *amu, *anb;
@@ -3125,7 +3396,9 @@ void SetScreenConfig(int iter) {
       }
       k = -1;
       for (i = 0; i < ns2; i++) {
-	anb[i] = NBoundAA(ns, np, kp, nq, et, nqc, amu[i], tps, etf, &nqf);
+	anb[i] = NBoundAA(ns, oa, nq, nqz, et, det, pdet, ez, dez, pdez,
+			  nqc, amu[i], tps, etf, &nqf);
+	//printf("anb: %4d %12.5E %12.5E %12.5E %12.5E\n", i, amu[i], anb[i], nqf, anb[i]-potential->nbt);
 	if (k < 0 && anb[i] > nbt) {
 	  k = i;
 	  break;
@@ -3134,6 +3407,26 @@ void SetScreenConfig(int iter) {
       if (k < 0) {
 	k = ns;
       }
+      /*
+      if (iter >= 38) {
+	u1 = -10.0;
+	u0 = -80.0;
+	x = (u1-u0)/499;
+	for (i = 0; i < 500; i++) {
+	  u = u0 + x*i;
+	  nb = NBoundAA(ns, oa, nq, nqz, et, det, pdet, ez, dez, pdez, 
+			nqc, u, tps, etf, &nqf);
+	  fu = 0.0;
+	  du = 0.0;
+	  for (j = 0; j < ns; j++) {
+	    fu += nq[j];
+	    du += nqz[j];
+	  }
+	  printf("us: %3d %15.8E %15.8E %15.8E %15.8E %15.8E\n",
+		 iter, u, nb-potential->nbt, nqf, fu, du);
+	}
+      }
+      */
       u = amu[k];
       du = 1.0;
       for (i = k-1; i>=0; i--) {
@@ -3153,7 +3446,8 @@ void SetScreenConfig(int iter) {
       du = fabs(du-u);
       du = Max(1.0, du);
     }
-    nb = NBoundAA(ns, np, kp, nq, et, nqc, u, tps, etf, &nqf);
+    nb = NBoundAA(ns, oa, nq, nqz, et, det, pdet,
+		  ez, dez, pdez, nqc, u, tps, etf, &nqf);
     it = 0;
     u0 = u;
     u1 = u;
@@ -3161,11 +3455,12 @@ void SetScreenConfig(int iter) {
     nb1 = nb;
     if (nb > nbt) {
       while (1) {
-	while (nb > nbt) {
+	while (nb >= nbt) {
 	  u1 = u;
 	  nb1 = nb;
 	  u -= du;
-	  nb = NBoundAA(ns, np, kp, nq, et, nqc, u, tps, etf, &nqf);	
+	  nb = NBoundAA(ns, oa, nq, nqz, et, det, pdet, ez, dez, pdez,
+			nqc, u, tps, etf, &nqf);	
 	  it++;
 	  if (it > _sc_miter-5) {
 	    printf("maxiter reached in sc0: %d %d %g %g %g %g %g %g %g\n", it, ns, nbt, nb, u, nb1, u1, du, nqf);
@@ -3194,7 +3489,8 @@ void SetScreenConfig(int iter) {
 	  u0 = u;
 	  nb0 = nb;
 	  u += du;
-	  nb = NBoundAA(ns, np, kp, nq, et, nqc, u, tps, etf, &nqf);
+	  nb = NBoundAA(ns, oa, nq, nqz, et, det, pdet, ez, dez, pdez,
+			nqc, u, tps, etf, &nqf);	
 	  it++;
 	  if (it > _sc_miter-5) {	      
 	    printf("maxiter reached in sc1: %d %d %g %g %g %g %g %g %g\n", it, ns, nbt, nb, u, nb0, u0, du, nqf);
@@ -3220,8 +3516,7 @@ void SetScreenConfig(int iter) {
     }
     int nx = 7, iu;
     double ug[7], ng[7];
-    double fu;
-    if (e0 >= eth && fabs(nb1-nb0) > 1e-6) {
+    if (_zorb > 0 && _zorb < 2 && e0 >= eth && fabs(nb1-nb0) > EPS8) {
       fu = (u1-u0)/(nx-1);
       ug[0] = u0;
       for (iu = 1; iu < nx; iu++) {
@@ -3231,18 +3526,25 @@ void SetScreenConfig(int iter) {
 	ng[iu] = FreeElectronDensity(potential, etf, ug[iu], 0.0, 2, 0);
       }
     }
-    it = 0;
-    while (fabs(nb1-nb0) > 1e-6) {
+    //printf("u01: %d %g %g %g %g\n", iter, u0, u1, nb0-18, nb1-18);
+    it = 0;    
+    while (fabs(nb1-nb0) > 0) {
       x = (nb1-nbt)/(nbt-nb0);
       if (x < 0.25) x = 0.25;
       if (x > 0.75) x = 0.75;
       u = x*u0 + (1-x)*u1;
-      nb = NBoundAA(ns, np, kp, nq, et, nqc, u, tps, 2E31, NULL);
-      if (e0 >= eth) {
-	UVIP3P(3, nx, ug, ng, 1, &u, &nqf);
-      }
-      nb += nqf;
-      if (fabs(nb-nbt) < 1e-6) break;
+      if (_zorb > 1 || _zorb < 0) {
+	nb = NBoundAA(ns, oa, nq, nqz, et, det, pdet, ez, dez, pdez,
+		      nqc, u, tps, etf, &nqf);
+      } else {
+	nb = NBoundAA(ns, oa, nq, nqz, et, det, pdet, ez, dez, pdez,
+		      nqc, u, tps, 2E31, NULL);
+	if (e0 >= eth) {
+	  UVIP3P(3, nx, ug, ng, 1, &u, &nqf);
+	}
+	nb += nqf;
+      }      
+      if (nb <= nbt && nbt-nb < EPS10 && fabs(u1-u0) < EPS5) break;
       if (nb < nbt) {
 	u0 = u;
 	nb0 = nb;
@@ -3250,6 +3552,7 @@ void SetScreenConfig(int iter) {
 	u1 = u;
 	nb1 = nb;
       }
+      if (fabs(u1-u0) < EPS8) break;
       it++;
       if (it > _sc_miter) {
 	printf("maxiter reached in sc2: %d %g %g %g %g %g %g %g\n", it, nb, nbt, nqf, u, u0, u1, nb1-nb0);
@@ -3257,13 +3560,14 @@ void SetScreenConfig(int iter) {
       }
     }
     if (e0 >= eth) {
-      nb = NBoundAA(ns, np, kp, nq, et, nqc, u, tps, etf, &nqf);
+      nb = NBoundAA(ns, oa, nq, nqz, et, det, pdet,
+		    ez, dez, pdez, nqc, u, tps, etf, &nqf);
     }
   }
   potential->bps = u;
   potential->nbs = 0.0;
   for (i = 0; i < ns; i++) {
-    potential->nbs += nq[i];
+    potential->nbs += (nq[i]-nqz[i]);
   }
   if (e0 >= eth) {
     potential->nqf = nqf;
@@ -3280,15 +3584,18 @@ void SetScreenConfig(int iter) {
   }
   if (ns > 0) {
     free(nqc);
+    free(oa);
   }
   if (_sc_print) {
-    printf("sc: %3d %3d %4d %12.5E %12.5E %8.4f %7.3f %7.3f %7.3f %10.4E %7.2E %7.2E %7.2E\n",
-	   iter, nf, ns, potential->aps, potential->bps,
+    printf("sc: %3d %3d %4d %3d %12.5E %12.5E %12.5E %8.4f %7.3f %7.3f %7.3f %10.4E %8.2E %8.2E %8.2E %7.1E\n",
+	   iter, nf, ns, fix_sco, potential->aps, potential->bps, uot,
 	   potential->nbs, potential->nbt, nb, nqf, potential->ewd,
 	   optimize_control.dph[0][NDPH-1],
 	   optimize_control.dph[1][NDPH-1],
-	   optimize_control.sta[1]);
+	   optimize_control.sta[1],
+	   ClockNow(1));
   }
+  return ns;
 }
 
 void FreezeOrbital(char *s, int m) {
@@ -3329,10 +3636,19 @@ void FreezeOrbital(char *s, int m) {
 int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
 		  double emin, double emax, int sc) {
   double tol, atol, tol0, atol0, tol1, a, b, ahx, hxs0, ihx0;
-  double *p, *q, wp, wq, w;
-  ORBITAL orb_old, *orb;
-  int i, k, m, no_old, *freeze;
+  double *p, *q, wp, wq, w, u;
+  ORBITAL *orb, orb_old;
+  int i, k, m, no_old, *freeze, fix_sco;
 
+  fix_sco = 0;
+  if (sc) {
+    u = potential->nps*potential->atom->atomic_number;
+    u /= potential->tps*sqrt(potential->tps);
+    u /= 0.143289792;
+    u = FM1PI(u);
+  } else {
+    u = 0.0;
+  }
   no_old = 0;
   tol = 1.0;
   atol = 1e1;
@@ -3348,9 +3664,10 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
   double az0 = -1.0;
   double af0 = -1.0;
   double au0 = -1.0;
-  double sta = 1.0;  
+  double sta = 1.0;
+  double etps = 0.05*potential->tps;
   int ierr, muconv;
-  muconv = 0;
+  muconv = 1;
   potential->miter = -1;
   if (_mhx > 0) {
     potential->ihx = 0.0;
@@ -3366,7 +3683,7 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
   }
   while (1) {
     if (((tol > tol0*sta || atol > atol0*sta) && (tol > tol1*sta)) ||
-	iter <= 1+NDPH || ahx > 1e-5 || muconv == 0) {
+	iter <= 1+NDPH || ahx > 1e-5 || muconv == 0 || fix_sco == 0) {
       potential->miter = -1;
     } else {
       potential->miter = iter;
@@ -3380,6 +3697,21 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
       if (ahx < 1e-4) ahx = 0.0;
       potential->hxs = hxs0*(1-ahx);
     }
+    if (potential->mps < 0) fix_sco = 1;
+    else if (iter >= _sc_niter) {
+      if (_zorb < 2) {
+	fix_sco = 1;
+      } else {
+	a = fabs(potential->bps-potential->aps);
+	b = fabs(potential->bps);
+	if (b < 1) b = 1.0;	
+	if (a < sqrt(_aautol)*b) {
+	  fix_sco++;
+	} else {
+	  fix_sco = 0;
+	}
+      }
+    }
     SetPotential(acfg, iter);
     if (potential->mps == 0 && potential->ups > 0 && SPMode() > 3) {
       a = optimize_control.dph[0][NDPH-1];
@@ -3388,23 +3720,34 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
     }
     tol = 0.0;
     atol = 0.0;
+    int ib;
+    double e0ib, e1ib;
+    if (freeze) {
+      for (i = 0; i < acfg->n_cores; i++) {
+	if (!freeze[i]) {
+	  orb = GetOrbital(i);
+	  if (orb) orb->isol = 999;
+	}
+      }
+    }
     for (i = 0; i < acfg->n_shells; i++) {
       if (_scb_ke <= 0 && i < acfg->n_cores && freeze[i]) continue;
       k = OrbitalExists(acfg->n[i], acfg->kappa[i], 0.0);
       if (k < 0) {
-	orb_old.energy = 0.0;
-	orb = GetNewOrbital(acfg->n[i], acfg->kappa[i], 1.0);
-	orb->energy = 1.0;
+	orb_old.energy = 1.0;
+	orb = GetNewOrbital(acfg->n[i], acfg->kappa[i], 0.0);
+	orb->energy = 0.0;
 	no_old = 1;	
       } else {	
 	orb = GetOrbital(k);
 	if (orb->isol == 0 || orb->wfun == NULL) {
-	  orb_old.energy = 0.0;
-	  orb->energy = 1.0;
+	  orb_old.energy = 1.0;
+	  orb->energy = 0.0;
 	  orb->kappa = acfg->kappa[i];
 	  orb->n = acfg->n[i];
+	  orb->isol = 0;
 	  no_old = 1;	
-	} else if (orb->isol == 1) {
+	} else if (orb->isol > 0) {
 	  orb_old.energy = orb->energy;
 	  if (_jsi > 0 && iter > NDPH+1 && ahx < 1e-5) {
 	    p = Large(orb);
@@ -3433,6 +3776,10 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
 	    free(orb->wfun);
 	    orb->wfun = NULL;
 	    orb->isol = 0;
+	    if (_zorb > 3 && orb->zorb) {
+	      FreeOrbitalData(orb->zorb);
+	      orb->zorb = NULL;
+	    }
 	  } else {
 	    freeze[i] = 1;
 	  }
@@ -3441,12 +3788,15 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
 	  continue;
 	}
       }
-
       if (i >= acfg->n_cores || !freeze[i] || _scb_ke > 0) {
+	orb->isol = 0;
+	orb->energy = 0.0;
 	ierr = SolveDirac(orb);
 	if (ierr < 0) {
 	  return -1;
 	}
+      } else {
+	orb->isol = 1;
       }
       if (no_old) { 
 	tol = 1.0;
@@ -3459,43 +3809,73 @@ int OptimizeILoop(AVERAGE_CONFIG *acfg, int iter, int miter,
 	w = Max(wp, wq);
 	b = fabs(orb_old.energy - orb->energy);
 	if (atol < b) atol = b;
-	b /= w;
-	if (tol < b) tol = b;
+	if (etps > 0 && w < etps) {
+	  w = etps;
+	}
+	b /= w;	  
+	if (tol < b) {
+	  tol = b;
+	  ib = i;
+	  e0ib = orb_old.energy;
+	  e1ib = orb->energy;
+	}
       }
     }
+    for (i = 0; i < n_orbitals; i++) {
+      orb = GetOrbital(i);
+      if (orb && orb->isol == 999 && !freeze[i]) {	
+	free(orb->wfun);
+	orb->wfun = NULL;
+	orb->isol = 0;
+      }
+    }
+    //printf("ib: %d %d %12.5E %15.8E %15.8E\n", iter, tol, ib, e0ib, e1ib);
     if (tol < a) tol = a;
     if (optimize_control.iprint & 1) {
-      printf("optimize loop: %4d %13.5E %13.5E %13.5E %13.5E %13.5E %13.5E %13.5E %10.3E %10.3E %10.3E %10.3E\n",
-	     iter, tol, atol, a, tol0, tol1, atol0, ahx,
+      printf("optimize loop: %4d %4d %d %13.5E %13.5E %13.5E %13.5E %13.5E %13.5E %13.5E %10.3E %10.3E %10.3E %10.3E\n",
+	     iter, potential->miter, muconv,
+	     tol, atol, a, tol0, tol1, atol0, ahx,
 	     optimize_control.dph[0][NDPH-1],
 	     optimize_control.dph[1][NDPH-1],
 	     optimize_control.sta[0],
 	     optimize_control.sta[1]);
     }
     if (sc) {      
-      SetScreenConfig(iter);
-      double dz = fabs(potential->nbs-az0);
-      double dzf = fabs(potential->nqf-af0);
-      dz = Max(dz, dzf);
-      double imx = -4.5/log(1-optimize_control.sta[1]);      
-      if (imx < 2*NDPH) imx = 2*NDPH;
-      if (imx > 5*NDPH) imx = 5*NDPH;
-      if (_scpot.md >= 0) imx = 0;
-      sta = optimize_control.sta[1];
-      double sta01 = 0.01*sta;
-      muconv = fabs(potential->bps-au0)/Max(fabs(au0),0.5) < sta01;
-      if (ahx < 1e-5 && _aaztol > 0 && iter > imx && tol < sta01 &&
-	  ((dz < _aaztol*sta01) ||
-	   (dz < _aaztol && muconv))) {
-	break;
-      }    
-      az0 = potential->nbs;
-      af0 = potential->nqf;
-      au0 = potential->bps;
-    } else {
-      muconv = 1;
+      if (_ipp >= 0 && iter >= _ipp) {
+	char ifn[1024];
+	sprintf(ifn, "iter%d.pot", iter);
+	GetPotential(ifn, 0);
+	sprintf(ifn, "iter%d.bpt", iter);
+	SavePotential(ifn);
+	//sprintf(ifn, "iter%d.wfn", iter);
+	//WaveFuncTableOrb(ifn, GetOrbital(OrbitalIndex(2, -1, 0.0)));
+      }
+      if (0 < SetScreenConfig(iter, u, fix_sco)) {
+	double dz = fabs(potential->nbs-az0);
+	double dzf = fabs(potential->nqf-af0);      
+	dz = Max(dz, dzf);
+	dzf = potential->nqf;
+	if (dzf < 0.01) dzf = 0.01;
+	else if (dzf > 10) dzf = 10.0;
+	dz /= dzf;
+	double imx = -4.5/log(1-optimize_control.sta[1]);      
+	if (imx < 2*NDPH) imx = 2*NDPH;
+	if (imx > 5*NDPH) imx = 5*NDPH;
+	if (imx < _sc_niter+1) imx = _sc_niter;
+	if (_scpot.md >= 0) imx = 0;
+	sta = optimize_control.sta[1];
+	double sta01 = _aautol*sqrt(sta);
+	muconv = fabs(potential->bps-au0)/Max(fabs(au0),1.0) < sta01;
+	if (ahx < 1e-5 && _aaztol > 0 && iter > imx &&
+	    tol < 0.1*sta && dz < _aaztol && muconv && fix_sco > 2) {
+	  break;
+	}      
+	az0 = potential->nbs;
+	af0 = potential->nqf;
+	au0 = potential->bps;
+      }
     }
-    if (potential->miter > 0) break;
+    if (potential->miter > 0 && muconv) break;
     sta = Min(optimize_control.sta[0], optimize_control.sta[1]);
     iter++;
     if (iter > miter) break;
@@ -3614,12 +3994,14 @@ void SetPotentialN(void) {
 
   for (i = 0; i < acfg->n_shells; i++) {
     a += acfg->nq[i];
+    if (potential->zorb > 1) a -= acfg->nqz[i];
     if (i < acfg->n_cores) {
       b += acfg->nq[i];
     }
     if (optimize_control.iprint & (1<<1)) {
       MPrintf(-1, "avgcfg: %3d %3d %3d %11.4E %11.4E %11.4E %11.4E\n",
-	      i, acfg->n[i], acfg->kappa[i], acfg->nq[i], a, b, acfg->e[i]);
+	      i, acfg->n[i], acfg->kappa[i], acfg->nq[i],
+	      a, b, acfg->e[i]);
     }
   }
   if (a > 1 && potential->mps < 0) {
@@ -3758,10 +4140,15 @@ int OptimizeRadial(int ng, int *kg, int ic, double *weight, int ife) {
       break;
     }
   }
+  
+  //SetScreenDensity(&average_config, -1, 0);
+  //SetScreenDensity(&average_config, -1, 1);
+  
   free(dg);
   free(n);
   free(nq);
   free(kappa);
+  
   return 0;
 }
 
@@ -4098,7 +4485,7 @@ int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
     int maxfun = _refine_maxfun;
     potential->hxs = 1.0;
     potential->chx = 1.0;
-    SUBPLX(EnergyHXS, n, xtol, maxfun, mode, scale, x,
+    SUBPLX(EnergyHXS, n, xtol, xtol, maxfun, mode, scale, x,
 	   &f, &nfe, dw, lw, &ierr);
     free(x);
     free(scale);
@@ -4222,12 +4609,19 @@ int OptimizeRadialWSC(int ng, int *kg, int ic, double *weight, int ife) {
   return iter;
 }      
 
-double NBoundAA(int ns, int *n, int *ka, double *nq, double *et, double *nqc,
-		double u, double tps, double e0, double *nqf) {
-  int ik, j2;
-  double x, y, nb, ek;
+double NBoundAA(int ns, ORBITAL **oa, double *nq, double *nqz,
+		double *et, double *det, double *pdet,
+		double *ez, double *dez, double *pdez,
+		double *nqc, double u, double tps, double e0,
+		double *nqf) {
+  int ik, j2, n, ka;
+  double x, dx, pdx, y, nb, ek, qf, qz;
+  ORBITAL *orb;
   nb = 0.0;
   for (ik = 0; ik < ns; ik++) {
+    orb = oa[ik];
+    n = orb->n;
+    ka = orb->kappa;
     if ((et[ik] >= 1e30) || _znbaa > 0) {
       nq[ik] = 0.0;
       continue;
@@ -4235,28 +4629,53 @@ double NBoundAA(int ns, int *n, int *ka, double *nq, double *et, double *nqc,
     if (_scb_ke > 0) {
       tps = _scb_uf*fabs(u);
       if (tps > _scb_mte) tps = _scb_mte;
-      x = (et[ik]-u)/tps;
+      x = et[ik]/tps;
+      dx = 0.0;
+      pdx = 0.0;
+      u = u/tps;
       potential->tps = tps;
     } else {
-      x = et[ik]-u;
+      x = et[ik];
+      dx = det[ik];
+      pdx = pdet[ik];
     }
-    if (x > 0) {
-      y = exp(-x);
-      y /= 1+y;
-    } else {
-      y = 1/(1+exp(x));
-    }
-    j2 = GetJFromKappa(ka[ik]);
-    nq[ik] = (j2+1.0-nqc[ik])*y;
-    if (_scb_ke <= 0) {      
+    qf = SmoothedFD(dx, pdx, x, u, 0);
+    j2 = GetJFromKappa(ka);
+    nq[ik] = (j2+1.0-nqc[ik])*orb->dn*orb->qr_norm*qf;
+    if (_scb_ke <= 0 && _zorb >= 0 && _zorb < 2) {      
       ek = et[ik]*tps;
-      y = BoundFactor(ek, potential->eth, potential->ewd, potential->mps);
+      y = BoundFactor(ek, potential->eth, potential->ewd, potential->mps, potential->zorb);
       nq[ik] *= y;
     }
-    if (nq[ik] < 1e-50) nq[ik] = 0.0;
-    nb += nq[ik];
+    if (nq[ik] < 1e-50) {
+      nq[ik] = 0.0;
+    } else {
+      nb += nq[ik];
+    }
+    qz = 0.0;
+    if (ez) {
+      if (orb->zorb > 0 && ez[ik] > 0) {
+	if (_zorb > 3) {
+	  qz = qf;
+	} else {
+	  x = ez[ik];
+	  dx = dez[ik];
+	  pdx = pdez[ik];
+	  qz = SmoothedFD(dx, pdx, x, u, 0);
+	}
+	nqz[ik] = (j2+1.0)*orb->dn*orb->zorb->qr_norm*qz;
+	if (nqz[ik] < 1e-50) {
+	  nqz[ik] = 0.0;
+	} else {
+	  nb -= nqz[ik];
+	}
+      } else {
+	nqz[ik] = 0.0;
+      }
+    }
+    //printf("nqk: %3d %3d %3d %3d %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E %10.3E\n", ik, n, ka, j2, et[ik], ez?ez[ik]:0.0, u, nq[ik], ez?nqz[ik]:0.0, det[ik], orb->qr_norm, j2+1.0-nqc[ik], nqc[ik]);
   }
-  if (nqf && _scb_ke <= 0) {
+  if (nqf && _scb_ke <= 0 && _zorb >= 0) {
     if (e0 < 1E31) {
       *nqf = FreeElectronDensity(potential, e0, u, 0.0, 2, 0);
     }
@@ -4281,15 +4700,28 @@ double EffectiveTe(double ne, double ke) {
 void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   char pfn[1024], dfn[1024], sfn[1024];  
   int it, nm, ik, k, k0, k1, idx;
-  double z0, zb0, zb1, a, b, c, d, e, x, y, r, nb, nc, vc, zbr, tp, vp;
-  double v, epsr, epsa, u, u0, u1, ke, km, tm, etf, ex, dn, x2, y2;
+  double z0, zb0, zb1, a, b, b1, c, c1, d, e;
+  double dx, x, y, r, nb, vc, zbr, tp, vp, aaztol;
+  double enq, v, epsr, epsa, u, u0, u1, ke, km;
+  double tm, etf, ex, dn, x2, y2, nqbb, nqnb, nqbf;
+  double bbp[4], btp[4], bfp[4], fp[2];
   ORBITAL *orb;
 
-  _aaztol = ztol;
-  if (ztol < 0.0) _aaztol = 0.001;
+  aaztol = _aaztol;
+  if (ztol > 0) _aaztol = ztol;
   dn = d0/(potential->atom->mass*AMU*9.10938356e-4);
   z0 = potential->atom->atomic_number;
-  if (m >= 3) {
+  if (m < 0) {
+    dn = potential->nps/pow(RBOHR,3);
+    d0 = dn*potential->atom->mass*AMU*9.10938356e-4;
+    t = potential->tps*HARTREE_EV;
+    potential->ib = potential->ips;
+    potential->ib1 = potential->ib;
+    potential->rb = potential->rad[potential->ib];
+    potential->bqp = SCBQP();
+    _zorb = -1;
+    SetScreenConfig(_sc_niter+5, potential->aps, 0);
+  } else if (m >= 3) {
     PlasmaScreen(m, _sc_vxf, z0, dn, t, -1.0);
     OptimizeRadial(0, NULL, -1, NULL, 0);
   } else {
@@ -4358,6 +4790,8 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   sprintf(dfn, "%s.den", pref);
   sprintf(sfn, "%s.dos", pref);
   GetPotential(pfn, 0);
+  sprintf(pfn, "%s.bpt", pref);
+  SavePotential(pfn);
   FILE *f;
   f = fopen(dfn, "w");
   if (f == NULL) {
@@ -4368,7 +4802,11 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
     _dwork1[k] = 0.0;
     _dwork2[k] = 0.0;
     _dwork6[k] = 0.0;
-    _zk[k] = potential->EPS[k];
+    if (m < 0) {
+      _zk[k] = 0.0;
+    } else {
+      _zk[k] = potential->EPS[k];
+    }
   }
   if (potential->nbt < 1e-10) {
     u = potential->aps;
@@ -4380,11 +4818,6 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   } else {
     etf = potential->eth;
   }
-  //double ewd = potential->ewd;
-  //if (ewd > 0) {
-  //  potential->ewd = 0.0;
-  //  SetScreenConfig(potential->miter);
-  //}
   a = FreeElectronDensity(potential, etf, potential->bps, 0.0, 4, 0);
   for (k = 0; k < potential->maxrp; k++) {
     _dwork5[k] = potential->EPS[k];
@@ -4411,24 +4844,55 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   char orbf[128];
   k1 = potential->ips;
   nb = 0.0;
-  nc = 0.0;
   vc = potential->VT[0][k1];
+  bbp[0] = bbp[1] = bbp[2] = bbp[3] = 0.0;
+  btp[0] = btp[1] = btp[2] = btp[3] = 0.0;
+  bfp[0] = bfp[1] = bfp[2] = bfp[3] = 0.0;
+  fp[0] = fp[1] = 0.0;
+  nqbb = nqnb = nqbf = 0.0;
+  k = potential->ips;
+  u0 = potential->rad[k];
+  u1 = u0*u0;
   for (ik = 0; ik < ac->n_shells; ik++) {
     idx = OrbitalIndex(ac->n[ik], ac->kappa[ik], 0);
     orb = GetOrbitalSolved(idx);
-    b = (orb->energy/potential->tps)-potential->bps;
-    if (b > 0) {
-      b = exp(-b);
-      b /= 1+b;
+    b = orb->energy/potential->tps;
+    b1 = b;
+    dx = ac->de[ik];
+    if (_zorb > 1 || _zorb < 0) {
+      b = SmoothedFD(dx, ac->pde[ik], b, potential->bps, 0);
     } else {
-      b = 1/(1+exp(b));
+      b = SmoothedFD(0.0, 0.0, b, potential->bps, 0);
     }
-    c = 2*abs(ac->kappa[ik])*b;
+    c = 2*abs(ac->kappa[ik])*orb->dn*orb->qr_norm*b;    
     if (orb->energy < vc) {
       nm++;
       nb += c;
     }
-    nc += c;
+    nqbb += c;
+    if (orb->energy < 0) nqnb += c;
+    c1 = c;
+    k = potential->ips;
+    x = Large(orb)[k];
+    y = Small(orb)[k];
+    a = 1.0 + 0.5*FINE_STRUCTURE_CONST2*orb->energy;
+    dx = (y*2*a/FINE_STRUCTURE_CONST) - (orb->kappa/u0)*x;
+    y2 = orb->kappa*(1.0+orb->kappa) + 1.0;
+    x2 = (dx*dx + (2*orb->energy - y2/u1)*x*x)*(c1/2);
+    if (orb->energy < 0) bbp[3] += x2;
+    btp[3] += x2;
+    x2 = (dx*dx + (2*orb->energy + y2/u1)*x*x - (2/u0)*x*dx)*(c1/6);
+    if (orb->energy < 0) bbp[2] += x2;
+    btp[2] += x2;
+    x2 = (2*orb->energy - ac->kappa[ik]*ac->kappa[ik]/u1)*x*x;
+    x2 = (dx*dx + x2)*(c1/2);
+    if (orb->energy < 0) bbp[1] += x2;
+    btp[1] += x2;
+    x2 = orb->energy*x*x;
+    y2 = (orb->energy + 2/FINE_STRUCTURE_CONST2)*y*y;
+    x2 = (x2 + y2)*(c1/3);
+    if (orb->energy < 0) bbp[0] += x2;
+    btp[0] += x2;
     if (orb->ilast < k1) k1 = orb->ilast;
     for (k = 0; k <= orb->ilast; k++) {
       x = Large(orb)[k];
@@ -4437,17 +4901,18 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
       y2 = y*y;
       a = (x2 + y2);
       d = c*a;
-      a = ac->nq[ik]*a;
+      enq = ac->nq[ik];
+      a = enq*a;
       _dwork1[k] += a;
       if (orb->energy < 0) {
 	_dwork3[k] += d*log(-orb->energy);
 	_dwork6[k] += a;
       }
       _dwork4[k] += a;
-      _dwork5[k] += a*(orb->energy-potential->VT[0][k]);
+      _dwork5[k] += enq*x2*(orb->energy-potential->VT[0][k]);
       //_dwork6[k] += d;
-      _xk[k] += x2*ac->nq[ik];
-      _yk[k] += y2*ac->nq[ik];
+      _xk[k] += x2*enq;
+      _yk[k] += y2*enq;
       if (b > 0) {
 	_dwork7[k] += -a*b*log(b);      
 	if (b < 1.0) {
@@ -4455,7 +4920,66 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
 	}
       }
     }
+    if (orb->zorb) {
+      orb = orb->zorb;
+      b = orb->energy/potential->tps;
+      b1 = b;
+      dx = ac->dez[ik];
+      b = SmoothedFD(dx, ac->pdez[ik], b, potential->bps, 0);
+      c = 2*abs(ac->kappa[ik])*orb->dn*orb->qr_norm*b;
+      nqbf += c;
+      c1 = c;
+      k = potential->ips;
+      x = Large(orb)[k];
+      y = Small(orb)[k];
+      a = 1.0 + 0.5*FINE_STRUCTURE_CONST2*orb->energy;
+      dx = (y*2*a/FINE_STRUCTURE_CONST) - (orb->kappa/u0)*x;
+      y2 = orb->kappa*(1.0+orb->kappa) + 1.0;
+      x2 = (dx*dx + (2*orb->energy - y2/u1)*x*x)*(c1/2);
+      bfp[3] += x2;
+      x2 = (dx*dx + (2*orb->energy + y2/u1)*x*x - (2/u0)*x*dx)*(c1/6);
+      bfp[2] += x2;
+      x2 = (2*orb->energy - ac->kappa[ik]*ac->kappa[ik]/u1)*x*x;
+      bfp[1] += (c1/2)*(dx*dx+x2);
+      x2 = orb->energy*x*x;
+      y2 = (orb->energy + 2/FINE_STRUCTURE_CONST2)*y*y;
+      bfp[0] += (c1/3)*(x2 + y2);
+      for (k = 0; k <= orb->ilast; k++) {
+	x = Large(orb)[k];
+	y = Small(orb)[k];
+	x2 = x*x;
+	y2 = y*y;
+	a = (x2 + y2);
+	d = c*a;
+	enq = ac->nqz[ik];
+	a = enq*a;
+	_dwork1[k] -= a;
+	_dwork4[k] -= a;
+	_dwork5[k] -= c*x2*orb->energy;
+	_xk[k] -= x2*enq;
+	_yk[k] -= y2*enq;
+	if (b > 0) {
+	  _dwork7[k] -= -a*b*log(b);      
+	  if (b < 1.0) {
+	    _dwork7[k] -= -a*(1-b)*log(1-b);
+	  }
+	}
+      }
+    }
   }
+  a = PRESSURE_AU/(4*PI*u1);
+  bbp[0] *= a;
+  bbp[1] *= a;
+  bbp[2] *= a;
+  bbp[3] *= a;
+  btp[0] *= a;
+  btp[1] *= a;
+  btp[2] *= a;
+  btp[3] *= a;
+  bfp[0] *= a;
+  bfp[1] *= a;
+  bfp[2] *= a;
+  bfp[3] *= a;
   k0 = k1-3;
   k0 = Max(1, k0);
   b = 0.0;
@@ -4543,17 +5067,26 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
       _dwork12[k] = 0.0;
       _dwork13[k] = 0.0;
     }
-  }
+  }  
+  double vxs = VXS();
+  if (vxs < 0) SetVXS(0);
+  k = DensityToSZ(potential, _dwork14, _dwork10, _dwork15, &b, 0);
   if (potential->vxm > 0) {
     for (k = 0; k <= potential->ips; k++) {
       r = potential->rad[k];
       b = _dwork14[k]*potential->dr_drho[k];
       c = _dwork14[k]/(FOUR_PI*r*r);
+      if (vxs > 0) {
+	u = 1 - _dwork10[k]/_dwork10[potential->ips];
+	if (u < 0) u = 0.0;
+	else if (u > 1) u = 1.0;
+	c *= pow(u, vxs);
+      }
       _phase[k] = -XCPotential(potential->tps, c, 20+potential->vxm)*b;
     }
     ex = Simpson(_phase, 0, potential->ips)*HARTREE_EV;
-  }  
-  k = DensityToSZ(potential, _dwork14, _dwork10, _dwork15, &b, 0);
+  }
+  SetVXS(vxs);
   for (k = 0; k <= potential->ips; k++) {
     _zk[k] = potential->rad[k]*potential->VT[0][k];
     _dwork8[k] = potential->EPS[k]*potential->dr_drho[k];
@@ -4567,6 +5100,7 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   for (k = 0; k <= potential->ips; k++) {
     r = potential->rad[k];
     b = _dwork14[k]*potential->dr_drho[k];
+    b1 = _dwork6[k]*potential->dr_drho[k];
     a = potential->Z[k];
     if (potential->pvp && potential->mvp) {
       a += potential->ZVP[k];
@@ -4590,7 +5124,7 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   c = Simpson(_dwork17, 0, potential->ips)*a;
   b = Simpson(_dwork16, 0, potential->ips)*a;
   vc = -Simpson(_zk, 0, potential->ips)*a;
-  if (potential->vxm == 0) {
+  if (potential->vxm == 0 || vxs < 0) {
     ex = b*0.75;
   }
   fprintf(f, "#   d0: %15.8E\n", d0);
@@ -4606,11 +5140,20 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   fprintf(f, "#   ze: %15.8E\n", zb1);
   a = z0-zb0;
   a = Max(0.0, a);
-  FERMID(1.5, potential->bps, EPS10, &tp, &k);
-  tp *= 1.32934*pow(2*potential->tps, 2.5)/(6*PI*PI);
-  tp *= 294.21;
-  vp = (x+e+2*c+r+u+3*(b-ex))/3.0/(4*PI/3.*pow(potential->rps,3.0))/HARTREE_EV;
-  vp *= 294.21;
+  x2 = pow(2*potential->tps, 2.5)/(6*PI*PI);
+  u0 = FM3P(potential->bps);
+  fp[1] = x2*u0*PRESSURE_AU;
+  u1 = FM5P(potential->bps);
+  fp[0] = x2*(u0 + 0.75*(potential->tps*FINE_STRUCTURE_CONST2)*u1);
+  fp[0] *= PRESSURE_AU;
+  k1 = _aapmd/10;
+  k0 = _aapmd%10;
+  k1 = k1%2;
+  k0 = k0%4;
+  tp = fp[k1] + btp[k0] - bfp[k0];
+  vp = (2*x+r+u+3*(b-ex))/3.0/(4*PI/3.*pow(potential->rps,3.0))/HARTREE_EV;
+  vp *= PRESSURE_AU;
+  vp += fp[k1];
   fprintf(f, "#   zf: %15.8E\n", a);
   fprintf(f, "#   zr: %15.8E\n", zbr);
   fprintf(f, "#   nm: %15d\n", nm);
@@ -4622,6 +5165,10 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   fprintf(f, "#  ewf: %15.8E\n", SCEWF());
   fprintf(f, "#  ewm: %15d\n", SCEWM());
   fprintf(f, "#  nqf: %15.8E\n", potential->nqf);
+  fprintf(f, "# nqbb: %15.8E\n", nqbb);
+  fprintf(f, "# nqnb: %15.8E\n", nqnb);
+  fprintf(f, "# nqbf: %15.8E\n", nqbf);
+  fprintf(f, "#  nqb: %15.8E\n", nqbb-nqbf);
   fprintf(f, "#  zps: %15.8E\n", potential->zps);
   fprintf(f, "#  nps: %15.8E\n", potential->nps);
   fprintf(f, "#  tps: %15.8E\n", potential->tps);
@@ -4639,12 +5186,32 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
   fprintf(f, "#   vf: %15.8E\n", u+r+ex+x-y);
   fprintf(f, "#   ep: %15.8E\n", e);
   fprintf(f, "#   vp: %15.8E\n", vp);
+  fprintf(f, "# bbp0: %15.8E\n", bbp[0]);
+  fprintf(f, "# bbp1: %15.8E\n", bbp[1]);
+  fprintf(f, "# bbp2: %15.8E\n", bbp[2]);
+  fprintf(f, "# bbp3: %15.8E\n", bbp[3]);
+  fprintf(f, "# btp0: %15.8E\n", btp[0]);
+  fprintf(f, "# btp1: %15.8E\n", btp[1]);
+  fprintf(f, "# btp2: %15.8E\n", btp[2]);
+  fprintf(f, "# btp3: %15.8E\n", btp[3]);
+  fprintf(f, "# bfp0: %15.8E\n", bfp[0]);
+  fprintf(f, "# bfp1: %15.8E\n", bfp[1]);
+  fprintf(f, "# bfp2: %15.8E\n", bfp[2]);
+  fprintf(f, "# bfp3: %15.8E\n", bfp[3]);
+  fprintf(f, "#  bp0: %15.8E\n", btp[0]-bfp[0]);
+  fprintf(f, "#  bp1: %15.8E\n", btp[1]-bfp[1]);
+  fprintf(f, "#  bp2: %15.8E\n", btp[2]-bfp[2]);
+  fprintf(f, "#  bp3: %15.8E\n", btp[3]-bfp[3]);
+  fprintf(f, "#  fp0: %15.8E\n", fp[0]);
+  fprintf(f, "#  fp1: %15.8E\n", fp[1]);
   fprintf(f, "#   tp: %15.8E\n", tp);
   fprintf(f, "#  rsf: %15.8E\n", SCRSF());
   fprintf(f, "#  rbf: %15.8E\n", SCRBF());
   fprintf(f, "#  bqp: %15.8E\n", SCBQP());
   fprintf(f, "#  vxf: %15d\n", _sc_vxf);
   fprintf(f, "#  vxm: %15d\n", potential->vxm);
+  fprintf(f, "#  vxs: %15.8E\n", VXS());
+  fprintf(f, "#  pmd: %15d\n", _aapmd);
   /*
   for (k0 = 0; k0 < 6; k0 += 2) {
     for (k = 0; k <= potential->ips; k++) {
@@ -4722,7 +5289,7 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
       if (r > 0) {
 	a = FINE_STRUCTURE_CONST*r;
 	r = 2*r + a*a;
-	b = 1-BoundFactor(e, potential->eth, potential->ewd, potential->mps);
+	b = 1-BoundFactor(e, potential->eth, potential->ewd, potential->mps, potential->zorb);
 	b *= c*sqrt(r)*d*(1 + FINE_STRUCTURE_CONST*a);
 	r = potential->rad[ik];      
 	_dwork[ik] = b*r*r*potential->dr_drho[ik];
@@ -4735,7 +5302,7 @@ void AverageAtom(char *pref, int m, double d0, double t, double ztol) {
     e += d;
   }  
   fclose(f);
-  //potential->ewd = ewd;
+  _aaztol = aaztol;
 }
 
 static double EnergyFunc(int *n, double *x) {
@@ -4805,7 +5372,7 @@ static double EnergyFunc(int *n, double *x) {
   if (_refine_msglvl > 1) {
     printf("refine step: ");
     for (i = 0; i < *n; i++) {
-      printf("%g ", x[i]);
+      printf("%11.4E ", x[i]);
     }
     printf("--- %18.10E\n", a);
   }
@@ -4814,7 +5381,7 @@ static double EnergyFunc(int *n, double *x) {
 
 int RefineRadial(int m, int n, int maxfun, int msglvl) {
   int i, k, ierr, mode, nfe, se, *lw, n2, nw;
-  double xtol;
+  double xtol, ftol;
   double f0, f, *x, *scale, *dw;
   AVERAGE_CONFIG *a;
   ORBITAL *orb;
@@ -4878,6 +5445,7 @@ int RefineRadial(int m, int n, int maxfun, int msglvl) {
   } else {
     _refine_msglvl = msglvl;
     xtol = _refine_xtol;
+    ftol = _refine_ftol;
     mode = 0;
     lw = malloc(sizeof(int)*n*2);
     x = malloc(sizeof(double)*n);
@@ -4895,7 +5463,7 @@ int RefineRadial(int m, int n, int maxfun, int msglvl) {
     f0 = EnergyFunc(&n, x);
     nfe = 0;
     ierr = 0;
-    SUBPLX(EnergyFunc, n, xtol, maxfun, mode, scale, x,
+    SUBPLX(EnergyFunc, n, xtol, ftol, maxfun, mode, scale, x,
 	   &f, &nfe, dw, lw, &ierr);
     f = EnergyFunc(&n, x);
     double t1 = WallTime();
@@ -5000,10 +5568,11 @@ int SolveDirac(ORBITAL *orb) {
   if (err) { 
     MPrintf(-1, "Error occured in RadialSolver: %d %d %d %18.10E\n",
 	    err, orb->n, orb->kappa, orb->energy);
-    int *ix=0;
-    *ix =0;
+    //int *ix=0;
+    //*ix =0;
     average_config.n_shells = -average_config.n_shells;
     GetPotential("error.pot", 0);
+    SavePotential("error.bpt");
     if (err < -1 && orb->wfun != NULL) {
       orb->isol=10;
       orb->ilast = potential->maxrp-1;
@@ -5018,6 +5587,20 @@ int SolveDirac(ORBITAL *orb) {
     if (_orthogonalize_mode > 0) {
       if (potential->nfrozen > 0 && orb->n > 0) {
 	Orthogonalize(orb);
+      }
+    }
+  }
+
+  if (orb->n == 0) {
+    if (!orb->zorb && _zorb > 0 && (_zorb & 1)) {
+      orb->zorb = SolveAltOrbital(orb, potential, 1);
+    }
+  } else if (orb->n > potential->nb && potential->ib > 0) {
+    if (!orb->zorb && _zorb > 1) {
+      if (_zorb <= 3) {
+	orb->zorb = SolveAltOrbital(orb, potential, 1);
+      } else {
+	orb->zorb = SolveAltOrbital(orb, potential, 2);
       }
     }
   }
@@ -5044,7 +5627,13 @@ int WaveFuncTableOrb(char *s, ORBITAL *orb) {
   fprintf(f, "#      n = %2d\n", n);
   fprintf(f, "#  kappa = %2d\n", kappa);
   fprintf(f, "# energy = %15.8E\n", orb->energy*HARTREE_EV);
+  if (orb->zorb) {
+    fprintf(f, "#zenergy = %15.8E\n", orb->zorb->energy*HARTREE_EV);
+  } else {
+    fprintf(f, "#zenergy = %15.8E\n", 0.0);
+  }
   fprintf(f, "#     dn = %15.8E\n", orb->dn);
+  fprintf(f, "# qrnorm = %15.8E\n", orb->qr_norm);
   fprintf(f, "#SelfEne = %15.8E\n", orb->se*HARTREE_EV);
   fprintf(f, "#     vc = %15.8E\n", MeanPotential(k, k)*HARTREE_EV);
   ResidualPotential(&a, k, k);  
@@ -5062,15 +5651,17 @@ int WaveFuncTableOrb(char *s, ORBITAL *orb) {
   PrintLepton(f);
   ORBITAL *horb = orb->horb;
   ORBITAL *rorb = orb->rorb;
+  ORBITAL *zorb = orb->zorb;
   if (n != 0) {
     fprintf(f, "\n\n");
     if (n < 0) k = potential->ib;
     else k = 0;
+    double *veff = GetVEffective();
     for (i = k; i <= orb->ilast; i++) { //Case of a bound wave function
       fprintf(f, "%-4d %14.8E %13.6E %13.6E %13.6E %13.6E", 
-	      i, potential->rad[i], 
-	      (potential->Vc[i])*potential->rad[i],
-	      potential->U[i] * potential->rad[i],
+	      i, potential->rad[i],
+	      potential->VT[0][i]*potential->rad[i],
+	      veff[i] * potential->rad[i],
 	      Large(orb)[i], Small(orb)[i]); 
       if (rorb != NULL && rorb->wfun != NULL) {
 	fprintf(f, " %13.6E %13.6E", Large(rorb)[i], Small(rorb)[i]);
@@ -5078,10 +5669,15 @@ int WaveFuncTableOrb(char *s, ORBITAL *orb) {
 	fprintf(f, " %13.6E %13.6E", 0.0, 0.0);
       }
       if (horb != NULL && horb->wfun != NULL) {
-	fprintf(f, " %13.6E %13.6E\n", Large(horb)[i], Small(horb)[i]);
+	fprintf(f, " %13.6E %13.6E", Large(horb)[i], Small(horb)[i]);
+      } else {
+	fprintf(f, " %13.6E %13.6E", 0.0, 0.0);
+      }
+      if (zorb != NULL && zorb->wfun != NULL) {
+	fprintf(f, " %13.6E %13.6E\n", Large(zorb)[i], Small(zorb)[i]);
       } else {
 	fprintf(f, " %13.6E %13.6E\n", 0.0, 0.0);
-      }
+      }	
     }
   } else { //Case of a continuum wave function
     a = GetPhaseShift(k);
@@ -5293,7 +5889,7 @@ int OrbitalIndex(int n, int kappa, double energy) {
   ORBITAL **porb;
   int idx[3];
   
-  int k;
+  int k, nmax, kmax;
   if (n == 0) {
     k = 0;
   } else {
@@ -5317,21 +5913,28 @@ int OrbitalIndex(int n, int kappa, double energy) {
       Abort(1);
     }
     porb = &om->opn[k];
-    if (potential->ib == 0 && n > potential->nmax) {
+    GetHydrogenicNL(NULL, NULL, &nmax, &kmax);
+    if (nmax > potential->nmax) nmax = potential->nmax;
+    if (kmax >= nmax) kmax = nmax-1;
+    if (potential->ib == 0 && n > nmax) {
       if (om->ifm == 0) {
-	int km = OrbitalIndex(potential->nmax, kappa, energy);
+	int kk = GetLFromKappa(kappa);
+	if (kk >= nmax-2) kk = nmax-3;
+	if (kk > kmax) kk = kmax;
+	if (kappa < 0) kk = -(kk+1);
+	int km = OrbitalIndex(potential->nmax, kk, energy);
 	ORBITAL *omn = GetOrbital(km);
 	double *pp = Large(omn);
 	double *qq = Small(omn);
 	om->ifm = FirstMaximum(pp, potential->r_core,
-			      potential->maxrp-1, potential);
+			       potential->maxrp-1, potential);
 	int i;
 	for (i = 0; i <= om->ifm; i++) {
 	  potential->dW2[i] = (pp[i]*pp[i] + qq[i]*qq[i])*potential->dr_drho[i];
 	}
 	om->cfm = Simpson(potential->dW2, 0, om->ifm);
 	
-	km = OrbitalIndex(potential->nmax-2, kappa, energy);
+	km = OrbitalIndex(potential->nmax-2, kk, energy);
 	omn = GetOrbital(km);
 	pp = Large(omn);
 	qq = Small(omn);
@@ -5633,6 +6236,11 @@ void FreeOrbitalData(void *p) {
     free(orb->rorb);
   }
   orb->rorb = NULL;
+  if (orb->zorb && orb->zorb != orb) {
+    FreeOrbitalData(orb->zorb);
+    free(orb->zorb);
+  }
+  orb->zorb = NULL;
 }
 
 int ClearOrbitalTable(int m) {
@@ -5751,7 +6359,7 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
       if (md == 0) {
 	if (_config_energy_psr == 2) {
 	  sprintf(pfn, "%s%s.pot", _config_energy_pfn, sid);
-	  if (RestorePotential(pfn, potential) < 0) {
+	  if (RestorePotential(pfn) < 0) {
 	    ReinitRadial(1);
 	    ClearOrbitalTable(0);
 	    continue;
@@ -5770,7 +6378,7 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	  if (mr > 0) RefineRadial(mr, 0, 0, -1);
 	  if (_config_energy_psr == 1) {
 	    sprintf(pfn, "%s%s.pot", _config_energy_pfn, sid);
-	    SavePotential(pfn, potential);
+	    SavePotential(pfn);
 	  }
 	}
       }
@@ -5780,7 +6388,7 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	  if (md > 0) {
 	    if (_config_energy_psr == 2) {
 	      sprintf(pfn, "%s%s%d.pot", _config_energy_pfn, g->name, i);
-	      if (RestorePotential(pfn, potential) < 0) {
+	      if (RestorePotential(pfn) < 0) {
 		ReinitRadial(1);
 		ClearOrbitalTable(0);
 		continue;
@@ -5794,7 +6402,7 @@ int ConfigEnergy(int m, int mr, int ng, int *kg) {
 	      if (mr > 0) RefineRadial(mr, 0, 0, -1);
 	      if (_config_energy_psr == 1) {
 		sprintf(pfn, "%s%s%d.pot", _config_energy_pfn, g->name, i);
-		SavePotential(pfn, potential);
+		SavePotential(pfn);
 	      }
 	    }
 	  }
@@ -7232,10 +7840,17 @@ int ResidualPotential(double *s, int k0, int k1) {
     }
     *s = Simpson(_yk, potential->ib, potential->ib1);
   } else {
-    for (i = 0; i < potential->maxrp; i++) {
+    int maxrp = potential->maxrp;
+    if (_aap > 0) maxrp = potential->ib;
+    for (i = 0; i < maxrp; i++) {
       z = potential->Vc[i] + potential->U[i];
       _yk[i] = -(potential->Z[i]/potential->rad[i]) - z;
+      if (_aap > 0) {
+	z = potential->ZPS[i]/potential->rad[i];
+	_yk[i] -= z;
+      }
     }
+    for (i = maxrp; i < potential->maxrp; i++) _yk[i] = 0.0;    
     Integrate(_yk, orb1, orb2, 1, s, -1);
     if (potential->nfrozen || potential->npseudo || potential->sturm_idx > 0) {
       z = ZerothHamilton(orb1, orb2);
@@ -8476,12 +9091,15 @@ double SelfEnergyRatio(ORBITAL *orb, ORBITAL *horb) {
   return b/a;
 }
 
-ORBITAL *SolveAltOrbital(ORBITAL *orb, POTENTIAL *p) {
+ ORBITAL *SolveAltOrbital(ORBITAL *orb, POTENTIAL *p, int pwa) {
   ORBITAL *norb;
   int ierr;
 
-  if (!p->hlike && !p->hpvs) {
+  if (!p->hlike && !p->hpvs && pwa == 0) {
     return orb;
+  }
+  if (pwa > 1 || (pwa > 0 && orb->n == 0)) {
+    if (orb->energy < 0) return NULL;
   }
   norb = (ORBITAL *) malloc(sizeof(ORBITAL));
   InitOrbitalData(norb, 1);
@@ -8492,10 +9110,16 @@ ORBITAL *SolveAltOrbital(ORBITAL *orb, POTENTIAL *p) {
     norb->energy = _sturm_eref;
   }
   p->flag = -1;
+  int opwa = OrbPWA();
+  SetOrbPWA(pwa > 0);
+  if (pwa > 1 || (pwa > 0 && orb->n == 0)) {
+    norb->energy = orb->energy;
+  }
   ierr = RadialSolver(norb, p);
+  SetOrbPWA(opwa);
   if (ierr < 0) {
-    MPrintf(-1, "error in SolveAltOrbital: %d %d %d\n",
-	    ierr, norb->n, norb->kappa);
+    MPrintf(-1, "error in SolveAltOrbital: %d %d %d %d\n",
+	    ierr, norb->n, norb->kappa, pwa);
   }
   return norb;
 }
@@ -8585,7 +9209,7 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
       nb0 = potential->nb+1;
       int nk = 1+GetLFromKappa(orb1->kappa)/2;
       if (nb0 < nk) nb0 = nk;
-      for (;;nb0++) {
+      for (; nb0 <= _senmax; nb0++) {
 	if (potential->mpseudo > 0 && nb0 > potential->mpseudo) break;
 	idx = OrbitalIndex(nb0, orb1->kappa, 0);
 	orb0 = GetOrbitalSolved(idx);
@@ -8648,10 +9272,10 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
       return a;
     }
     if (orb1->rorb == NULL) {
-      orb1->rorb = SolveAltOrbital(orb1, rpotential);
+      orb1->rorb = SolveAltOrbital(orb1, rpotential, 0);
     }
     if (orb2->rorb == NULL) {
-      orb2->rorb = SolveAltOrbital(orb2, rpotential);
+      orb2->rorb = SolveAltOrbital(orb2, rpotential, 0);
     }
     a = HydrogenicSelfEnergy(qed.mse, qed.pse, c, potential,
 			     orb1->rorb, orb2->rorb);
@@ -8684,13 +9308,13 @@ double SelfEnergy(ORBITAL *orb1, ORBITAL *orb2) {
     }
   }
   if (orb1->rorb == NULL) {
-    orb1->rorb = SolveAltOrbital(orb1, rpotential);
+    orb1->rorb = SolveAltOrbital(orb1, rpotential, 0);
   }
   if (msc == 9 || fabs(potential->N-1)<1e-5) {
     c = 1.0;
   } else {
     if (orb1->horb == NULL) {
-      orb1->horb = SolveAltOrbital(orb1, hpotential);
+      orb1->horb = SolveAltOrbital(orb1, hpotential, 0);
     }
     if (orb1->horb->wfun == NULL) {
       MPrintf(-1, "hlike orbital for SE screening null wfun: %d %d\n",
@@ -11817,6 +12441,7 @@ int InitRadial(void) {
   potential->hx1 = POTHX1;
   potential->hlike = 0;
   potential->nse = qed.se;
+  potential->zorb = 0;
   if (qed.mse >= 1000) {
     potential->hpvs = 1;
     qed.mse = qed.mse%1000;
@@ -12018,6 +12643,7 @@ int ReinitRadial(int m) {
       n_awgrid = 1;
       awgrid[0] = EPS3;
       SetRadialGrid(-1, -1.0, -1.0, -1.0, -1.0);
+      SetBoundaryMaster(0, 1.0, -1.0, 0.0);
     }
   }
   }
@@ -12059,13 +12685,16 @@ int DensityAsymptote(double *d, double *a, double *b) {
   return m;
 }
 
-void ElectronDensity(char *ofn, int n, int *ilev, int t) {
+void ElectronDensity(char *ofn, int n, int *ilev, int t, double te) {
   FILE *f;
   ANGULAR_ZMIX *ang;
-  LEVEL *lev;
+  LEVEL *lev, *lev0;
   ORBITAL *orb0, *orb1;
-  int i, j, k, m, nz, iz;
-  double a, *p0, *q0, *p1, *q1;
+  CONFIG *cfg;
+  SYMMETRY *sym;
+  STATE *s;
+  int i, j, k, m, nz, iz, nm, nm2, nn, im, si, u, ns;
+  double a, a0, a1, *p0, *q0, *p1, *q1, *nq, *np;
 
   f = fopen(ofn, "w");
   if (f == NULL) {
@@ -12073,70 +12702,174 @@ void ElectronDensity(char *ofn, int n, int *ilev, int t) {
     return;
   }
 
-  for (i = 0; i < n; i++) {
-    nz = AngularZMix(&ang, ilev[i], ilev[i], 0, 0, NULL, NULL);
-    if (nz <= 0) {
-      continue;
+  nm = 0;
+  for (k = 0; k < n_orbitals; k++) {
+    orb0 = GetOrbitalSolved(k);
+    if (orb0->n > nm) nm = orb0->n;
+  }
+
+  nm2 = nm*nm;
+  nq = malloc(sizeof(double)*nm2);
+  if (te > 0) {
+    te /= HARTREE_EV;
+    for (k = 0; k < nm2; k++) {
+      nq[k] = 0.0;
     }
     for (k = 0; k < potential->maxrp; k++) {
       _dwork15[k] = 0;
-      for (iz = 0; iz < nz; iz++) {
-	if (ang[iz].k != 0) continue;
-	orb0 = GetOrbitalSolved(ang[iz].k0);
-	orb1 = GetOrbitalSolved(ang[iz].k1);
-	if (k > orb0->ilast || k > orb1->ilast) continue;
-	j = GetJFromKappa(orb0->kappa);
-	p0 = Large(orb0);
-	q0 = Small(orb0);
-	p1 = Large(orb1);
-	q1 = Small(orb1);
-	switch (t) {
-	case 1:
-	  a = p0[k]*p1[k] + q0[k]*q1[k];	  
-	  break;
-	case 2:
-	  a = p0[k]*p1[k];
-	  break;
-	case 3:
-	  a = q0[k]*q1[k];
-	  break;
-	case 4:
-	  a = p0[k]*q1[k] + q0[k]*p1[k];
-	  break;
-	case 5:
-	  a = p0[k]*q1[k] - q0[k]*p1[k];	  
-	  break;
-	case 6:
-	  a = p0[k]*q1[k];
-	  break;
-	default:
-	  a = 0.0;
-	  break;
-	}
-	a *= ang[iz].coeff*sqrt(j+1.0);
-	_dwork15[k] += a;
+    }
+    np = malloc(sizeof(double)*n);
+    lev0 = GetLevel(ilev[0]);
+    a = 0.0;
+    for (i = 0; i < n; i++) {
+      lev = GetLevel(ilev[i]);
+      DecodePJ(lev->pj, NULL, &j);
+      np[i] = exp(-(lev->energy - lev0->energy)/te)*(j+1.0);
+      a += np[i];
+    }
+    for (i = 0; i < n; i++) {
+      np[i] /= a;
+    }
+    for (i = 0; i < n; i++) {
+      if (np[i] < 1e-16) continue;
+      lev = GetLevel(ilev[i]);
+      sym = GetSymmetry(lev->pj);
+      for (k = 0; k < lev->n_basis; k++) {
+	a1 = lev->mixing[k]*lev->mixing[k];
+	if (a1 < 1e-16) continue;
+	si = lev->basis[k];
+	s = (STATE *) ArrayGet(&(sym->states), si);
+	cfg = GetConfigFromGroup(s->kgroup, s->kcfg);
+	for (im = 0; im < cfg->n_shells; im++) {
+	  m = ShellToInt(cfg->shells[im].n, cfg->shells[im].kappa);
+	  a0 = np[i]*cfg->shells[im].nq*a1;
+	  nq[m] += a0;
+	  u = OrbitalIndex(cfg->shells[im].n, cfg->shells[im].kappa, 0.0);
+	  orb0 = GetOrbitalSolved(u);
+	  p0 = Large(orb0);
+	  q0 = Small(orb0);
+	  for (u = 0; u < potential->maxrp; u++) {
+	    a = p0[u]*p0[u] + q0[u]*q0[u];
+	    _dwork15[u] += a0*a;
+	  }
+	}	  
       }
     }
-    if (nz > 0) free(ang);
-    lev = GetLevel(ilev[i]);
-    DecodePJ(lev->pj, NULL, &j);
-    a = 1.0/sqrt(j+1.0);
     for (m = potential->maxrp-1; m >= 0; m--) {
       if (_dwork15[m]) break;
     }
-    for (k = 0; k <= m; k++) {
-      _dwork15[k] *= a;
-    }
     Differential(_dwork15, _dwork14, 0, m, potential);
-    double a0, a1;
-    int ns = DensityAsymptote(_dwork15, &a0, &a1);
-    fprintf(f, "# %4d %4d %4d %6d %6d %12.5E %12.5E\n",
-	    i, n, m, t, ns, a0, a1);
+    ns = DensityAsymptote(_dwork15, &a0, &a1);
+    fprintf(f, "# %4d %8d %4d %6d %6d %15.8E %15.8E %15.8E\n",
+	    -1, n, m, 1, ns, a0, a1, te);
+    a = 0.0;
+    for (im = 0; im < nm2; im++) {
+      if (nq[im] < 1E-30) continue;
+      IntToShell(im, &nn, &k);
+      k = OrbitalIndex(nn, k, 0.0);
+      a += nq[im];
+      if (k >= 0) {
+	orb0 = GetOrbitalSolved(k);
+	fprintf(f, "# %4d %2d %2d %15.8E %15.8E %15.8E\n",
+		k, orb0->n, orb0->kappa, orb0->energy*HARTREE_EV, nq[im], a);
+      }
+    }
     for (k = 0; k <= m; k++) {
-      fprintf(f, "%6d %4d %15.8E %15.8E %15.8E\n",
-	      i, k, potential->rad[k], _dwork15[k], _dwork14[k]);
+      fprintf(f, "%8d %4d %15.8E %15.8E %15.8E\n",
+	      -1, k, potential->rad[k], _dwork15[k], _dwork14[k]);
+    }
+    free(np);
+  } else {
+    for (i = 0; i < n; i++) {
+      nz = AngularZMix(&ang, ilev[i], ilev[i], 0, 0, NULL, NULL);
+      if (nz <= 0) {
+	continue;
+      }
+      for (k = 0; k < nm2; k++) nq[k] = 0.0;
+      for (iz = 0; iz < nz; iz++) {
+	if (ang[iz].k != 0) continue;
+	if (ang[iz].k0 != ang[iz].k1) continue;
+	orb0 = GetOrbitalSolved(ang[iz].k0);
+	j = GetJFromKappa(orb0->kappa);
+	m = ShellToInt(orb0->n, orb0->kappa);
+	nq[m] += ang[iz].coeff*sqrt(j+1.0);
+      }
+      for (k = 0; k < potential->maxrp; k++) {
+	_dwork15[k] = 0;
+	for (iz = 0; iz < nz; iz++) {
+	  if (ang[iz].k != 0) continue;
+	  orb0 = GetOrbitalSolved(ang[iz].k0);
+	  orb1 = GetOrbitalSolved(ang[iz].k1);
+	  if (k > orb0->ilast || k > orb1->ilast) continue;
+	  j = GetJFromKappa(orb0->kappa);
+	  p0 = Large(orb0);
+	  q0 = Small(orb0);
+	  p1 = Large(orb1);
+	  q1 = Small(orb1);
+	  switch (t) {
+	  case 1:
+	    a = p0[k]*p1[k] + q0[k]*q1[k];	  
+	    break;
+	  case 2:
+	    a = p0[k]*p1[k];
+	    break;
+	  case 3:
+	    a = q0[k]*q1[k];
+	    break;
+	  case 4:
+	    a = p0[k]*q1[k] + q0[k]*p1[k];
+	    break;
+	  case 5:
+	    a = p0[k]*q1[k] - q0[k]*p1[k];	  
+	    break;
+	  case 6:
+	    a = p0[k]*q1[k];
+	    break;
+	  default:
+	    a = 0.0;
+	    break;
+	  }
+	  a *= ang[iz].coeff*sqrt(j+1.0);
+	  _dwork15[k] += a;
+	}
+      }
+      if (nz > 0) free(ang);
+      lev = GetLevel(ilev[i]);
+      DecodePJ(lev->pj, NULL, &j);
+      a = 1.0/sqrt(j+1.0);
+      for (m = 0; m < nm2; m++) {
+	nq[m] *= a;
+      }
+      for (m = potential->maxrp-1; m >= 0; m--) {
+	if (_dwork15[m]) break;
+      }
+      for (k = 0; k <= m; k++) {
+	_dwork15[k] *= a;
+      }
+      Differential(_dwork15, _dwork14, 0, m, potential);
+      ns = DensityAsymptote(_dwork15, &a0, &a1);
+      fprintf(f, "# %4d %8d %4d %6d %6d %15.8E %15.8E %15.8E\n",
+	      i, n, m, t, ns, a0, a1, 0.0);
+      a = 0.0;
+      for (im = 0; im < nm2; im++) {
+	if (nq[im] < 1E-30) continue;
+	IntToShell(im, &nn, &k);
+	k = OrbitalIndex(nn, k, 0.0);
+	a += nq[im];
+	if (k >= 0) {
+	  orb0 = GetOrbitalSolved(k);
+	  fprintf(f, "# %4d %2d %2d %15.8E %15.8E %15.8E\n",
+		  k, orb0->n, orb0->kappa, orb0->energy*HARTREE_EV, nq[im], a);
+	}
+      }
+      for (k = 0; k <= m; k++) {
+	fprintf(f, "%8d %4d %15.8E %15.8E %15.8E\n",
+		i, k, potential->rad[k], _dwork15[k], _dwork14[k]);
+      }
     }
   }
+  
+  free(nq);
   fclose(f);
 }
 
@@ -12317,10 +13050,10 @@ void OptimizeModSE(int n, int ka, double dr, int ni) {
   e0 = HydrogenicSelfEnergy(31, 0, 1.0, potential, orb, orb);
   if (potential->N > 1) {
     if (orb->rorb == NULL) {
-      orb->rorb = SolveAltOrbital(orb, rpotential);
+      orb->rorb = SolveAltOrbital(orb, rpotential, 0);
     }
     if (orb->horb == NULL) {
-      orb->horb = SolveAltOrbital(orb, hpotential);
+      orb->horb = SolveAltOrbital(orb, hpotential, 0);
     }
     rs = SelfEnergyRatio(orb->rorb, orb->horb);
     e0 *= rs;
@@ -13193,6 +13926,11 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
     _refine_np = ip;
     return;
   }
+  if (0 == strcmp(s, "radial:refine_ftol")) {
+    _refine_ftol = dp;
+    if (_refine_xtol <= 0) _refine_ftol = EPS3;
+    return;
+  }
   if (0 == strcmp(s, "radial:refine_xtol")) {
     _refine_xtol = dp;
     if (_refine_xtol <= 0) _refine_xtol = EPS5;
@@ -13307,6 +14045,22 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
     _psemax = dp;
     return;
   }
+  if (0 == strcmp(s, "radial:psedn")) {
+    _psedn = dp;
+    return;
+  }
+  if (0 == strcmp(s, "radial:pseot")) {
+    _pseot = dp;
+    return;
+  }
+  if (0 == strcmp(s, "radial:psmdn")) {
+    _psmdn = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:pskdn")) {
+    _pskdn = ip;
+    return;
+  }
   if (0 == strcmp(s, "radial:psnfmin")) {
     _psnfmin = ip;
     return;
@@ -13325,6 +14079,22 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "radial:pskmax")) {
     _pskmax = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:senmax")) {
+    _senmax = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:pseps")) {
+    _pseps = dp;
+    return;
+  }
+  if (0 == strcmp(s, "radial:psxps")) {
+    _psxps = dp;
+    return;
+  }
+  if (0 == strcmp(s, "radial:fpde")) {
+    _fpde = dp;
     return;
   }
   if (0 == strcmp(s, "radial:sc_print")) {
@@ -13391,10 +14161,18 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
     _sc_maxiter = ip;
     return;
   }
+  if (0 == strcmp(s, "radial:aautol")) {
+    _aautol = dp;
+    return;
+  }
   if (0 == strcmp(s, "radial:aaztol")) {
     _aaztol = dp;
     return;
   }
+  if (0 == strcmp(s, "radial:aapmd")) {
+    _aapmd = dp;
+    return;
+  }  
   if (0 == strcmp(s, "radial:sc_mass")) {
     _sc_mass = dp;
     return;
@@ -13490,6 +14268,18 @@ void SetOptionRadial(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "radial:scb_uf")) {
     _scb_uf = dp;
+    return;
+  }
+  if (0 == strcmp(s, "radial:aap")) {
+    _aap = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:zorb")) {
+    _zorb = ip;
+    return;
+  }
+  if (0 == strcmp(s, "radial:ipp")) {
+    _ipp = ip;
     return;
   }
 }
