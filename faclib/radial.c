@@ -718,6 +718,8 @@ void AllocPotMem(POTENTIAL *p, int n) {
   p->maxrp = n;
   p->nws = n*(36+3*NKSEP+3*NKSEP1);
   p->dws = (double *) malloc(sizeof(double)*p->nws);
+  int i;
+  for (i = 0; i < p->nws; i++) p->dws[i] = 0.0;
   SetPotDP(p);
 }
 
@@ -1986,6 +1988,8 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
 	ue[m] = 0.0;
 	ut[m] = 0.0;
       }
+      potential->r_core = 51;
+      return jmax;
     }
   } else {
     b = (potential->N+potential->nqf)/potential->atom->atomic_number;    
@@ -2138,7 +2142,7 @@ int PotentialHX(AVERAGE_CONFIG *acfg, double *u, int iter) {
     if (_scpot.md == 3) {
       potential->zps = potential->ZPS[potential->maxrp-1];
     }
-  } 
+  }
   for (m = jmax-1; m > 50; m--) {
     if (fabs(u[m]-u[jmax]) > EPS6) break;
   }
@@ -2236,7 +2240,6 @@ int SetScreenDensity(AVERAGE_CONFIG *acfg, int iter, int md) {
   }
   
   if (jmax > 0) {
-    for (m = 0; m < potential->maxrp; m++) potential->ZSE[4][m] = w[m];
     b = 0.0;
     mm = 0;
     for (m = 0; m <= jmax; m++) {
