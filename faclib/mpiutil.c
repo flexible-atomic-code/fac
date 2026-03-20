@@ -274,7 +274,11 @@ void InitializeMPI(int n, int m) {
     omp_set_num_threads(1);
   }
   omp_set_dynamic(0);
+#if defined(_OPENMP) && _OPENMP > 201107
+  omp_set_max_active_levels(1);
+#else
   omp_set_nested(0);
+#endif
 #pragma omp parallel
   {
     mpi.wid = 0;
