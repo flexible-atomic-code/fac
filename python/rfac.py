@@ -1493,9 +1493,106 @@ def load_fac(fn):
     r = np.loadtxt(valid_lines(fn), unpack=1, ndmin=2)
     return r
 
+def load_atm(fn):
+    ks = {'s':0, 'p':1, 'd':2, 'f':3, 'g':4, 'h':5}
+    with open(fn) as f:
+        zi = 0
+        nx = 0
+        t = -2
+        q = 0
+        s0 = ' Atomic Number ='
+        n0 = len(s0)
+        s1 = ' Total Number of Energy'
+        n1 = len(s1)
+        s2 = '------------------------------'
+        n2 = len(s2)
+        ix = -1
+        for x in f:
+            ix = ix+1
+            if len(x) < 6:
+                continue
+            if len(x) > n0 and x[:n0] == s0:
+                zi = int(x.split('=')[-1])
+            elif len(x) > n1 and x[:n1] == s1:
+                nx = int(x.split('=')[-1])
+            elif t < 0 and len(x) > n2 and x[:n2] == s2:
+                if t == -1:
+                    ilev = np.zeros(nx, dtype=np.int32)
+                    e = np.zeros(nx)
+                    j = ilev.copy()
+                    wj = j.copy()
+                    z = j.copy()
+                    k = j.copy()
+                    p = j.copy()
+                    s = np.chararray(nx, itemsize=128)
+                    tm = s.copy()
+                    cn = s.copy()
+                    iup = j.copy()
+                    ilo = j.copy()
+                    te = e.copy()
+                    tf = e.copy()
+                    tt = j.copy()
+                    ti = j.copy()
+                t = t + 1
+            elif nx > 0 and t >= 0:
+                if t >= nx:
+                    break
+                x = x.strip().split()
+                if len(x) < 6:
+                    continue
+                if x[0].strip() == 'Index':
+                    continue
+                ilev[t] = int(x[0])
+                z[t] = zi
+                k[t] = int(x[1])
+                e[t] = float(x[5])
+                a = x[6].split('[')
+                j[t] = -1
+                if len(a) == 2:
+                    a = a[1].split(']')
+                    if len(a[0]) > 0:
+                        a = a[0]
+                        if a[-1] == '*':
+                            if len(a) > 1:
+                                j[t] = int(a[:-1])
+                        else:
+                            j[t] = int(a)
+                wj[t] = j[t]+1
+                if len(x) == 6:
+                    a = '1s(0)'
+                else:
+                    a = x[-1].strip()
+                cn[t] = a
+                tm[t] = x[-1]
+                a = a.replace('(','').replace(')','.')
+                a = a.strip()
+                if (len(a) > 0):
+                    a = a[:-1]
+                    b = a.split('.')
+                    kt = 0
+                    a = ''
+                    for c in b:
+                        if c[0] == '{':
+                            c = c[4:]
+                        if c[1].isdigit():
+                            ic = 2
+                        else:
+                            ic = 1
+                        kt += ks[c[ic:ic+1]]*int(c[ic+1:])
+                        a += '.' + c
+                    p[t] = kt%2
+                    s[t] = a[1:]
+                    t += 1
+        return ilev[:t],k[:t],e[:t],j[:t],p[:t],s[:t],iup[:q],ilo[:q],ti[:q],tt[:q],te[:q],tf[:q],tm[:t],wj[:t],cn[:t],z[:t]
+                
 def load_atbase(fn, trans=0):
     ks = {'s':0, 'p':1, 'd':2, 'f':3, 'g':4, 'h':5}
     with open(fn) as f:
+        x = f.readline()
+        x = f.readline()
+        sid = ' The FORMAT ID for this file'
+        if len(x) > len(sid) and x[:len(sid)] == sid:
+            return load_atm(fn)
         if trans > 0:
             d = f.readlines()
         else:
@@ -1715,7 +1812,7 @@ class FLEV:
         self.j = r[3][w]
         self.p = r[4][w]
         self.s = np.array([x.decode() for x in r[5][w]])
-        self.c = np.array([nqs(nlqs(x.replace('.',' '))).replace('a', '*').replace(' ', '.') for x in self.s])
+        self.c = np.array([nqs(nlqs(x.replace('.',' '))).replace('a', '*').replace(' ', '.') for x in self.s])        
         self.n = np.array([x.decode() for x in r[12][w]])
         self.wj = r[13][w]
         w = np.where(self.nele == self.nele[0]-1)[0]
