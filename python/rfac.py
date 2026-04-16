@@ -1494,7 +1494,7 @@ def load_fac(fn):
     return r
 
 def load_atm(fn):
-    ks = {'s':0, 'p':1, 'd':2, 'f':3, 'g':4, 'h':5}
+    ks = {'s':0, 'p':1, 'd':2, 'f':3, 'g':4, 'h':5, 'i':6, 'k':7, 'l':8, 'm':9}
     with open(fn) as f:
         zi = 0
         nx = 0
@@ -1546,22 +1546,30 @@ def load_atm(fn):
                 z[t] = zi
                 k[t] = int(x[1])
                 e[t] = float(x[5])
-                a = x[6].split('[')
-                j[t] = -1
-                if len(a) == 2:
-                    a = a[1].split(']')
-                    if len(a[0]) > 0:
-                        a = a[0]
-                        if a[-1] == '*':
-                            if len(a) > 1:
-                                j[t] = int(a[:-1])
-                        else:
-                            j[t] = int(a)
-                wj[t] = j[t]+1
                 if len(x) == 6:
-                    a = '1s(0)'
+                    x.append('.0')
+                elif len(x) == 7:
+                    x.append('1s(0)')
+                elif len(x) == 9:
+                    x[6] = x[6]+' '+x[7]
+                    x[7] = x[8]
+                a = x[6].split('.')
+                if len(a) > 1:
+                    j[t] = int(a[1])
                 else:
-                    a = x[-1].strip()
+                    a = x[6].split('[')
+                    j[t] = -1
+                    if len(a) == 2:
+                        a = a[1].split(']')
+                        if len(a[0]) > 0:
+                            a = a[0]
+                            if a[-1] == '*':
+                                if len(a) > 1:
+                                    j[t] = int(a[:-1])
+                            else:
+                                j[t] = int(a)
+                wj[t] = j[t]+1
+                a = x[-1].strip()
                 cn[t] = a
                 tm[t] = x[-1]
                 a = a.replace('(','').replace(')','.')
@@ -1586,7 +1594,7 @@ def load_atm(fn):
         return ilev[:t],k[:t],e[:t],j[:t],p[:t],s[:t],iup[:q],ilo[:q],ti[:q],tt[:q],te[:q],tf[:q],tm[:t],wj[:t],cn[:t],z[:t]
                 
 def load_atbase(fn, trans=0):
-    ks = {'s':0, 'p':1, 'd':2, 'f':3, 'g':4, 'h':5}
+    ks = {'s':0, 'p':1, 'd':2, 'f':3, 'g':4, 'h':5, 'i':6, 'k':7, 'l':8, 'm':9}
     with open(fn) as f:
         x = f.readline()
         x = f.readline()
