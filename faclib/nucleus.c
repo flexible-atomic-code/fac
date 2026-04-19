@@ -138,6 +138,7 @@ static double _afermi = 2.3;
 int InitNucleus() {
   int z, k;
   
+  if (_xfermi != NULL) return 0;
   for (z = 0; z < N_ELEMENTS; z++) {
     for (k = 0; k < NISO; k++) {
       _errms[z][k] = 0.0;
@@ -415,6 +416,9 @@ double GraspRRMS(double z, double m) {
 int SetAtom(char *s, double z, double mass, double rn, double a, double rmse) {
   int i;
   char un[3] = "Xx";
+
+  InitNucleus();
+  
   if (s == NULL || strlen(s) == 0) {
     if (z <= 0) {
       printf("atomic symbol and z cannot be both unset\n");
@@ -787,7 +791,8 @@ int SetCXTarget(char *s0, double a, double b, double e,
   char sa[3];
   int i, k, n;
   double z0, m0;
-  
+
+  InitNucleus();
   strncpy(cxtgt.symbol, s0, 128);
   StrTrim(cxtgt.symbol, '\0');
   strncpy(s, cxtgt.symbol, 128);
@@ -941,6 +946,7 @@ void PrintCXTarget(char *fn) {
 }
 
 void SetOptionNucleus(char *s, char *sp, int ip, double dp) {
+  InitNucleus();
   if (0 == strcmp(s, "nucleus:xfermi")) {
     char buf[1024];
     strncpy(buf, s, 1023);

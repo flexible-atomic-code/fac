@@ -410,6 +410,7 @@ static int PAvgConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   int ns, *n, *kappa;
   double *nq;
 
+  InitFac1();
   if (argc != 1 || argt[0] != STRING) return -1;
   ns = GetAverageConfigFromString(&n, &kappa, &nq, argv[0]);
   if (ns <= 0) return -1;
@@ -457,6 +458,7 @@ static int PClosed(int argc, char *argv[], int argt[], ARRAY *variables) {
   char s[16], st[64];
   int ns, k;
 
+  InitFac1();
   if (argc == 0) _closed_shells[0] = '\0';
   for (i = 0; i < argc; i++) {
     if (argt[i] != STRING) return -1;
@@ -526,6 +528,7 @@ static int PGetConfigNR(int argc, char *argv[], int argt[], ARRAY *variables) {
 static int PReadConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   if (argc < 1 || argc > 2) return -1;
   if (argt[0] != STRING) return -1;
+  InitFac1();
   char *c = NULL;
   if (argc > 1) {
     if (argt[1] != STRING) return -1;
@@ -544,6 +547,7 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   char *v[MAXNARGS];
   int vt[MAXNARGS];
 
+  InitFac1();
   gname[GROUP_NAME_LEN] = '\0';
   scfg[MCHSHELL] = '\0';
   if (argt[0] == NUMBER) {
@@ -756,10 +760,11 @@ static int PConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   
 static int PRemoveConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   int k, ng, *kg;
-  
+
+  InitFac1();  
   if (argc <= 0) return -1;
   ng = DecodeGroupArgs(&kg, argc, NULL, argv, argt, variables);
-  
+
   for (k = 0; k < ng; k++) {
     RemoveGroup(kg[k]);
   }
@@ -828,7 +833,8 @@ static int PConfigEnergy(int argc, char *argv[], int argt[],
 static int PAddConfig(int argc, char *argv[], int argt[], ARRAY *variables) {
   CONFIG *cfg = NULL;
   int k;
-  
+
+  InitFac1();  
   if (argc != 2) return -1;
   if (argt[0] != STRING) return -1;
   if (argt[1] != LIST) return -1;
@@ -1417,6 +1423,7 @@ static int PAverageAtom(int argc, char *argv[], int argt[],
   t = atof(argv[3]);
   z = -1.0;
   if (argc == 5) z = atof(argv[4]);
+  InitFac1();
   AverageAtom(argv[0], m, d, t, z);
   return 0;
 }
@@ -1425,6 +1432,7 @@ static int PRefineRadial(int argc, char *argv[], int argt[],
 		  ARRAY *variables) {
   int m, n, maxfun, msglvl;
 
+  InitFac1();
   m = 0;
   n = 0;
   maxfun = 0;
@@ -2061,6 +2069,7 @@ static int PSetAvgConfig(int argc, char *argv[], int argt[],
     return -1;
   }
 
+  InitFac1();
   rv = 0;
   ns = DecodeArgs(argv[0], vc, ic, variables);
   n = malloc(sizeof(int)*ns);
@@ -2901,6 +2910,7 @@ static int PSetRadialGrid(int argc, char *argv[], int argt[],
     }
   }
 
+  InitFac1();
   return SetRadialGrid(maxrp, ratio, asym, rmin, qr);
 }
 
@@ -4344,6 +4354,7 @@ static int PFreezeOrbital(int argc, char *argv[], int argt[],
   if (argc < 1 || argc > 2 || argt[0] != STRING) return -1;
   int m = -1;
   if (argc > 1) m = atoi(argv[1]);
+  InitFac1();
   FreezeOrbital(argv[0], m);
   return 0;
 }
@@ -4988,6 +4999,8 @@ static int PRestorePotential(int argc, char *argv[], int argt[],
   if (argc != 1) return -1;
   fn = argv[0];
   
+  InitFac1();
+  
   RestorePotential(fn);
 
   return 0;
@@ -5022,6 +5035,7 @@ static int PInitializeMPI(int argc, char *argv[], int argt[],
   if (argc > 0) {
     n = atoi(argv[0]);
   }
+  InitFac1();
   InitializeMPI(n, 0);
 
   return 0;
@@ -5061,6 +5075,7 @@ static int PSetOrbMap(int argc, char *argv[], int argt[],
       }
     }
   }
+  InitFac1();
   SetOrbMap(k, n0, n1);
   return 0;
 }
@@ -5173,6 +5188,7 @@ static int PPlasmaScreen(int argc, char *argv[], int argt[],
   if (argc > 3 && argt[3] != NUMBER) return -1;
   if (argc > 4 && argt[4] != NUMBER) return -1;
   if (argc > 5 && argt[5] != NUMBER) return -1;
+  InitFac1();
   double zps, nps, tps, ups;
   int m, vxf;
   tps = 0.0;
@@ -5893,7 +5909,7 @@ int main(int argc, char *argv[]) {
   pmalloc_open();
 #endif
 
-  if (InitFac() < 0) {
+  if (InitFac0() < 0) {
     printf("initialization failed\n");
     exit(1);
   }

@@ -42,7 +42,7 @@ USE (rcsid);
 ** PURPOSE:     a list of configuration groups.
 ** NOTE:        
 */
-static CONFIG_GROUP *cfg_groups;
+static CONFIG_GROUP *cfg_groups = NULL;
 static MULTI *_grpidx;
 static int _ugid = MAX_GROUPS;
 /*
@@ -1547,7 +1547,7 @@ int Couple(CONFIG *cfg) {
   CONFIG outmost, inner;
   int errcode, i;
   int *idx = NULL;
-
+  
   if (cfg->n_shells == 0) {
     errcode = -1;
     goto ERROR;
@@ -3726,6 +3726,8 @@ int CompareCfgPointer(const void *p1, const void *p2) {
 */
 int InitConfig(void) {
   int i, blks[4];
+
+  if (cfg_groups != NULL) return 0;
 
   n_groups = 0;
   cfg_groups = malloc(MAX_GROUPS*sizeof(CONFIG_GROUP));

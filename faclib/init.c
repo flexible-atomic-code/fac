@@ -38,6 +38,8 @@ void SetOptionPolarization(char *s, char *sp, int ip, double dp);
   FILE *perform_log = NULL;
 #endif
 
+static int _initialized = 0;
+
 int LEPTON_TYPE = -1;
 double LEPTON_MASS;
 double LEPTON_CHARGE;
@@ -160,9 +162,11 @@ void PrintLepton(FILE *f) {
   fprintf(f, "#    FSC = %15.8E\n", FINE_STRUCTURE_CONST);
 }
 
-int InitFac(void) {
+int InitFac0(void) {
   int ierr;
-  
+
+  if (_initialized) return 0;
+  _initialized = 1;
 #if FAC_DEBUG
   debug_log = fopen("debug.log", "w");
 #endif
@@ -172,6 +176,18 @@ int InitFac(void) {
 #endif
 
   SetLepton(0, 0, 0, NULL);
+  InitCoulomb();
+  InitDBase();
+
+  return 0;
+}
+
+int InitFac1(void) {
+  int ierr;
+  
+  if (_initialized > 1) return 0;
+  _initialized = 2;
+  
   //InitializeMPI(0);
   ierr = InitConfig();
   if ( ierr < 0) {
@@ -221,6 +237,8 @@ int ReinitFac(int m_config, int m_recouple, int m_radial,
 }
 
 void SetOption(char *s, char *sp, int ip, double dp) {
+  InitFac1();
+  
   if (strstr(s, "crm:") == s) {
     SetOptionCRM(s, sp, ip, dp);
     return;

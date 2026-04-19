@@ -301,11 +301,11 @@ void InitializeMPI(int n, int m) {
   }
 #if USE_MPI == 2
   if (m == 0) {
-    CopyPotentialOMP(1);
-  }
+    CopyPotentialOMP(1);  
 #pragma omp parallel
-  {
-    AllocExcDWS();
+    {
+      AllocExcDWS();
+    }
   }
 #endif
 #else
