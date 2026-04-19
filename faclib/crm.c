@@ -30,6 +30,8 @@ USE (rcsid);
 
 #define NRTB 8192
 
+static int _initialized = 0;
+
 static IONIZED ion0;
 static ARRAY *ions;
 static ARRAY *blocks;
@@ -173,6 +175,8 @@ int SetCascade(int c, double a) {
 int InitCRM(void) {
   int i;
 
+  if (_initialized) return 0;
+  _initialized = 1;
   SetLepton(0, 0, 0, NULL);
   for (i = 0; i < NDB1; i++) ion0.dbfiles[i] = NULL;
   ion0.nionized = 0;
@@ -424,6 +428,7 @@ int AddIon(int nele, double n, char *pref) {
   int i;
   int m;
 
+  InitCRM();
 #if USE_MPI == 2
   if (!MPIReady()) InitializeMPI(0, 1);
 #endif
@@ -7690,6 +7695,7 @@ ARRAY* _GetIons(){
 }
 
 void SetOptionCRM(char *s, char *sp, int ip, double dp) {
+  InitCRM();
   if (0 == strcmp(s, "crm:sw_mode")) {
     sw_mode = ip;
     return;

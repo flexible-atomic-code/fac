@@ -29,6 +29,8 @@ static char *rcsid="$Id$";
 USE (rcsid);
 #endif
 
+int InitCRM(void);
+
 static int iedist = 0;
 static DISTRIBUTION ele_dist[MAX_DIST];
 static int ipdist = 0;
@@ -1790,6 +1792,7 @@ int CxtDist(char *fn, int n) {
   int np, i;
   DISTRIBUTION *d;
 
+  InitCRM();
   f = fopen(fn, "w");
   if (f == NULL) {
     printf("cannot open file %s\n", fn);
@@ -1834,6 +1837,7 @@ int SetEleDist(int i, int np, double *p0) {
   int k;
   double *p, c1, c2;
 
+  InitCRM();
   if (i == -1) {
     i = MAX_DIST-1;
     ele_dist[i].nparams = np;

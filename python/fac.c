@@ -507,6 +507,7 @@ static PyObject *PClosed(PyObject *self, PyObject *args) {
     //return Py_None;
   }
 
+  InitFac1();
   argc = PyTuple_Size(args);
   if (argc == 0) _closed_shells[0] = '\0';
   for (i = 0; i < argc; i++) {
@@ -599,6 +600,7 @@ static PyObject *PReadConfig(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
+  InitFac1();
   c = NULL;
   if (!(PyArg_ParseTuple(args, "s|s", &s, &c))) return NULL;
   if (ReadConfig(s, c) < 0) return NULL;
@@ -623,6 +625,7 @@ static PyObject *PConfig(PyObject *self, PyObject *args, PyObject *keywds) {
       return Py_None;
     }
   }
+  InitFac1();
   scfg[MCHSHELL] = '\0';
   gname[GROUP_NAME_LEN] = '\0';
   q = PyTuple_GET_ITEM(args, 0);
@@ -803,6 +806,7 @@ static PyObject *PRemoveConfig(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
+  InitFac1();
   ng = PyTuple_Size(args);
   if (ng <= 0) return NULL;
   p = PyTuple_GET_ITEM(args, 0);
@@ -910,6 +914,8 @@ static PyObject *PAvgConfig(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
+  InitFac1();
+  
   if (!PyArg_ParseTuple(args, "s", &s)) return NULL;
 
   ns = GetAverageConfigFromString(&n, &kappa, &nq, s);
@@ -937,6 +943,8 @@ static PyObject *PSetAvgConfig(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
+  InitFac1();
+  
   if (!PyArg_ParseTuple(args, "O", &acfg))
     return NULL;
 
@@ -977,6 +985,8 @@ static PyObject *PAddConfig(PyObject *self, PyObject *args) {
     Py_INCREF(Py_None);
     return Py_None;
   }
+  
+  InitFac1();
 
   if (!PyArg_ParseTuple(args, "sO", &group_name, &python_cfg)) {
     goto ERROR;
@@ -1054,6 +1064,7 @@ static PyObject *PSetRadialGrid(PyObject *self, PyObject *args) {
     //return Py_None;    
   }
 
+  InitFac1();
   maxrp = -1;
   qr = -1;
   ratio = -1;
@@ -1666,6 +1677,7 @@ static PyObject *PAverageAtom(PyObject *self, PyObject *args) {
   z = -1.0;
   if (!PyArg_ParseTuple(args, "sidd|d", &s, &m, &d, &t, &z)) return NULL;
 
+  InitFac1();
   AverageAtom(s, m, d, t, z);
   Py_INCREF(Py_None);
   return Py_None;
@@ -1678,6 +1690,7 @@ static PyObject *PFreezeOrbital(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
+  InitFac1();
   char *s;
   int m = -1;
   if (!PyArg_ParseTuple(args, "s|i", &s, &m)) return NULL;
@@ -1695,6 +1708,7 @@ static PyObject *PRefineRadial(PyObject *self, PyObject *args) {
     return Py_None;
   }
 
+  InitFac1();
   m = 0;
   n = 0;
   maxfun = 0;
@@ -6181,6 +6195,7 @@ static PyObject *PRestorePotential(PyObject *self, PyObject *args) {
     return NULL;
   }
 
+  InitFac1();
   RestorePotential(fn);
   
   Py_INCREF(Py_None);
@@ -6234,6 +6249,7 @@ static PyObject *PInitializeMPI(PyObject *self, PyObject *args) {
   if (!(PyArg_ParseTuple(args, "|i", &n))) {
     return NULL;
   }
+  InitFac1();
   InitializeMPI(n, 0);
   
   Py_INCREF(Py_None);
@@ -6271,6 +6287,8 @@ static PyObject *PSetOrbMap(PyObject *self, PyObject *args) {
   int k=0, n0=0, n1=0;
   
   if (!(PyArg_ParseTuple(args, "|iii", &k, &n0, &n1))) return NULL;
+  
+  InitFac1();
   SetOrbMap(k, n0, n1);
   
   Py_INCREF(Py_None);
@@ -6440,6 +6458,7 @@ static PyObject *PPlasmaScreen(PyObject *self, PyObject *args) {
   vxf = 1;
   if (!(PyArg_ParseTuple(args, "dd|didi",
   			 &zps, &nps, &tps, &m, &ups, &vxf))) return NULL;
+  InitFac1();
   PlasmaScreen(m, vxf, zps, nps, tps, ups);
   
   Py_INCREF(Py_None);
@@ -7162,9 +7181,9 @@ initfac(void){
 
   if(m == NULL) INITERROR;
 
-  if (InitFac() < 0) {
+  if (InitFac0() < 0) {
     onError("initilization failed\n");
-
+  
 #if PY_MAJOR_VERSION >= 3
     return m;
 #else

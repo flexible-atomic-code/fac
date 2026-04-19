@@ -895,6 +895,7 @@ double *WorkSpace() {
 }
 
 void SetOrbMap(int k, int n0, int n1) {
+
   if (k <= 0) k = KORBMAP;
   if (n0 <= 0) n0 = NORBMAP0;
   if (n1 <= 0) n1 = NORBMAP1;
@@ -946,6 +947,7 @@ void SetOrbMap(int k, int n0, int n1) {
 int RestorePotential(char *fn) {
   BFILE *f;
   int n, i, k;
+  
   POTENTIAL *p = potential;
 
   f = BFileOpen(fn, "r", -1);
@@ -1464,6 +1466,7 @@ void SolveDFKappa(int ka, int nmax, double xdf) {
 
 void SetPotentialMode(int m, double h, double ih,
 		      double dh, double h0, double h1) {
+  InitRadial();
   potential->mode = m;
   if (h > 1e10) {
     potential->hxs = POTHXS;
@@ -1644,6 +1647,7 @@ int SetBoundaryMaster(int nmax, double p, double bqp, double rf) {
 int SetBoundary(int nmax, double p, double bqp, double rf,
 		int nri, int ng, int *kg, char *s,
 		int n0, int n1, int n0d, int n1d, int k0, int k1) {
+  if (potential == NULL) return 0;
   int r = SetBoundaryMaster(nmax, p, bqp, rf);
   int nr = abs(nri);
   if (nr > 0 && rf > 0 && potential->ib > potential->ib0) {
@@ -1746,6 +1750,7 @@ int RadialOverlaps(char *fn, int kappa) {
 }
   
 void SetSE(int n, int m, int s, int p) {
+  InitRadial();
   qed.se = n;
   if (m >= 0) qed.mse = m%100;
   if (s >= 0) qed.sse = s;
@@ -1782,6 +1787,7 @@ void SetModSE(double ose0, double ose1, double ase,
 }
 
 void SetVP(int n) {
+  InitRadial();
   qed.vp = n;
   potential->mvp = qed.vp%100;
   potential->pvp = qed.vp > 100;
@@ -12425,6 +12431,9 @@ int InitRadial(void) {
   int ndim, i;
   int blocks[5] = {MULTI_BLOCK6,MULTI_BLOCK6,MULTI_BLOCK6,
 		   MULTI_BLOCK6,MULTI_BLOCK6};
+
+  if (potential != NULL) return 0;
+  InitMultiStats();
   potential = malloc(sizeof(POTENTIAL));
   hpotential = malloc(sizeof(POTENTIAL));
   rpotential = malloc(sizeof(POTENTIAL));
