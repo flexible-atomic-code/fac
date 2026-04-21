@@ -172,12 +172,23 @@ int SetCascade(int c, double a) {
   return 0;
 }
 
-int InitCRM(void) {
-  int i;
-
+int InitCRM0(void) {
   if (_initialized) return 0;
   _initialized = 1;
   SetLepton(0, 0, 0, NULL);
+  SetStarkZMP(1, NULL);
+  InitDBase();
+  InitRates();
+  InitCoulomb();
+  return 0;
+}
+
+int InitCRM1(void) {
+  int i;
+
+  if (_initialized > 1) return 0;
+  _initialized = 2;
+
   for (i = 0; i < NDB1; i++) ion0.dbfiles[i] = NULL;
   ion0.nionized = 0;
   ion0.energy = NULL;
@@ -196,11 +207,6 @@ int InitCRM(void) {
   _interpsp.r = NULL;
   _interpsp.xd = NULL;
   _interpsp.xt = NULL;
-
-  SetStarkZMP(1, NULL);
-  InitDBase();
-  InitRates();
-  InitCoulomb();
 
   return 0;
 }
@@ -428,7 +434,7 @@ int AddIon(int nele, double n, char *pref) {
   int i;
   int m;
 
-  InitCRM();
+  InitCRM1();
 #if USE_MPI == 2
   if (!MPIReady()) InitializeMPI(0, 1);
 #endif
@@ -7695,7 +7701,7 @@ ARRAY* _GetIons(){
 }
 
 void SetOptionCRM(char *s, char *sp, int ip, double dp) {
-  InitCRM();
+  InitCRM1();
   if (0 == strcmp(s, "crm:sw_mode")) {
     sw_mode = ip;
     return;

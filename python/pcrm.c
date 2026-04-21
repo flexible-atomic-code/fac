@@ -1930,7 +1930,7 @@ initcrm(void) {
   d = PyModule_GetDict(m);
   ErrorObject = Py_BuildValue("s", "crm.error");
   PyDict_SetItemString(d, "error", ErrorObject);
-  //InitCRM();
+  InitCRM0();
   if (PyErr_Occurred())
     Py_FatalError("can't initialize module crm");
 
