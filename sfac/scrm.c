@@ -1109,7 +1109,7 @@ int main(int argc, char *argv[]) {
   pmalloc_open();
 #endif
 
-  //InitCRM();
+  InitCRM0();
 
   SetModName("crm");
 
