@@ -49,6 +49,7 @@ static double iter_accuracy = EPS4;
 static double iter_stabilizer = 0.8;
 static int  _silent = 0;
 static int _krc = -1;
+static int _ltepop = 0;
 
 /* electron density in 10^10 cm-3 */
 static double electron_density = 0.0;
@@ -4124,6 +4125,73 @@ int LevelPopulation(void) {
       printf("Population Iteration:\n");
     }
   }
+  if (_ltepop > 0) {
+    int ig, ig1, k, m, p, p1;
+    LBLOCK *blk, *blk1;
+    double e0, e1, te, lam2, c, nt, na;
+    ION *ion, *ion1;
+
+    te = EleMaxwellTemp();
+    if (te <= 0) {
+      printf("LTE pop with invalid temp: %g\n", te);
+      return 0;
+    }
+    if (electron_density <= 0) {
+      printf("LTE pop with 0 electron density\n");
+      return 0;
+    }
+    te /= HARTREE_EV;
+    lam2 = 2*PI/te;
+    c = 2/(lam2*sqrt(lam2)*electron_density*1e10*VOLUME_AU);
+    ig1 = -1;
+    e1 = 0.0;
+    nt = 0.0;
+    na = 0.0;
+    for (k = ions->dim-1; k >= 0; k--) {
+      ion = (ION *) ArrayGet(ions, k);
+      na += ion->n;
+      e0 = 0.0;
+      ig = -1;
+      for (m = 0; m < ion->nlevels; m++) {
+	if (ion->energy[m] < e0) {
+	  e0 = ion->energy[m];
+	  ig = m;
+	}
+      }
+      blk = ion->iblock[ig];
+      p = ion->ilev[ig];
+      if (ig1 == -1) {
+	blk->n[p] = 1.0;
+      } else {
+	ion1 = (ION *) ArrayGet(ions, k+1);
+	blk1 = ion1->iblock[ig1];
+	p1 = ion1->ilev[ig1];
+	blk->n[p] = blk1->n[p1]*c*(ion->j[ig]+1.0)/(ion1->j[ig1]+1.0);
+	blk->n[p] *= exp(-(ion->energy[ig]-ion1->energy[ig1])/te);
+      }
+      nt += blk->n[p];
+      blk1 = blk;
+      p1 = p;
+      for (m = 0; m < ion->nlevels; m++) {
+	if (m == ig) continue;
+	blk = ion->iblock[m];
+	p = ion->ilev[m];
+	blk->n[p] = blk1->n[p1]*(ion->j[m]+1.0)/(ion->j[ig]+1.0);
+	blk->n[p] *= exp(-(ion->energy[m]-ion->energy[ig])/te);
+	nt += blk->n[p];
+      }
+    }
+    na /= nt;
+    for (k = ions->dim-1; k >= 0; k--) {
+      ion = (ION *) ArrayGet(ions, k);
+      for (m = 0; m < ion->nlevels; m++) {
+	blk = ion->iblock[m];
+	p = ion->ilev[m];
+	blk->n[p] *= na;
+      }
+    }
+    return 0;
+  }
   d = 10.0;
   c = 1.0;
   double wt00, wt0, wt1;
@@ -7792,6 +7860,10 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "crm:rctzs")) {
     _rctzs = dp;
+    return;
+  }
+  if (0 == strcmp(s, "crm:ltepop")) {
+    _ltepop = ip;
     return;
   }
 }
