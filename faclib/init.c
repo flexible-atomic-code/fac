@@ -221,9 +221,14 @@ int InitFac1(void) {
   return 0;
 }
 
+int Initialized(void) {
+  return _initialized;
+}
+
 int ReinitFac(int m_config, int m_recouple, int m_radial,
 	      int m_dbase, int m_structure, int m_excitation,
 	      int m_recombination, int m_ionization) {
+  if (_initialized < 2) return 0;
   ReinitExcitation(m_excitation);
   ReinitRecombination(m_recombination);
   ReinitIonization(m_ionization);

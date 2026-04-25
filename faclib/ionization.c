@@ -20,6 +20,7 @@
 #include "recombination.h"
 #include "cf77.h"
 #include "global.h"
+#include "init.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -2308,6 +2309,7 @@ int InitIonization(void) {
 int ReinitIonization(int m) {
 
   if (m < 0) return 0;
+  if (Initialized() < 2) return 0;
 
   FreeIonizationQk(); 
 

@@ -22,6 +22,7 @@
 #include "cf77.h"
 #include "mpiutil.h"
 #include "global.h"
+#include "init.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -7236,6 +7237,7 @@ void CleanAngZArray(int m) {
 }
 
 int ReinitStructure(int m) {
+  if (Initialized() < 2) return 0;
   if (m < 0) {
     return 0;
   } else {

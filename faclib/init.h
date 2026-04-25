@@ -41,6 +41,7 @@
 #include "rmatrix.h"
 
 int Info(void);
+int Initialized(void);
 int InitFac0(void);
 int InitFac1(void);
 int ReinitFac(int, int, int, int, int, int, int, int);
