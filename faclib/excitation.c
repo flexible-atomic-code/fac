@@ -21,6 +21,7 @@
 #include "mbpt.h"
 #include "cf77.h"
 #include "global.h"
+#include "init.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -4811,6 +4812,7 @@ int InitExcitation(void) {
 int ReinitExcitation(int m) {
   
   if (m < 0) return 0;
+  if (Initialized() < 2) return 0;
   FreeExcitationQk();  
   if (fpw) {
     fclose(fpw);

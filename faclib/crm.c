@@ -373,6 +373,8 @@ int ReinitCRM(int m) {
   ION *ion;
   int i, k;
 
+  if (_initialized < 2) return 0;
+  
   if (m < 0) return 0;
 
   if (m == 0) {

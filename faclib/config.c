@@ -20,6 +20,7 @@
 #include "angular.h"
 #include "radial.h"
 #include "global.h"
+#include "init.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -3881,7 +3882,7 @@ int ReinitConfig(int m) {
   int i, blks[4];
 
   if (m) return 0;
-
+  if (Initialized() < 2) return 0;
   AddOptGrp(NULL, 0, NULL);
   for (i = 0; i < n_groups; i++) {
     ArrayFree(&(cfg_groups[i].cfg_list), FreeConfigData);

@@ -20,6 +20,7 @@
 #include "time.h"
 #include "cf77.h"
 #include "global.h"
+#include "init.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -4363,6 +4364,7 @@ int ReinitRecombination(int m) {
   int i;
 
   if (m < 0) return 0;
+  if (Initialized() < 2) return 0;
 
   FreeRecQk();
   FreeRecPk();

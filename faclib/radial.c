@@ -22,6 +22,7 @@
 #include "cf77.h"
 #include "structure.h"
 #include "global.h"
+#include "init.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -12621,6 +12622,7 @@ void SetSlaterScale(int m, char *s0, char *s1, double x) {
 
 int ReinitRadial(int m) {
   if (m < 0) return 0;
+  if (Initialized() < 2) return 0;
 #pragma omp barrier
 #pragma omp master
   {

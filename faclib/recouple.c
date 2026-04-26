@@ -20,6 +20,7 @@
 #include "structure.h"
 #include "cf77.h"
 #include "global.h"
+#include "init.h"
 
 static char *rcsid="$Id: recouple.c,v 1.28 2006/08/28 23:44:17 mfgu Exp $";
 #if __GNUC__ == 2
@@ -2462,6 +2463,7 @@ int InitRecouple(void) {
 */
 int ReinitRecouple(int m) {
   if (m < 0) return 0;
+  if (Initialized() < 2) return 0;
 #pragma omp barrier
 #pragma omp master
   MultiFreeData(interact_shells, FreeInteractDatum);  
