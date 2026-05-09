@@ -489,6 +489,8 @@ int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m) {
     s = ArrayGet(st, h->basis[j]);
     if (m == 0 || ci_level < -1) {
       r = ZerothEnergyConfig(GetConfig(s));
+    } else if (ci_level == -1) {
+      r = AverageEnergyConfigMode(GetConfig(s), -1);
     } else {
       r = HamiltonElement(isym, h->basis[j], h->basis[j]);
     }

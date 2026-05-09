@@ -666,15 +666,15 @@ def AAPD(z, t, d=1.0, p=0.0, ptol=0.01, vxs=-1.0, zorb=2, **kw):
     a = AA(z=z, t=t, d=d, vxs=vxs, zorb=zorb, **kw)
     a.run(p=p, ptol=ptol)
 
-def read_hvs(fmt, hdr, nd, typ='den'):
+def read_hvs(fmt, hdr, nd, typ='den', cfg=2):
     a = AA()
     if hdr[0].isdigit():
         v = np.zeros(nd)
         for i in range(nd):
             if typ == 'pot':
-                c = rfac.read_pot(fmt%i, cfg=1)
+                c = rfac.read_pot(fmt%i, cfg=cfg, rnd=8)
             else:
-                c = rfac.read_den(fmt%i, cfg=1)
+                c = rfac.read_den(fmt%i, cfg=cfg, rnd=8)
             c = c.split()
             for a in c:
                 if a[:len(hdr)] == hdr:

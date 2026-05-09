@@ -158,8 +158,8 @@ class MyCompiler(UnixCCompiler, object):
 
 
 # register Intel Composer for C/C++ as the main compiler for pyMIC
-def my_new_compiler(plat=None, compiler=None, verbose=0, dry_run=0, force=0):
-    compiler = MyCompiler(verbose, dry_run, force)
+def my_new_compiler(plat=None, compiler=None, **kwargs):
+    compiler = MyCompiler(**kwargs)
     return compiler
 
 
