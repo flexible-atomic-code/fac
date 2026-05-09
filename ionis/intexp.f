@@ -98,9 +98,10 @@ C
       ELSE
       AN=1.D+0
       AD=1.D+0
-      DO 200 II=1,14
-      AN=AN + AP(II)*(U**II ) 
- 200  AD=AD + AQ(II)*(U**II ) 
+      DO II=1,14
+         AN=AN + AP(II)*(U**II ) 
+         AD=AD + AQ(II)*(U**II )
+      ENDDO
       F2=AN*U*U/AD
       RETURN  
       ENDIF

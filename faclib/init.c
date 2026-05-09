@@ -67,7 +67,7 @@ int Info(void) {
   printf("The Flexible Atomic Code (FAC)\n");
   printf("Version %d.%d.%d\n", VERSION, SUBVERSION, SUBSUBVERSION);
   printf("Bugs and suggestions, please contact:\n");
-  printf("Ming Feng Gu, mfgu@ssl.berkeley.edu\n");
+  printf("Ming Feng Gu, mingfenggu2003@gmail.com\n");
   printf("========================================\n");
   return 0;
 }

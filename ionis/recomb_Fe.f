@@ -129,9 +129,9 @@ c  SvS scaled to Hahn for Fe VIII, Fe II-VI
 
 
       ad = 0.
-      do 10 i = 1,4
-   10 ad = ad + a(i,n-j+1) * dexp(-e1(i,n-j+1)*11590./t)
-
+      do i = 1,4
+         ad = ad + a(i,n-j+1) * dexp(-e1(i,n-j+1)*11590./t)
+      enddo
       alphadi = ad * t ** (-1.5)
 
       return
