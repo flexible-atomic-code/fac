@@ -242,7 +242,6 @@ int ReinitFac(int m_config, int m_recouple, int m_radial,
 }
 
 void SetOption(char *s, char *sp, int ip, double dp) {
-  InitFac1();
   
   if (strstr(s, "crm:") == s) {
     SetOptionCRM(s, sp, ip, dp);
@@ -256,6 +255,9 @@ void SetOption(char *s, char *sp, int ip, double dp) {
     SetOptionPolarization(s, sp, ip, dp);
     return;
   }
+
+  InitFac1();
+
   if (strstr(s, "global:") == s) {
     SetOptionGlobal(s, sp, ip, dp);
     return;

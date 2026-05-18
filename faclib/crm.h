@@ -56,7 +56,7 @@ typedef struct _LBLOCK_ {
   double *n, *n0;
   double *r;
   double *total_rate;
-  double *rc0, *rc1;
+  double *rc0, *rc1, *rc2;
   int izr;
   NCOMPLEX ncomplex[MAXNCOMPLEX];
 } LBLOCK;
@@ -219,13 +219,11 @@ void ConvLineRec(int n, double *x, double *y,
 		 double e, double w, LINEREC *r);
 void LoadLineRec(int id0, int it0, int nele,
 		 int type, int nmin, int nmax);
-void PrepStarkQC(double mt, double d0, double t0,
-		 double *wd, double *wdi, double *wir,
-		 int zt, int ne0, int ne1, double *wrf, double *wid);
-double CalcStarkQC(double w0, double wd, double *wdi,
-		   double *wir, double *wrf, double *wid,
-		   int nele, int type);
-double LimitImpactWidth(double zd, double de);
+void PrepStarkQC(double d0, double t0, double *wd, 
+		 int zt, int ne0, int ne1, double *wrf);
+double CalcStarkQC(double *w0, double *wi0, double wd, int nele);
+double StarkFW(double x);
+double LimitImpactWidth(double zd, double de, int md);
 void SetStarkZMP(int np, double *wzm);
 double MicroFieldDist(double x, double g, double s);
 double MicroFieldMode(double g, double s);

@@ -2387,7 +2387,11 @@ int TotalPICross(char *ifn, char *ofn, int ilev,
 	e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
       }
       for (t = 0; t < h.n_usr; t++) {
-	dstrength[t] = log(r.strength[t]);
+	if (r.strength[t] <= 0) {
+	  dstrength[t] = -500.0;
+	} else {
+	  dstrength[t] = log(r.strength[t]);
+	}
 	if (h.tegrid[0] < 0) {
 	  xusr[t] = log(1+h.usr_egrid[t]);
 	} else {
@@ -2591,7 +2595,11 @@ double InterpolateRRCross(double e1, double eth,
       b = h->usr_egrid[i]/eth;
     }
     xg[i] = log(1+b);
-    ds[i] = log(r->strength[i]);
+    if (r->strength[i] <= 0) {
+      ds[i] = -500.0;
+    } else {
+      ds[i] = log(r->strength[i]);
+    }
   }
   ep = e1 + eth;
   x = log(ep/eth);
@@ -3067,7 +3075,11 @@ int TotalRRCross(char *ifn, char *ofn, int ilev,
       e = mem_en_table[r.f].energy - mem_en_table[r.b].energy;
 
       for (t = 0; t < h.n_usr; t++) {
-	dstrength[t] = log(r.strength[t]);
+	if (r.strength[t] <= 0) {
+	  dstrength[t] = -500.0;
+	} else {
+	  dstrength[t] = log(r.strength[t]);
+	}
 	if (h.tegrid[0] < 0) {
 	  xusr[t] = log(1 + h.usr_egrid[t]);
 	} else {
