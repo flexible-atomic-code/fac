@@ -646,6 +646,8 @@ int SwapEndianSPRecord(SP_RECORD *r, SP_EXTRA *rx, int utr) {
   SwapEndian((char *) &(r->strength), sizeof(float));
   SwapEndian((char *) &(r->rrate), sizeof(float));
   SwapEndian((char *) &(r->trate), sizeof(float));
+  SwapEndian((char *) &(r->wimp), sizeof(float));
+  SwapEndian((char *) &(r->wstk), sizeof(float));
   if (utr && rx) {
     SwapEndian((char *) &(rx->sdev), sizeof(float));
   }
@@ -2645,6 +2647,8 @@ int WriteSPRecord(TFILE *f, SP_RECORD *r, SP_EXTRA *rx, int utr) {
 		  sizeof(r->strength)+
 		  sizeof(r->rrate)+
 		  sizeof(r->trate)+
+		  sizeof(r->wimp)+
+		  sizeof(r->wstk)+
 		  sizeof(rx->sdev));
   } else {
     BFileCheckBuf(f,
@@ -2653,7 +2657,9 @@ int WriteSPRecord(TFILE *f, SP_RECORD *r, SP_EXTRA *rx, int utr) {
 		  sizeof(r->energy)+
 		  sizeof(r->strength)+
 		  sizeof(r->rrate)+
-		  sizeof(r->trate));
+		  sizeof(r->trate)+
+		  sizeof(r->wimp)+
+		  sizeof(r->wstk));
   }
 #endif
   WSF0(r->lower);
@@ -2666,6 +2672,8 @@ int WriteSPRecord(TFILE *f, SP_RECORD *r, SP_EXTRA *rx, int utr) {
   WSF0(r->strength);
   WSF0(r->rrate);
   WSF0(r->trate);
+  WSF0(r->wimp);
+  WSF0(r->wstk);
   if (utr) {
     WSF0(rx->sdev);
   }
@@ -4233,6 +4241,8 @@ int ReadSPRecord(TFILE *f, SP_RECORD *r, SP_EXTRA *rx, int swp, int utr) {
   RSF0(r->strength);
   RSF0(r->rrate);
   RSF0(r->trate);
+  RSF0(r->wimp);
+  RSF0(r->wstk);
   if (utr) {
     RSF0(rx->sdev);
   }
@@ -6917,11 +6927,12 @@ int PrintSPTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
       if (v) e *= HARTREE_EV;
       a = r.strength;
       if (utr) {
-	fprintf(f2, "%6d %6d %13.6E %11.4E %11.4E %11.4E %11.4E\n", 
-		r.upper, r.lower, e, rx.sdev*HARTREE_EV, a, r.rrate, r.trate);
+	fprintf(f2, "%6d %6d %13.6E %11.4E %11.4E %11.4E %11.4E %11.4E %11.4E\n", 
+		r.upper, r.lower, e, rx.sdev*HARTREE_EV, a,
+		r.rrate, r.trate, r.wimp, r.wstk);
       } else {
-	fprintf(f2, "%6d %6d %13.6E %11.4E %11.4E %11.4E\n", 
-		r.upper, r.lower, e, a, r.rrate, r.trate);
+	fprintf(f2, "%6d %6d %13.6E %11.4E %11.4E %11.4E %11.4E %11.4E\n", 
+		r.upper, r.lower, e, a, r.rrate, r.trate, r.wimp, r.wstk);
       }
     }
     if (idx) {

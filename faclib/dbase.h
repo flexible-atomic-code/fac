@@ -418,8 +418,10 @@ typedef struct _SP_RECORD_ {
   float strength;
   float rrate;
   float trate;
+  float wimp;
+  float wstk;
 } SP_RECORD;
-#define SIZE_SP_RECORD (sizeof(int)+sizeof(int)+sizeof(float)*4)
+#define SIZE_SP_RECORD (sizeof(int)+sizeof(int)+sizeof(float)*6)
 
 typedef struct _SP_EXTRA_ {
   float sdev;

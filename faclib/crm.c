@@ -66,8 +66,6 @@ static int norm_mode = 1;
 static int sw_mode = 0;
 static int _itol_nmax = 0;
 static int _ce_nmax = 0;
-static double _ce_fbr = 0.175;
-static double _ce_xbr = 0.875;
 static int _sp_trm = 1;
 static int _rates_block = RATES_BLOCK;
 static int _lblock_block = LBLOCK_BLOCK;
@@ -83,9 +81,18 @@ static int _starknp = 0;
 static double *_starkzp = NULL;
 static double *_starkmp = NULL;
 static double *_starkwp = NULL;
+static double _stark_wd = 0.0;
 static double _starkzb = 1.0;
 static double _starkaix = 1.0;
 static double _starksmx = 3.0;
+static double _starkmfs = 1.5;
+static double _starkrij = 0.75;
+static double _starkefs = 1.0;
+static double _starkix1 = 1.0;
+static double _starkix2 = 4.0;
+static double _starkde1 = 1.0;
+static double _starkde2 = 1.0;
+static double _starkiwm = 0;
 static double _starkzix = -1.0;
 static double _starkvg = 0.0;
 static double _epstau = 0.05;
@@ -189,26 +196,22 @@ int InitCRM1(void) {
 
   if (_initialized > 1) return 0;
   _initialized = 2;
-
   for (i = 0; i < NDB1; i++) ion0.dbfiles[i] = NULL;
   ion0.nionized = 0;
   ion0.energy = NULL;
   ion0.atom = 0;
   ion0.ei = 0.0;
   ion0.atr = ion0.ace = ion0.aci = ion0.arr = ion0.aai = ion0.acx = -1;
-
   ions = (ARRAY *) malloc(sizeof(ARRAY));
   ArrayInit(ions, sizeof(ION), ION_BLOCK);
   blocks = (ARRAY *) malloc(sizeof(ARRAY));
   ArrayInit(blocks, sizeof(LBLOCK), _lblock_block);
   bmatrix = NULL;
-
   _interpsp.nd = 0;
   _interpsp.nt = 0;
   _interpsp.r = NULL;
   _interpsp.xd = NULL;
   _interpsp.xt = NULL;
-
   return 0;
 }
 
@@ -306,6 +309,7 @@ static void FreeIonData(void *p) {
     ion->nlevels = 0;
     ion->ace = ion->atr = ion->aci = ion->arr = ion->aai = ion->acx = -1;
   }
+
   for (i = 0; i < NDB1; i++) {
     if (ion->dbfiles[i]) free(ion->dbfiles[i]);
     ion->dbfiles[i] = NULL;
@@ -316,6 +320,9 @@ static void FreeIonData(void *p) {
   ArrayFreeLock(ion->tr_rates, FreeBlkRateData);
   free(ion->tr_rates);
   ion->tr_rates = NULL;
+  ArrayFreeLock(ion->tr2_rates, FreeBlkRateData);
+  free(ion->tr2_rates);
+  ion->tr2_rates = NULL;
   ArrayFreeLock(ion->tr_sdev, FreeBlkRateData);
   free(ion->tr_sdev);
   ion->tr_sdev = NULL;
@@ -351,6 +358,13 @@ static void InitBlockData(void *p, int n) {
   blk = (LBLOCK *) p;
   for (k = 0; k < n; k++, blk++) {
     blk->nlevels = 0;
+    blk->n = NULL;
+    blk->n0 = NULL;
+    blk->r = NULL;
+    blk->total_rate = NULL;
+    blk->rc0 = NULL;
+    blk->rc1 = NULL;
+    blk->rc2 = NULL;
   }
 }
 
@@ -365,6 +379,7 @@ static void FreeBlockData(void *p) {
     free(blk->total_rate);
     free(blk->rc0);
     free(blk->rc1);
+    if (blk->rc2) free(blk->rc2);
   }
   blk->nlevels = 0;
 }
@@ -376,7 +391,6 @@ int ReinitCRM(int m) {
   if (_initialized < 2) return 0;
   
   if (m < 0) return 0;
-
   if (m == 0) {
     ReinitDBase(0);
   } else {
@@ -428,7 +442,6 @@ int ReinitCRM(int m) {
     free(bmatrix);
   }
   bmatrix = NULL;
-  
   return 0;
 }
 
@@ -599,6 +612,7 @@ void ExtrapolateEN(int iion, ION *ion) {
 	blk.total_rate = (double *) malloc(sizeof(double)*nr);
 	blk.rc0 = (double *) malloc(sizeof(double)*nr);
 	blk.rc1 = (double *) malloc(sizeof(double)*nr);
+	blk.rc2 = NULL;
 	blk.rec = rec;
 	blk.irec = t;
 	blk.ncomplex[nc].n = n;
@@ -1197,6 +1211,7 @@ int SetBlocks(double ni, char *ifn) {
 	      blk.total_rate = (double *) malloc(sizeof(double)*blk.nlevels);
 	      blk.rc0 = (double *) malloc(sizeof(double)*blk.nlevels);
 	      blk.rc1 = (double *) malloc(sizeof(double)*blk.nlevels);
+	      blk.rc2 = NULL;
 	      CopyNComplex(blk.ncomplex, ncomplex);
 	      blkp = ArrayAppend(blocks, &blk, InitBlockData);
 	      q = -1;
@@ -1231,6 +1246,7 @@ int SetBlocks(double ni, char *ifn) {
 	      blk.total_rate = (double *) malloc(sizeof(double)*blk.nlevels);
 	      blk.rc0 = (double *) malloc(sizeof(double)*blk.nlevels);
 	      blk.rc1 = (double *) malloc(sizeof(double)*blk.nlevels);
+	      blk.rc2 = NULL;
 	      CopyNComplex(blk.ncomplex, ncomplex);
 	      blkp = ArrayAppend(blocks, &blk, InitBlockData);
 	      q = -1;
@@ -1321,6 +1337,7 @@ int SetBlocks(double ni, char *ifn) {
 	  blk.total_rate = (double *) malloc(sizeof(double)*blk.nlevels);
 	  blk.rc0 = (double *) malloc(sizeof(double)*blk.nlevels);
 	  blk.rc1 = (double *) malloc(sizeof(double)*blk.nlevels);
+	  blk.rc2 = NULL;
 	  CopyNComplex(blk.ncomplex, ncomplex);
 	  blkp = ArrayAppend(blocks, &blk, InitBlockData);
 	  q = -1;
@@ -1355,6 +1372,7 @@ int SetBlocks(double ni, char *ifn) {
 	  blk.total_rate = (double *) malloc(sizeof(double)*blk.nlevels);
 	  blk.rc0 = (double *) malloc(sizeof(double)*blk.nlevels);
 	  blk.rc1 = (double *) malloc(sizeof(double)*blk.nlevels);
+	  blk.rc2 = NULL;
 	  CopyNComplex(blk.ncomplex, ncomplex);
 	  blkp = ArrayAppend(blocks, &blk, InitBlockData);
 	  q = -1;
@@ -1715,12 +1733,33 @@ int InitBlocks(void) {
   RATE *r;
   BLK_RATE *brts;
   LBLOCK *blk1, *blk2;
-  int k, m, i, j, p;
-  double a, b;
- 
+  int k, m, i, j, p, z, ip, ki, kf;
+  double a, b, r2a, te, tea;
+  double *wrf = NULL;
+
+  z = (int)(0.1+ion0.atom);
+  te = EleMaxwellTemp();
+  tea = te/HARTREE_EV;
+  if (te > 0 && electron_density > 0 && _starknp > 0) {
+    a = electron_density*1e10;
+    wrf = malloc(sizeof(double)*ions->dim*_starknp);
+    ion = (ION *) ArrayGet(ions, 0);
+    ki = ion->nele;
+    ion = (ION *) ArrayGet(ions, ions->dim-1);
+    kf = ion->nele;
+    PrepStarkQC(a, te, &_stark_wd, z, ki, kf, wrf);
+  } 
   for (i = 0; i < blocks->dim; i++) {
     blk1 = (LBLOCK *) ArrayGet(blocks, i);
     blk1->nb = 1.0;
+    if (_starknp > 0) {
+      m = blk1->nlevels*_starknp;
+      if (blk1->rc2) free(blk1->rc2);
+      blk1->rc2 = malloc(sizeof(double)*m);
+      for (ip = 0; ip < m; ip++) {
+	blk1->rc2[ip] = 0.0;
+      }
+    }
     for (k = 0; k < blk1->nlevels; k++) {
       blk1->n0[k] = 0.0;
       blk1->n[k] = 0.0;
@@ -1761,22 +1800,28 @@ int InitBlocks(void) {
 	  if (SkipWMPI(w++)) continue;
 	  r = (RATE *) ArrayGet(brts->rates, m);
 	  j = ion->ilev[r->i];
-	  double zd = electron_density*r->dir;
-	  double de = fabs(ion->energy[r->f]-ion->energy[r->i]);
-	  de *= RATE_AU*_ce_fbr;
+	  if (electron_density > 0) {
+	    double zd = electron_density*r->dir;
+	    double de = fabs(ion->energy[r->f]-ion->energy[r->i]);
+	    de *= RATE_AU;
 #pragma omp atomic
-	  blk1->total_rate[j] += zd;
-	  zd = LimitImpactWidth(zd, de);
+	    blk1->total_rate[j] += zd;
+	    if (_starkiwm > 0) {
+	      zd = LimitImpactWidth(zd, de, 1);
 #pragma omp atomic
-	  blk1->rc1[j] += zd;
-	  if (r->inv > 0.0) {
-	    j = ion->ilev[r->f];
-	    double zi = electron_density*r->inv;
+	      blk1->rc1[j] += zd;
+	    }
+	    if (r->inv > 0.0) {
+	      j = ion->ilev[r->f];
+	      double zi = electron_density*r->inv;
 #pragma omp atomic
-	    blk2->total_rate[j] += zi;
-	    zi = LimitImpactWidth(zi, de);
+	      blk2->total_rate[j] += zi;
+	      if (_starkiwm > 0) {
+		zi = LimitImpactWidth(zi, de, 1);
 #pragma omp atomic
-	    blk2->rc1[j] += zi;
+		blk2->rc1[j] += zi;
+	      }
+	    }
 	  }
 	}	
       }
@@ -1808,6 +1853,51 @@ int InitBlocks(void) {
 	  j = ion->ilev[r->f];
 #pragma omp atomic
 	  blk2->total_rate[j] += a;
+	}
+	if (electron_density > 0 && te > 0 && _starknp > 0) {
+	  a = r->dir/RATE_AU;	  
+	  double de = ion->energy[r->i]-ion->energy[r->f];
+	  b = FINE_STRUCTURE_CONST * de;
+	  b *= 2.0*b*FINE_STRUCTURE_CONST;
+	  a /= b;
+	  double fij = a/(ion->j[r->f]+1.0);
+	  double eta = de/(3*tea);
+	  double rij = sqrt(fij*1.5*_starkrij/de);
+	  b = _starkrij*StarkFW(eta*rij);
+	  double rdne = 6.25e2*electron_density*a*(b/de)/sqrt(2*tea);
+	  double rupe = rdne*exp(-de/tea)*(ion->j[r->i]+1.0)/(ion->j[r->f]+1.0);
+	  int type = TransitionType(blk1->ncomplex, blk2->ncomplex);
+	  int nlo = type%100;
+	  int nup = (type/100)%100;
+	  double zt = z-ion->nele+1.0;
+	  double za = zt*FINE_STRUCTURE_CONST;
+	  double efs = (_starkefs*0.25*zt*zt/(nup*nup*nup))*(za*za);
+	  de = Max(de, efs);
+	  de *= RATE_AU;
+	  double rdn = LimitImpactWidth(rdne, de, 1);
+	  double rup = LimitImpactWidth(rupe, de, 1);
+	  j = ion->ilev[r->i];
+	  kf = ion->ilev[r->f];
+	  if (_starkiwm == 0) {
+#pragma omp atomic
+	    blk1->rc1[j] += rdn;
+	  }
+	  double ri0, ri1;
+	  for (ip = 0; ip < _starknp; ip++) {
+	    ri0 = wrf[k*_starknp+ip]*rij;
+	    ri1 = LimitImpactWidth(ri0, de, 2);
+#pragma omp atomic
+	    blk1->rc2[(j*_starknp+ip)] += ri1;
+#pragma omp atomic
+	    blk2->rc2[(kf*_starknp+ip)] += ri1;
+	  }
+	  if (_starkiwm == 0) {
+#pragma omp atomic
+	    blk2->rc1[kf] += rup;
+	  }
+	  //if (r->i == 6) {
+	  //  printf("ri: %d %d %g %g %g %g %g %g %g %g %g %g %g\n", r->f, nup, zt, fij, eta, rij, de, rdne, rdn, ri0, ri1, blk1->rc1[j], blk1->rc2[j]);	    
+	  //}
 	}
       }
     }
@@ -1849,11 +1939,13 @@ int InitBlocks(void) {
 	  double zd = electron_density*r->dir;
 #pragma omp atomic
 	  blk1->total_rate[j] += zd;
-	  double de = fabs(ion->energy[r->f]-ion->energy[r->i]);
-	  de *=  RATE_AU * _ce_fbr;
-	  zd = LimitImpactWidth(zd, de);
+	  if (_starkiwm > 1) {
+	    double de = fabs(ion->energy[r->f]-ion->energy[r->i]);
+	    de *=  RATE_AU;
+	    zd = LimitImpactWidth(zd, de, 1);
 #pragma omp atomic
-	  blk1->rc1[j] += zd;
+	    blk1->rc1[j] += zd;
+	  }
 	}
 	if (r->inv > 0.0 && photon_density > 0.0) {
 	  j = ion->ilev[r->f];
@@ -1906,11 +1998,13 @@ int InitBlocks(void) {
 	  double zi = electron_density*r->inv;
 #pragma omp atomic
 	  blk2->total_rate[j] += zi;
-	  double de =  fabs(ion->energy[r->f]-ion->energy[r->i]);
-	  de *= RATE_AU * _ce_fbr;
-	  zi = LimitImpactWidth(zi, de);
+	  if (_starkiwm > 1) {
+	    double de =  fabs(ion->energy[r->f]-ion->energy[r->i]);
+	    de *= RATE_AU;
+	    zi = LimitImpactWidth(zi, de, 1);
 #pragma omp  atomic
-	  blk2->rc1[j] += zi;
+	    blk2->rc1[j] += zi;
+	  }
 	}
       }
     }
@@ -1927,20 +2021,22 @@ int InitBlocks(void) {
 	for (m = 0; m < brts->rates->dim; m++) {
 	  if (SkipWMPI(w++)) continue;
 	  r = (RATE *) ArrayGet(brts->rates, m);
-	  j = ion->ilev[r->i];
+	  j = ion->ilev[r->i];	  
 	  double zd = electron_density * r->dir;
 	  double de = fabs(ion->energy[r->f]-ion->energy[r->i]);
-	  de *= RATE_AU * _ce_fbr;
+	  de *= RATE_AU;
 #pragma omp atomic
 	  blk1->total_rate[j] += zd;
-	  zd = LimitImpactWidth(zd, de);
+	  if (_starkiwm > 1) {
+	    zd = LimitImpactWidth(zd, de, 1);
 #pragma omp atomic
-	  blk1->rc1[j] += zd;
-	  if (r->inv > 0.0) {
-	    j = ion->ilev[r->f];
-	    double zi = electron_density*electron_density*r->inv;	    
+	    blk1->rc1[j] += zd;
+	    if (r->inv > 0.0) {
+	      j = ion->ilev[r->f];
+	      double zi = electron_density*electron_density*r->inv;	    
 #pragma omp atomic
-	    blk2->total_rate[j] += zi;
+	      blk2->total_rate[j] += zi;
+	    }
 	  }
 	}
       }
@@ -1948,6 +2044,8 @@ int InitBlocks(void) {
     }
   }
 
+  if (wrf) free(wrf);
+  
   m = -2;
   for (i = 0; i < blocks->dim; i++) {
     blk1 = (LBLOCK *) ArrayGet(blocks, i);
@@ -4265,7 +4363,7 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
   RATE *rt, *dev;
   LBLOCK *blk, *iblk, *fblk;
   BLK_RATE *brts, *brdev;
-  int k, m, j;
+  int k, m, j, ip;
   TFILE *f;
   double e, a, e0;
   int i, p, q, ib, iuta;
@@ -4309,16 +4407,15 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
 	ib = i;
       }
       p = ion->ilev[m];
-      /*      if (blk->n[p]) {*/
       r.upper = m;
       r.lower = p;
       r.energy = ion->energy[m]-e0;
       r.rrate = ion->j[m]+1.0;
       r.trate = blk->total_rate[p];
+      r.wstk = 0.0;
       rx.sdev = 0.0;
       r.strength = blk->n[p];
       WriteSPRecord(f, &r, &rx, iuta);
-	/*}*/
     }
     if (ib >= 0) DeinitFile(f, &fhdr);
     if (rrc < 0) continue;
@@ -4370,6 +4467,8 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
 	    c = iblk->n[j];
 	  }
 	  if (c > 0.0) {
+	    double *wi0 = NULL;
+	    double we0 = 0.0;
 	    r.lower = q;
 	    r.upper = p;
 	    b = 0.0;
@@ -4403,8 +4502,33 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
 	    } else {
 	      r.rrate = iblk->rc0[ion->ilev[rt->i]];
 	      r.rrate += fblk->rc0[ion->ilev[rt->f]];
+	      r.rrate *= WCOEF;
 	      r.trate = iblk->rc1[ion->ilev[rt->i]];
 	      r.trate += fblk->rc1[ion->ilev[rt->f]];
+	      r.trate *= WCOEF;
+	      if (r.trate > 0 && _starknp > 0) {
+		int type = TransitionType(iblk->ncomplex, fblk->ncomplex);
+		int n0 = type%100;
+		int n1 = (type/100)%100;
+		int dn = abs(n0-n1)%2;
+		wi0 = malloc(sizeof(double)*_starknp);
+		we0 = r.trate;
+		for (ip = 0; ip < _starknp; ip++) {
+		  wi0[ip] = iblk->rc2[(ion->ilev[rt->i]*_starknp+ip)];
+		  wi0[ip] += fblk->rc2[(ion->ilev[rt->f]*_starknp+ip)];
+		  wi0[ip] *= WCOEF;
+		}
+		r.wstk = CalcStarkQC(&we0, wi0, _stark_wd, ion->nele);
+		r.wimp = we0;
+		//if (r.upper == 6 && r.lower == 0) {
+		//  printf("ws: %g %g %g %g %g\n", r.trate, wi0[0], _stark_wd, r.wimp, r.wstk);
+		//}
+		free(wi0);
+	      } else {
+		r.trate = 0.0;
+		r.wimp = 0.0;
+		r.wstk = 0.0;
+	      }
 	    }
 	    WriteSPRecord(f, &r, &rx, iuta);
 	  }
@@ -4448,6 +4572,8 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
 	    rx.sdev = 0.0;
 	    r.rrate = rt->dir*electron_density;
 	    r.trate = iblk->total_rate[j];
+	    r.wimp = 0.0;
+	    r.wstk = 0.0;
 	    WriteSPRecord(f, &r, &rx, iuta);
 	  }
 	}
@@ -4468,13 +4594,38 @@ static int CompareLine(const void *p1, const void *p2) {
   else return 0;
 }
 
-double LimitImpactWidth(double zd, double de) {
+double StarkFW(double x) {
   double r;
-  r = zd/de;
-  if (r < 1e-5) {
-    return zd*(1 + 0.5*(_ce_xbr-1)*r);
+  r = exp(-1.33*x)*log(1.0+2.27/x) + 0.487*x/(0.153+pow(x,1.66666667)) + x/(7.93+x*x*x);
+  return r;
+}
+
+double LimitImpactWidth(double zd, double de, int md) {
+  double r;
+  if (md == 0) {
+    return zd;
+  } else if (md == 1) {
+    de = _starkde1*de;
+    r = zd/de;
+    if (r < 1) {
+      r = zd/pow(1+pow(r,_starkix1),1./_starkix1);
+    } else {
+      r = 1/r;
+      r = de/pow(1+pow(r,_starkix1),1./_starkix1);
+    }
+    return r;
   } else {
-    return (1/_ce_xbr)*de*(pow(1+r,_ce_xbr)-1.0);
+    de = _starkde2*de;
+    r = 2*zd/de;
+    if (r < 1e-3) {
+      r = de*pow(r, _starkix2)/(2*_starkix2);
+    } else if (r < 1) {
+      r = 0.5*de*(pow(1+pow(r,_starkix2),1./_starkix2)-1.0);
+    } else {
+      r = 1./r;
+      r = zd*pow(1+pow(r,_starkix2),1./_starkix2)-0.5*de;
+    }
+    return r;
   }
 }
 
@@ -4607,22 +4758,6 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   }
   if (ne0 == 0) ne0 = 1;
   if (ne1 < ne0) ne1 = ne0;
-  int zt = (int)(0.1+fh.atom);
-  double wd = 0;
-  double *wdi = NULL, *wir = NULL, *wrf = NULL, *wid=NULL;
-  if (_starknp > 0) {
-    wdi = malloc(sizeof(double)*_starknp);
-    wir = malloc(sizeof(double)*_starknp);
-    wrf = malloc(sizeof(double)*_starknp*zt);
-    wid = malloc(sizeof(double)*zt);
-  }
-  if (_starkqc > 0 && electron_density > 0) {
-    double etemp = EleMaxwellTemp();
-    if (etemp > 0) {
-      PrepStarkQC(mt, electron_density*1e10, etemp, 
-		  &wd, wdi, wir, zt, ne0, ne1, wrf, wid);
-    }
-  }
   char buf[2048];
   if (fmin >= 1.0) {
     if (sp.dim > 0) {
@@ -4630,16 +4765,11 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
       rpx = (SP_EXTRA *) ArrayGet(&spx, 0);
       tt = (LINETYPE *) ArrayGet(&linetype, 0);
       double wtr = rp->rrate;
-      double wtt = rp->trate;
-      double wtt0 = wtt;
-      if (_sp_trm) {	
-	wtr *= WCOEF;
-	wtt *= WCOEF;
-	wtt0 = wtt;
-	wtt = CalcStarkQC(wtt0, wd, wdi, wir, wrf, wid, tt->nele, tt->type);
-      }      
+      double wtt0 = rp->trate;
+      double wtt1 = rp->wimp;
+      double wtt = rp->wstk;
       sprintf(buf, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E %11.4E %11.4E\n", 
-	      tt->nele, rp->lower, rp->upper, tt->type, rp->energy, rpx->sdev, rp->strength, wtr, wtt0, wtt, wd);
+	      tt->nele, rp->lower, rp->upper, tt->type, rp->energy, rpx->sdev, rp->strength, wtr, wtt1, wtt, wtt0);
       FWRITE(buf, 1, strlen(buf), f2);
     }
   } else {
@@ -4664,17 +4794,12 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
 	    e = rp->energy;
 	    if (fmin < 0 || rp->strength*e > smax) {
 	      double wtr = rp->rrate;
-	      double wtt = rp->trate;
-	      double wtt0 = wtt;
-	      if (_sp_trm) {
-		wtr *= WCOEF;
-		wtt *= WCOEF;
-		wtt0 = wtt;
-		wtt = CalcStarkQC(wtt0, wd, wdi, wir, wrf, wid, tt->nele, tt->type);
-	      }      
+	      double wtt0 = rp->trate;
+	      double wtt1 = rp->wimp;
+	      double wtt = rp->wstk;
 	      sprintf(buf, "%2d %6d %6d %6d %13.6E %11.4E %15.8E %11.4E %11.4E %11.4E %11.4E\n", 
 		      tt->nele, rp->lower, rp->upper, tt->type, e, rpx->sdev, 
-		      rp->strength, wtr, wtt0, wtt, wd);
+		      rp->strength, wtr, wtt1, wtt, wtt0);
 	      FWRITE(buf, 1, strlen(buf), f2);
 	    }
 	  }
@@ -4690,12 +4815,6 @@ int SelectLines(char *ifn, char *ofn, int nele, int type,
   FCLOSE(f1);
   FCLOSE(f2);
 
-  if (_starknp > 0) {
-    free(wdi);
-    free(wir);
-    free(wrf);
-    free(wid);
-  }
   return 0;
 }
     
@@ -4734,24 +4853,6 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
   if (f2 == NULL) {
     printf("ERROR: Cannot open file %s\n", ofn);
     return -1;
-  }
-
-  int zt = (int)(0.1+fh.atom);
-  double mt = GetAtomicMassTable()[(int)(fh.atom-0.99)];
-  double wd = 0;
-  double *wdi = NULL, *wir = NULL, *wrf = NULL, *wid = NULL;
-  if (_starknp > 0) {
-    wdi = malloc(sizeof(double)*_starknp);
-    wir = malloc(sizeof(double)*_starknp);
-    wrf = malloc(sizeof(double)*_starknp*zt);
-    wid = malloc(sizeof(double)*zt);
-  }
-  if (_starkqc > 0 && electron_density > 0) {
-    double etemp = EleMaxwellTemp();
-    if (etemp > 0) {
-      PrepStarkQC(mt, electron_density*1e10, etemp, 
-		  &wd, wdi, wir, zt, 1, zt, wrf, wid);
-    }
   }
   
   rx.sdev = 0.0;
@@ -4799,9 +4900,9 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
       a = r.strength * e;
       if (a < smax*smin) continue;
       if (a > smax) smax = a;
-      double wk = CalcStarkQC(r.trate*WCOEF, wd, wdi, wir, wrf,
-			      wid, h.nele, h.type);
-      wk += r.rrate*WCOEF;
+      double wk = r.wstk;
+      if (wk <= 0) wk = r.trate*WCOEF;
+      wk += r.rrate;
       wav += wk*a;
       sav += a;
       if (wmin > wk) wmin = wk;      
@@ -4883,9 +4984,9 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
       if (de0 < 0) e = hc/e;
       lines[k++] = e;
       lines[k++] = r.strength;
-      double wk = CalcStarkQC(r.trate*WCOEF, wd, wdi, wir, wrf,
-			      wid, h.nele, h.type);
-      wk += r.rrate*WCOEF;
+      double wk = r.wstk;
+      if (wk <= 0) wk = r.trate*WCOEF;
+      wk += r.rrate;
       lines[k++] = wk;
     }
     m = k;
@@ -5033,12 +5134,7 @@ int PlotSpec(char *ifn, char *ofn, int nele, int type,
 
   FCLOSE(f1);
   fclose(f2);
-  if (_starknp > 0) {
-    free(wdi);
-    free(wir);
-    free(wrf);
-    free(wid);
-  }
+
   return 0;
 }
 
@@ -5846,6 +5942,7 @@ int SetTRRates(int inv) {
     printf("ERROR: Blocks not set, exitting\n");
     exit(1);
   }
+
   irb = IdxRateBlock(blocks->dim);
   irb2 = IdxRateBlock(blocks->dim);
   irbx = NULL;
@@ -5854,6 +5951,7 @@ int SetTRRates(int inv) {
     BornFormFactorTE(&bte);
     bms = BornMass(); 
   }
+
   for (k = 0; k < ions->dim; k++) {
     ion = (ION *) ArrayGet(ions, k);
     ArrayFree(ion->tr_rates, FreeBlkRateData);
@@ -5953,6 +6051,7 @@ int SetTRRates(int inv) {
       }
     }
     FCLOSE(f);
+    
     if (ion->nele == 1) {
       ArrayFree(ion->tr2_rates, FreeBlkRateData);
       rt2.f = FindLevelByName(ion->dbfiles[DB_EN-1], 1, 
@@ -6120,11 +6219,13 @@ int SetTRRates(int inv) {
       FCLOSE(f);
     }
   }
+
   FreeIdxRateBlock(blocks->dim, irb);
   FreeIdxRateBlock(blocks->dim, irb2);
   if (_ce_bethe > 0) {
     FreeIdxRateBlock(blocks->dim, irbx);
   }
+
   return 0;
 }
 
@@ -6305,7 +6406,11 @@ int SetRRRates(int inv) {
 		  x[j] = (e+eusr[j])/e;
 		}
 		logx[j] = log(x[j]);
-		y[j] = log(cs[j]);
+		if (cs[j] <= 0) {
+		  y[j] = -500.0;
+		} else {
+		  y[j] = log(cs[j]);
+		}
 	      }
 	      for (j = 0; j < h.nparams; j++) {
 		p[j] = r[jb].params[j];
@@ -7021,7 +7126,7 @@ int DumpRates(char *fn, int k, int m, int imax, int a) {
 	    double x = ion->iblock[t]->rc0[q];
 	    FWRITE(&x, sizeof(double), 1, f);
 	    x = ion->iblock[t]->rc1[q];
-	    FWRITE(&x, sizeof(double), 1, f);	    
+	    FWRITE(&x, sizeof(double), 1, f);	
 	  } else {
 	    sprintf(s, "%3d %6d %6d %6d %6d %4d %4d %15.8E %10.4E %10.4E %10.4E %10.4E %10.4E\n", 
 		    nele, t, ion->iblock[t]->ib, q, ion->j[t],
@@ -7792,14 +7897,6 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
     _silent = ip;
     return;
   }
-  if (0 == strcmp(s, "crm:ce_fbr")) {
-    _ce_fbr = dp;
-    return;
-  }
-  if (0 == strcmp(s, "crm:ce_xbr")) {
-    _ce_xbr = dp;
-    return;
-  }
   if (0 == strcmp(s, "crm:ce_nmax")) {
     _ce_nmax = ip;
     return;
@@ -7834,6 +7931,38 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
   }
   if (0 == strcmp(s, "crm:starksmx")) {
     _starksmx = dp;
+    return;
+  }
+  if (0 == strcmp(s, "crm:starkmfs")) {
+    _starkmfs = dp;
+    return;
+  }
+  if (0 == strcmp(s, "crm:starkrij")) {
+    _starkrij = dp;
+    return;
+  }
+  if (0 == strcmp(s, "crm:starkefs")) {
+    _starkefs = dp;
+    return;
+  }
+  if (0 == strcmp(s, "crm:starkix1")) {
+    _starkix1 = dp;
+    return;
+  }
+  if (0 == strcmp(s, "crm:starkix2")) {
+    _starkix2 = dp;
+    return;
+  }
+  if (0 == strcmp(s, "crm:starkde1")) {
+    _starkde1 = dp;
+    return;
+  }
+  if (0 == strcmp(s, "crm:starkde2")) {
+    _starkde2 = dp;
+    return;
+  }
+  if (0 == strcmp(s, "crm:starkiwm")) {
+    _starkiwm = ip;
     return;
   }
   if (0 == strcmp(s, "crm:starkvg")) {
@@ -8301,103 +8430,63 @@ void UnscaledSG(double zp, double te, double de, double *s0, double *g0) {
   *s0 = a*sqrt(0.90032*t1*FM1M(eta));
 }
 
-void PrepStarkQC(double mt0, double d0, double t0,
-		 double *wd, double *wdi, double *wir,
-		 int zt, int ne0, int ne1, double *wrf, double *wid) {
+void PrepStarkQC(double d0, double t0, double *wd, 
+		 int zt, int ne0, int ne1, double *wrf) {
+  double zb, zb3;
+
   *wd = 0;
   if (_starkqc > 0) {
     t0 /= HARTREE_EV;
     double d1 = pow(d0, ONETHIRD);
     double t1 = sqrt(t0);
     *wd = t1*2.32e-7*d1;
-    int i;
-    double mt, zb3;
-    zb3 = pow(_starkzb, ONETHIRD);
+    int i, k;
     for (i = 0; i < _starknp; i++) {
-      if (_starkzp[i] > 0 && _starkmp[i] > 0) {
-	mt = _starkmp[i]*mt0/(_starkmp[i]+mt0);
-	mt = sqrt(mt*AMU);
-	wdi[i] = (*wd)/(zb3*mt);
-	wir[i] = _starkzp[i]*mt*_starkzp[i]/_starkzb;
-	double a = zb3/(8.54e-9*d1);
-	int k;
-	for (k = ne0; k <= ne1; k++) {
-	  double z = zt-k;
-	  double g0 = _starkzp[i]*_starkzp[i]/(t0*a);
-	  double eta = FM1PI(d0*1.0343e-24/(t0*t1));
-	  double s0 = a*sqrt(0.90032*t1*FM1M(eta));	
-	  double zix = _starkzix;
-	  double g = g0, s = s0;
-	  double zr = z/_starkzp[i];
-	  if (fabs(zr-1)>1e-3) {
-	    if (zix < 0) {
-	      ScaledSG(s0, g0, zr, &s, &g);
-	    } else {
-	      g = pow(zr, zix);
-	    }
+      zb = _starkzp[i];
+      zb3 = pow(zb, ONETHIRD);
+      double a = zb3/(8.54e-9*d1);
+      double a2 = _starkmfs*zb*HARTREE_EV/(a*a*WCOEF);
+      for (k = ne0; k <= ne1; k++) {
+	double z = zt-k+1;
+	double g0 = zb*zb/(t0*a);
+	double eta = FM1PI(d0*1.0343e-24/(t0*t1));
+	double s0 = a*sqrt(0.90032*t1*FM1M(eta));	
+	double zix = _starkzix;
+	double g = g0, s = s0;
+	double zr = z/zb;
+	if (fabs(zr-1)>1e-3) {
+	  if (zix < 0) {
+	    ScaledSG(s0, g0, zr, &s, &g);
+	  } else {
+	    g = pow(zr, zix);
 	  }
-	  if (_starksmx >= 0 && s > _starksmx) s = _starksmx; 
-	  int ik = i + (k-1)*_starknp;
-	  wrf[ik] = QSReduction(g, s);
-	  //printf("wrf: %d %d %g %g %g %g %g %g %g %g\n", i, k, d0, t0, a, g0, g, s0, s, wrf[ik]);
 	}
-      } else {
-	wdi[i] = 0.0;
-	wir[i] = 0.0;
-	wrf[i] = 1.0;
-      }
-    }
-    if (_starkbt > 0)  {      
-      double wid0 = _starkbt*9.98e-32*(d0*d1)*HARTREE_EV*HARTREE_EV;
-      for (i = ne0; i <= ne1; i++) {
-	double zt2 = (zt-i+1.0);
-	zt2 *= zt2;
-	wid[i-1] = wid0/zt2;
-      }
-    } else {
-      for (i = ne0; i <= ne1; i++) {
-	wid[i-1] = 0.0;
+	if (_starksmx >= 0 && s > _starksmx) s = _starksmx; 
+	double bm = MicroFieldMode(g, s);      
+	wrf[(k-ne0)*_starknp+i] = bm*a2;
       }
     }
   }
 }
 
-double CalcStarkQC(double w0, double wd, double *wdi,
-		   double *wir, double *wrf, double *wid0,
-		   int nele, int type) {
+double CalcStarkQC(double *we0, double *wi0, double wd, int nele) {
+  double w0 = *we0;
   double wt = w0;
-  int n0, n1, dn;
-  type = type%10000;
-  n0 = type%100;
-  n1 = type/100;
-  dn = (n1-n0)%2;
-  double wid = 0;
+
   if (wd > 0) {
     double b = 1.0;
-    double r = sqrt(_starkqc*w0/wd);
-    wt = wd/(_starkqc/r/r + 1/r);
-    if (_starkbt > 0 && dn == 1) {
-      wid = _starkqc*w0*wd/wid0[nele-1];
-      b = wid/(r+wid);
-      wt = 1.0/(b/wt + (1-b)/wd/1.2);
-    }
-    if (_starknp > 0) {
-      wt = pow(wt, _starkaix);
-    }
+    double r = _starkqc*w0/wd;
+    double s = _starkqc/r;
+    *we0 = wd/sqrt(s*s + 1/r);
+    wt = *we0;
+  }
+  if (_starknp > 0) {
+    wt = pow(wt, _starkaix);      
     int i;
     for (i = 0; i < _starknp; i++) {
-      r = sqrt(_starkqc*w0*wir[i]/wdi[i]);
-      double wti = wdi[i]/(_starkqc/r/r + 1/r);
-      if (wid > 0 && dn == 1) {
-	b = wid/(r+wid);
-	wti = 1.0/(b/wti + (1-b)/wdi[i]/1.2);
-      }
-      wti *= wrf[i+(nele-1)*_starknp];
-      wt += pow(wti, _starkaix)*_starkwp[i];
+      wt += _starkwp[i]*pow(wi0[i], _starkaix);
     }
-    if (_starknp > 0) {
-      wt = pow(wt, 1.0/_starkaix);
-    }
+    wt = pow(wt, 1.0/_starkaix);
   }
   return wt;
 }
@@ -8436,17 +8525,6 @@ void ConvLineRec(int n, double *x, double *y,
   int i, m, ny = 0;
   double de = 0;
   if (e > 0) de = e-r->ae;
-  double wd;
-  double *wdi = NULL, *wir = NULL, *wrf = NULL, *wid=NULL;
-  int zt = r->z;
-  int nele = r->nele;
-  if (_starknp > 0) {
-    wdi = malloc(sizeof(double)*_starknp);
-    wir = malloc(sizeof(double)*_starknp);
-    wrf = malloc(sizeof(double)*_starknp*zt);
-    wid = malloc(sizeof(double)*zt);
-  }
-  PrepStarkQC(mt, d0, t0, &wd, wdi, wir, zt, nele, nele, wrf, wid);
   double rw = _starkrw;
   if (w > 0 && r->aw > 0) rw *= w/r->aw;
   double s2 = s*s;
@@ -8460,7 +8538,6 @@ void ConvLineRec(int n, double *x, double *y,
       if (SkipWMPI(wr++)) continue;
       double e0 = r->e[i] + de;
       double w0 = r->w[i]*rw;
-      w0 = CalcStarkQC(w0, wd, wdi, wir, wrf, wid, nele, r->type);
       w0 += r->w0[i];
       //printf("wi: %d %g %g %g %g %g %g\n",  i, r->e[i], r->s[i], r->w0[i],  r->w[i], w0, wd);
       double w1 = dw*e0;
@@ -8575,12 +8652,6 @@ void ConvLineRec(int n, double *x, double *y,
     if (m < n-1) dxp = 0.5*(x[m+1]-x[m]);
     y[m] *= (dxm+dxp);
     dxm = dxp;
-  }
-  if (_starknp > 0) {
-    free(wdi);
-    free(wir);
-    free(wrf);
-    free(wid);
   }
 }
 
