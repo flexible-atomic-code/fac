@@ -1799,7 +1799,60 @@ class FLEV:
         self.ib[ng:] = c.ib[wc]
         self.ibk[:ng] = g.ibk[wg]
         self.ibk[ng:] = c.ibk[wc]
-        
+
+    def read_chianti(self, fn):
+        ks = {'s':0, 'p':1, 'd':2, 'f':3, 'g':4, 'h':5, 'i':6, 'k':7, 'l':8, 'm':9}
+        s = fn.split('/')[-1]
+        s = s[:-6].split('_')
+        a = s[0].capitalize()
+        k = int(s[1])
+        z = fac.ATOMICSYMBOL.index(a)
+        k = z-k+1
+        with open(fn, 'r') as f:
+            x = f.readlines()
+            for n in range(len(x)):
+                a = x[n]
+                if a[:2] == '-1':
+                    break
+            d = x[:n]
+            self.z = z
+            self.asym = a
+            self.ilev = np.array([int(x[:8])-1 for x in d])
+            self.ib = self.ilev.copy()
+            self.ib[:] = -1
+            self.nele = self.ilev.copy()
+            self.nele[:] = k
+            self.e = np.array([float(x[73:88]) for x in d])*const.hc*1e-8
+            e1 = np.array([float(x[57:72]) for x in d])
+            w = np.where(e1 > 0)[0]
+            if len(w) > 0:
+                self.e[w] = e1[w]*const.hc*1e-8                
+            self.j = np.array([int(float(x[50:57])*2+0.1) for x in d])
+            self.s = np.array([x[12:42].strip() for x in d])
+            self.p = self.j.copy()
+            for i in range(len(self.s)):
+                x = self.s[i].split(' ')
+                self.p[i] = 0
+                self.s[i] = ''
+                for a in x:
+                    na = len(a)
+                    for j in range(na):
+                        if not a[j].isdigit():
+                            self.s[i] = self.s[i]+'.'+a
+                            if j == na-1:
+                                self.s[i] = self.s[i]+'1'
+                                nq = 1
+                            else:
+                                nq = int(a[j+1:])
+                            self.p[i] = self.p[i] + ks[a[j]]*nq
+                self.p[i] = self.p[i]%2
+                self.s[i] = self.s[i][1:]
+            self.c = self.s
+            self.n = self.s
+            self.wj = self.j+1
+            self.e0 = self.e[0]
+            self.ei = 0.0
+            
     def read_atbase(self, f, zi=18, ki=2):
         if type(f) == type(''):
             r = load_atbase(f)
@@ -1834,6 +1887,9 @@ class FLEV:
             return
         if zi > 0:
             self.read_atbase(f, zi=zi, ki=ki)
+            return
+        if len(f) > 6 and f[-6:] == '.elvlc':
+            self.read_chianti(f)
             return
         (hlev,blev) = read_lev(f)
         b0 = blev[0]
