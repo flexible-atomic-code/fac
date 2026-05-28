@@ -1828,7 +1828,7 @@ int InitBlocks(void) {
       }
     }
     ResetWidMPI();
-#pragma omp parallel default(shared) private(brts, blk1, blk2, m, r, p, j, a, b)
+#pragma omp parallel default(shared) private(brts, blk1, blk2, m, r, p, j, kf, ip, a, b)
     {
     int w = 0;
     for (p = 0; p < ion->tr_rates->dim; p++) {
