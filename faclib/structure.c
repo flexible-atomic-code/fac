@@ -4814,6 +4814,7 @@ int GetBasisTableLR(char *fn, int m0, int k0i, int ilev0, int ilev1) {
 		i, p, j, lev->mixing[k]);
       }
     }
+    fclose(f);
   } else {
     if (mf == 0) {
       f = fopen(fn, "w");

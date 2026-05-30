@@ -4758,7 +4758,8 @@ int PrintTable(char *ifn, char *ofn, int v0) {
     }
   }
 
-  if (v && fh.type > DB_CIM && fh.type < DB_RO) {
+  if (v && (fh.type == DB_ENF ||
+	    (fh.type > DB_CIM && fh.type < DB_RO))) {
     if (mem_enf_table == NULL) {
       if (fh.type == DB_ENF) {
 	FCLOSE(f1);
@@ -5408,7 +5409,7 @@ int PrintENFTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
       if (n == 0) break;
       e = r.energy;
       if (v) {
-	e -= mem_en_table[iground].energy;
+	e -= mem_enf_table[iground].energy;
 	e *= HARTREE_EV;
       }
       DecodeBasisEB(r.pbasis, &ilev, &mlev);
