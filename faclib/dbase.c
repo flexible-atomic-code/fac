@@ -4758,7 +4758,8 @@ int PrintTable(char *ifn, char *ofn, int v0) {
     }
   }
 
-  if (v && fh.type > DB_CIM && fh.type < DB_RO) {
+  if (v && (fh.type == DB_ENF ||
+	    (fh.type > DB_CIM && fh.type < DB_RO))) {
     if (mem_enf_table == NULL) {
       if (fh.type == DB_ENF) {
 	FCLOSE(f1);
@@ -5390,8 +5391,15 @@ int PrintENFTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
   ENF_RECORD r;
   int n, i;
   int nb, ilev, mlev;
-  double e;
-  
+  double e, e0;
+
+  if (mem_en_table) {
+    e0 = mem_en_table[iground].energy;
+  } else if (mem_enf_table) {
+    e0 = mem_enf_table[0].energy;
+  } else {
+    e0 = 1e31;
+  }
   nb = 0;
   while (1) {
     n = ReadENFHeader(f1, &h, swp);
@@ -5407,8 +5415,9 @@ int PrintENFTable(TFILE *f1, FILE *f2, int v, int vs, int swp) {
       n = ReadENFRecord(f1, &r, swp);
       if (n == 0) break;
       e = r.energy;
+      if (e0 > 1e30) e0 = e;
       if (v) {
-	e -= mem_en_table[iground].energy;
+	e -= e0;
 	e *= HARTREE_EV;
       }
       DecodeBasisEB(r.pbasis, &ilev, &mlev);
