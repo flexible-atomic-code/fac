@@ -7955,7 +7955,7 @@ double RadialMoments(int m, int k1, int k2) {
 	if (n1 < n2) {
 	  r = HydrogenicDipole(z, n1, kl1, n2, kl2);
 	  return r;
-	} else if (n1 < n2) {
+	} else if (n2 < n1) {
 	  r = HydrogenicDipole(z, n2, kl2, n1, kl1);
 	  return r;
 	}

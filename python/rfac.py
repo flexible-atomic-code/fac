@@ -773,13 +773,9 @@ def read_ce(filename):
         delta_e, bethe = [], []
         born_0, born_1 = [], []
 
-        if block['MSUB']:
-            collision_str_all = [] 
-            crosssection_all = []
-            ratio_cs = []
-        else:
-            collision_str_all = [] 
-            crosssection_all = []
+        collision_str_all = [] 
+        crosssection_all = []
+        ratio_cs = []
 
         params_all = [] if block['QKMODE'] == 2 else None
 
@@ -804,13 +800,12 @@ def read_ce(filename):
                 idx += 1
 
             if block['MSUB']:
-                tr_ratio_cs = float(lines[idx])
-                idx += 1
-                ratio_cs.append(tr_ratio_cs)
-
+                tr_ratio_cs = []
                 tr_cs = []
                 tr_xs = []
                 for sub in range(nsub):
+                    tr_ratio_cs.append(float(lines[idx].strip()))
+                    idx += 1
                     sub_cs = []
                     sub_xs = []
                     for i in range(nusr):
@@ -822,8 +817,9 @@ def read_ce(filename):
                     tr_xs.append(sub_xs)
                     if sub < nsub - 1:
                         idx += 1
-                collision_str_all.append(np.array(tr_cs, dtype=float))
-                crosssection_all.append(np.array(tr_xs, dtype=float))
+                collision_str_all.append(np.array(tr_cs,dtype=float).T)
+                crosssection_all.append(np.array(tr_xs,dtype=float).T)
+                ratio_cs.append(np.array(tr_ratio_cs,dtype=float).T)
             else:
                 tr_cs = []
                 tr_xs = []
@@ -846,7 +842,7 @@ def read_ce(filename):
         if block['MSUB']:
             block['collision strength'] = collision_str_all
             block['crosssection'] = crosssection_all
-            block['ratio collision strength'] = np.array(ratio_cs, dtype=float)
+            block['ratio collision strength'] = ratio_cs            
         else:
             block['collision strength'] = np.array(collision_str_all, dtype=float)
             block['crosssection'] = np.array(crosssection_all, dtype=float)
