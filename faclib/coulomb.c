@@ -158,7 +158,7 @@ double HydrogenicExpectation(double z, int m, int n, int kl) {
   switch (m) {
   case -3:
     r = 2*z*z/(n2*n*(2.0*kl+1.0));
-    r *= z/k; 
+    r *= z/Max(1,k); 
     break;
   case -2:
     r = 2*z*z/(n2*n*(2.0*kl+1.0));
