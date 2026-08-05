@@ -342,12 +342,14 @@ def i2c(r):
     w = np.where(r > 0)
     return rfac.cfgnr([(w[0][i]+1,w[1][i],r[w[0][i],w[1][i]]) for i in range(len(w[0]))])
 
-def r1e(r, nm=0, nk=()):
+def r1e(r, nmax=0, nmin=0, nk=()):
     if type(r) != type([]):
         r = rfac.nlqs(r)
     c = []
     for i in range(len(r)):
-        if nm > 0 and r[i][0] > nm:
+        if nmax > 0 and r[i][0] > nmax:
+            continue
+        if r[i][0] < nmin:
             continue
         if len(nk) == 2:
             if r[i][0] != nk[0] or r[i][1] != nk[1]:
@@ -400,10 +402,10 @@ def rank_cfg(r, r0, nv, kv):
 
     return abs(rd)
 
-def cs(z, k, nd=0, nm=0, na=0, km=7):
+def cs(z, k, nd=0, nm=0, na=0, ni=0, kmi=1, km=7):
     if k == 0:
         if km < 0:
-            return {'nm':1, 'nd':0, 'na':1, 'km':0,'z':z,'k':k}
+            return {'nm':1, 'nd':0, 'na':1, 'ni':0, 'km':0,'kmi':1,'z':z,'k':k}
         else:
             return {'g0':[('1s0',1,1,1,1,1,1,1,1),('1a0',1,1,1,1,1,1,1,1)]}
     
@@ -432,13 +434,17 @@ def cs(z, k, nd=0, nm=0, na=0, km=7):
             nd = nv            
     if nm < nv:
         nm = nv
-        
+    if ni == 0:
+        ni = nv
+    if ni > nv:
+        ni = nv
     if km < 0:
         r = {}
         r['nm'] = nm
         r['nd'] = nd
         r['na'] = na
         r['km'] = km
+        r['ni'] = ni
         r['z'] = z
         r['k'] = k
         return r
@@ -449,12 +455,12 @@ def cs(z, k, nd=0, nm=0, na=0, km=7):
     nmax = np.max([na,nm,nd])
     ic0 = c2i(c,nmax)
     
-    c0 = r1e(r)
+    c0 = r1e(r, nmin=1+nv-ni)
     c1 = []
     for a in c0:
         for b in a1e(a, nm, nm, km=km):
             c1.append(b)
-    if kv <= 1:
+    if kv <= kmi:
         bs = []
         for a in c1:
             b = r1e(a, nk=(nv,0))
@@ -470,7 +476,6 @@ def cs(z, k, nd=0, nm=0, na=0, km=7):
                         bs.append(b1)
         c1 = c1 + bs
     c1 = list(np.unique(c1))
-    
     c2 = []
     for a in c1:
         for b in r1e(a, nv):
@@ -489,7 +494,6 @@ def cs(z, k, nd=0, nm=0, na=0, km=7):
             c3.append(b)
 
     c3 = list(np.unique(c3))
-
     c2 = []
     c4 = []
     if na > nm:
