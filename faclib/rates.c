@@ -568,36 +568,6 @@ double CERate1E(double e1, double eth0, int np, void *p) {
 	  b = log(e/eth0);
 	  a += dp[1]*b;
 	}
-      /*
-	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
-	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
-	y0 /= b0*b1;
-	d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-	c = FINE_STRUCTURE_CONST2*d;
-	b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);
-	y0 -= dp[1]*b;
-	a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
-	e0 = e/HARTREE_EV;
-	d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-	c = FINE_STRUCTURE_CONST2*d;
-	b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);  
-	a += dp[1]*b;
-	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
-	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
-	a *= b0*b1;
-      } else if (dp[1] + 1.0 == 1.0) {
-	e0 = (x[np]*et0/(1.0-x[np]) + eth)/HARTREE_EV;
-	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
-	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
-	y0 /= b0*b1;
-	d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-	c = FINE_STRUCTURE_CONST2*d;
-	a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
-	e0 = e/HARTREE_EV;
-	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
-	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
-	a *= b0*b1;
-      */
       } else {
 	a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
       }

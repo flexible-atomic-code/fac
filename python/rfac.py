@@ -19,6 +19,7 @@
 # the read_*** functions were written by Keisuke Fujii of Kyoto Univ.
 
 import numpy as np
+import pylab
 from collections import OrderedDict
 from distutils.version import LooseVersion
 import struct
@@ -1976,10 +1977,13 @@ class FLEV:
         self.p = b0['P']
         self.j = b0['2J']
         self.wj = self.j+1
-        self.c = np.array([x.decode() for x in b0['ncomplex']])
+        #self.c = np.array([x.decode() for x in b0['ncomplex']])
+        self.c = b0['ncomplex']
         self.v = b0['VNL']
-        self.s = np.array([x.decode() for x in b0['sname']])
-        self.n = np.array([x.decode() for x in b0['name']])
+        #self.s = np.array([x.decode() for x in b0['sname']])
+        self.s = b0['sname']
+        #self.n = np.array([x.decode() for x in b0['name']])
+        self.n = b0['name']
         self.e = self.e + self.e0
         self.e0 = min(self.e)
         self.ig = np.zeros(len(self.e), dtype=int)
@@ -2094,6 +2098,25 @@ class FLEV:
             f.write(s)
         f.close()
 
+    def grotian(self, k, op=0, color='k', emin=0, emax=1e30):
+        w = np.where(self.nele == k)[0]
+        if len(w) == 0:
+            return
+        ek = self.e[w] - self.e[w[0]]
+        s = np.where((ek>=emin)&(ek<=emax))[0]
+        if len(s) == 0:
+            return
+        if op == 0:
+            pylab.clf()
+        ki = self.z-k+1
+        xk = [ki-0.25, ki+0.25]
+        for i in s:
+            ei = ek[i]
+            pylab.plot(xk, [ei, ei], color=color)
+        if op == 0:
+            pylab.xlabel('Ionization Stage')
+            pylab.ylabel('Energy (eV)')
+            
 def strnum(s):
     s = s.replace('"','').replace('[','').replace(' ','')
     if len(s) == 0:
@@ -2125,7 +2148,7 @@ class MLEV:
             self.ei = 0.0
             self.e0 = self.e[0]
         else:
-            r = np.loadtxt(valid_nistlev(f), unpack=1, delimiter=',', dtype=str)
+            r = np.loadtxt(valid_nistlev(f), unpack=1, delimiter=',', dtype=str, ndmin=2)
             r[1] = np.array([str(x).strip() for x in r[1]], dtype='<U128')
             w0 = np.where(r[1] == 'Limit')
             ri = r[:,w0[0]]
@@ -2137,25 +2160,32 @@ class MLEV:
             self.wj = self.j+1
             self.p = np.array([int(len(x)>0 and x[-1]=='*') for x in self.t])        
             self.e = np.array([strnum(x) for x in r[4]])*const.Ryd_eV
-            if len(ri[0]) > 0:
-                self.ei = strnum(ri[4,0])*const.Ryd_eV
-            else:
-                self.ei = 0.0
             self.e0 = self.e[0]
             self.nele = np.zeros(len(self.c),dtype=np.int32)
             fs = f.split('/')[-1].split('-')
             self.z = fac.ATOMICSYMBOL.index(fs[0])
             self.nele[:] = 1+self.z-int(fs[1].split('.')[0])
+            if len(ri[0]) > 0:
+                self.ei = strnum(ri[4,0])*const.Ryd_eV
+            else:
+                gp = fac.GetGroundProp(self.z, self.nele[0])
+                self.ei = gp[3]
             for i in range(len(self.c)):
                 a = self.c[i].split(" ")
                 a = a[0].split(".")
                 tc = ''
-                for b in a:
-                    b = b.split('<')[0]
-                    if b[0].isdigit():                        
-                        if (not b[-1].isdigit()):
-                            b += '1'
-                        tc += '.'+b
+                for bs in a:
+                    bs = bs.split('<')
+                    for b in bs:
+                        if len(b) == 0:
+                            continue
+                        b = b.split('>')[-1]
+                        if len(b) == 0:
+                            continue
+                        if b[0].isdigit():                        
+                            if (not b[-1].isdigit()):
+                                b += '1'
+                            tc += '.'+b
                 self.c[i] = tc[1:]
             self.s = self.c
             

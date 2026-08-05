@@ -1898,23 +1898,31 @@ void CERadialQkFromFit(int np, double *p, int n, double *x, double *logx,
     }
   }
 }
- 
+
+double RelCrossDelta(double e1, double te, double b) {
+  double a, c, b0, b1;
+
+  a = e1;
+  c = FINE_STRUCTURE_CONST2*a;
+  b1 = 1 + c;
+  a += te;
+  c = FINE_STRUCTURE_CONST2*a;
+  b0 = 1 + c;
+  a = 2*a*(1+0.5*c)*FINE_STRUCTURE_CONST2;
+  c = a/(1+a);
+  c = -b0*b1*b*(log(1-c)+c);
+  return c;
+}
+
 void RelativisticCorrection(int m, double *s, double *p, double te, double b) {
   int i, j, k;
-  double a, c, b1, b0;
+  double a, c;
 
   if (b <= 0.0) return;
   for (j = 0; j < n_usr; j++) {
     a = usr_egrid[j];
     if (uta_tegrid) a *= te;
-    c = FINE_STRUCTURE_CONST2*a;
-    b1 = 1.0 + c;
-    a = a + te;
-    c = FINE_STRUCTURE_CONST2*a;
-    b0 = 1.0 + c;
-    a = 2.0*a*(1.0 + 0.5*c)*FINE_STRUCTURE_CONST2;
-    c = a/(1.0+a);
-    c = -b0*b1*b*(log(1.0-c) + c);
+    c = RelCrossDelta(a, te, b);
     if (m <= 0) {
       s[j] += c;
     } else {
