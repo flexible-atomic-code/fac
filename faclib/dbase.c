@@ -8529,8 +8529,8 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
   dd = 0.0;
   dt = 0.0;
   for (k = 0; k < 3; k++) {
-    ilow2ph[k] = 0;
-    iup2ph[k] = 0;
+    ilow2ph[k] = -1;
+    iup2ph[k] = -1;
   }
   nk = k1-k0+1;
   if (nk <= 0) {
