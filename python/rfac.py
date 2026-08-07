@@ -1761,6 +1761,31 @@ class FLEV:
         r.concat(self, a)
         return r
 
+    def copy(self):
+        r = FLEV(None)
+        r.e0 = self.e0
+        r.ei = self.ei
+        r.e = self.e.copy()
+        r.p = self.p.copy()
+        r.j = self.j.copy()
+        r.c = self.c.copy()
+        r.v = self.v.copy()
+        r.s = self.s.copy()
+        r.n = self.n.copy()
+        r.ig = self.ig.copy()
+        r.ib = self.ib.copy()
+        r.ibk = self.ibk.copy()
+        r.nele = self.nele.copy()
+        if not self.wj is None:
+            r.wj = self.wj.copy()
+        else:
+            r.wj = r.wj
+        if not self.ilev is None:
+            r.ilev = self.ilev.copy()
+        else:
+            r.ilev = None
+        return r
+    
     def concat(self, g, c):
         ng = len(g.e)
         nc = len(c.e)
@@ -2187,6 +2212,7 @@ class MLEV:
                                 b += '1'
                             tc += '.'+b
                 self.c[i] = tc[1:]
+                self.c[i] = cfgnr(nlqs(self.c[i].replace('.', ' '))).replace(' ', '.')
             self.s = self.c
             
 def aflev(d0, d1, a, n):
@@ -2298,6 +2324,64 @@ def NISTCorr(ff, fn, fo):
     r1 = MLEV(fn, md=1)
     r0.match(r1)
     r0.write(fo)
+
+def EnergyMatch(rg, rn, rv, rg1, rv1):
+    if rg is None:
+        return None
+    rg0 = None
+    if not rn is None:
+        rg0 = rg.copy()
+        rg0.match(rn)
+        if rg0.ei > 0:
+            ei = rg0.ei + rg0.e[0]
+            w = np.where(rg0.e > ei)[0]
+            rg0.em[w] = rg0.e[w]-rg0.e0
+
+        uc = np.unique(rg0.c)
+        for c in uc:
+            w = np.where((rg0.im > 0)&(rg0.c == c)&(rg0.nele == rg0.nele[0]))[0]
+            if len(w) > 0:
+                ade = np.median(rg0.em[w]-(rg0.e[w]-rg0.e[0]))
+                w1 = np.where((rg0.im < 0)&(rg0.c == c))[0]
+                if len(w1) > 0:
+                    rg0.em[w1] = (rg0.e[w1]-rg0.e0)+ade
+        if rn.ei > 0:
+            w = np.where(rg0.nele == rg0.nele[0]-1)[0]
+            if len(w) > 0:
+                rg0.em[w] += rn.ei-rg0.em[w[0]]
+        rg0.im[:] = -3
+        iu = np.array([x.rfind(')') for x in rg0.n])
+        w = np.where(iu == -1)[0]
+        if len(w) > 0:
+            rg0.im[w] = -1
+            rg0.em[w] = 0.0
+
+    if rv is None:
+        return rg0
+
+    rg.match(rv)
+    rg.em[0] = rv.e[0] - rg.e[0]
+    w = np.where(rg.nele == opts.k-1)[0]
+    rg.em[w] = rg.e[w] - rg.e[0]
+    rg.im[w] = -3
+    if (not rg1 is None) and (not rv1 is None):
+        rg1.match(rv1)
+        w1 = np.where(rg1.im >= 0)[0]
+        if len(w1) > 0:
+            de = (rv1.e0 - rv.e0)-(rg1.e0 - rg.e0)
+            rg.em[w[w1]] += rg1.em[w1]-(rg1.e[w1]-rg1.e[0])
+    iu = np.array([x.rfind(')') for x in rg.n])
+    w = np.where(iu == -1)[0]
+    if len(w) > 0:
+        rg.im[w] = -1
+        rg.em[w] = 0.0
+
+    if not rg0 is None:
+        w = np.where((rg.im == -1)&(rg0.im == -3)&(rg0.em > 0))[0]
+        if len(w) > 0:
+            rg.im[w] = rg0.im[w]
+            rg.em[w] = rg0.em[w]
+    return rg
 
 def read_rp(f):
     d = {}
