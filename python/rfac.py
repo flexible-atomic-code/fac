@@ -1784,6 +1784,7 @@ class FLEV:
             r.ilev = self.ilev.copy()
         else:
             r.ilev = None
+        r.iu = self.iu.copy()
         return r
     
     def concat(self, g, c):
@@ -1801,6 +1802,7 @@ class FLEV:
         self.ig = np.zeros(n, dtype=int)
         self.ib = np.zeros(n, dtype=int)
         self.ibk = np.zeros(n, dtype=int)
+        self.iu = np.zeros(n, dtype=int)
         self.e[:ng] = g.e
         self.e[ng:] = c.e
         self.p[:ng] = g.p
@@ -1821,6 +1823,8 @@ class FLEV:
         self.ib[ng:] = c.ib
         self.ibk[:ng] = g.ibk
         self.ibk[ng:] = c.ibk
+        self.iu[:ng] = g.iu
+        self.iu[ng:] = c.iu
 
     def combine(self, g, c):
         wg = np.where(g.ig == 1)
@@ -1841,6 +1845,7 @@ class FLEV:
         self.ig = np.zeros(n, dtype=int)
         self.ib = np.zeros(n, dtype=int)
         self.ibk = np.zeros(n, dtype=int)
+        self.iu = np.zeros(n, dtype=int)
         self.e[:ng] = g.e[wg]
         self.e[ng:] = c.e[wc]
         self.e = self.e - self.e0
@@ -1862,6 +1867,8 @@ class FLEV:
         self.ib[ng:] = c.ib[wc]
         self.ibk[:ng] = g.ibk[wg]
         self.ibk[ng:] = c.ibk[wc]
+        self.iu[:ng] = g.iu[wg]
+        self.iu[ng:] = c.iu[wc]
 
     def read_chianti(self, fn):
         ks = {'s':0, 'p':1, 'd':2, 'f':3, 'g':4, 'h':5, 'i':6, 'k':7, 'l':8, 'm':9}
@@ -1915,6 +1922,7 @@ class FLEV:
             self.wj = self.j+1
             self.e0 = self.e[0]
             self.ei = 0.0
+            self.iu = np.array([0]*len(self.e))
             
     def read_atbase(self, f, zi=18, ki=2):
         if type(f) == type(''):
@@ -1940,6 +1948,7 @@ class FLEV:
         self.n = np.array([x.decode() for x in r[12][w]])
         self.wj = r[13][w]
         w = np.where(self.nele == self.nele[0]-1)[0]
+        self.iu = np.array([0]*len(self.e))
         if len(w) > 0:
             self.ei = self.e[w[0]]-self.e0
         else:
@@ -2011,6 +2020,7 @@ class FLEV:
         self.n = b0['name']
         self.e = self.e + self.e0
         self.e0 = min(self.e)
+        self.iu = np.array([int(x.rfind(')')<0) for x in self.n])
         self.ig = np.zeros(len(self.e), dtype=int)
         self.ilev = None
         w = np.where(self.nele == self.nele[0]-1)[0]
@@ -2035,7 +2045,7 @@ class FLEV:
                         self.ig[i] = 0
                         break
 
-    def match(self, m, etol0=5.0, etol1=50.0, etol2=0.05, mc=0):
+    def match(self, m, etol0=5.0, etol1=50.0, etol2=0.05, etolm=2.0, mc=1):
         self.idx = np.arange(len(self.e))
         self.em = np.zeros(len(self.e), dtype=float)
         self.em[:] = -1.0
@@ -2052,28 +2062,56 @@ class FLEV:
             self.im[w] = -1
             self.em[w] = (self.e[w]-self.e0)+(m.ei-ei)
             self.cm[w] = b'.'
-        if mc > 0:
-            cs = m.c
-            cs0 = self.c
-        else:
-            cs = np.array([remove_closed(m.s[i]) for i in range(len(m.s))])
-            cs0 = np.array([remove_closed(self.s[i]) for i in range(len(self.s))])
+
+        if mc == 0:
+            cs = ['**%d'%k for k in m.nele]
+            cs0 = ['**%d'%k for k in self.nele]            
+        else:  
+            cs = m.c.copy()
+            cs0 = self.c.copy()
+            ss = m.s.copy()
+            ss0 = self.s.copy()
+            
+            for i in range(len(cs)):
+                cs[i],ss[i],nn = fac.FillClosedShell(m.nele[i], m.c[i], m.s[i], m.n[i])
+            for i in range(len(cs0)):
+                cs0[i],ss0[i],nn = fac.FillClosedShell(self.nele[i], self.c[i], self.s[i], self.n[i])
+            if mc > 1:
+                cs = ss
+                cs0 = ss0
+                
         uc = np.unique(cs)
         imd = np.zeros(len(m.s),dtype=np.int32)
+        js = self.j.copy()
+        ps = self.p.copy()
+        w = np.where(self.iu > 0)[0]
+        if len(w) > 0:
+            js[w] = -1
+            ps[w] = -1
+        jm = m.j.copy()
+        pm = m.p.copy()
+        w = np.where(m.iu > 0)[0]
+        if len(w) > 0:
+            jm[w] = -1
+            pm[w] = -1
         for c in uc:
             ns = len(c)
             for p in [0, 1]:
-                jmin = max(min(self.j),min(m.j))
-                jmax = min(max(self.j),max(m.j))
+                ws = np.where((ps == p)&(cs0==c))[0]
+                wm = np.where((pm == p)&(cs==c))[0]
+                if len(ws) == 0 or len(wm) == 0:
+                    continue
+                jmin = max(min(js[ws]),min(jm[wm]))
+                jmax = min(max(js[ws]),max(jm[wm]))
                 for j in range(jmin,jmax+1,1):
                     #print([p,j,c])
-                    w0 = np.where((self.p == p) &
-                                  (self.j == j) &
+                    w0 = np.where((ps == p) &
+                                  (js == j) &
                                   (cs0 == c))[0]
                     n0 = len(w0)
                     ew0 = self.e[w0]-self.e0
-                    w1 = np.where((m.p == p) &
-                                  ((m.j == j)|((m.j < 0)&(imd==0))) &
+                    w1 = np.where((pm == p) &
+                                  (jm == j) &
                                   (cs == c))[0]
                     ew1 = m.e[w1] - m.e0
                     n1 = len(w1)
@@ -2090,7 +2128,16 @@ class FLEV:
                         if (m.j[wi1] < 0 and etol2 > 0):
                             dex *= etol2
                         dex = max(0.25, dex)
-                        if abs(ew0[i0]-ew1[i1]) < dex:
+                        dei = ew0[i0]-ew1[i1]
+                        if dei < 0 and n0-i0 > n1-i1:
+                            dej = ew0[i0+1]-ew1[i1]
+                        elif dei > 0 and n1-i1 > n0-i0:
+                            dej = ew0[i0]-ew1[i1+1]
+                        else:
+                            dej = 1e31
+                        dei = abs(dei)
+                        dej = abs(dej)
+                        if dei < etolm or (dei < dex and dej > dei):
                             if m.ilev is None:
                                 self.im[wi0] = wi1
                             else:
@@ -2168,10 +2215,17 @@ class MLEV:
             self.j = np.int32(j)
             pc = np.transpose(np.loadtxt(f, usecols=2, dtype='string', skiprows=1, delimiter=' ; '))
             self.p = np.int32(pc == 'o')
-            self.c = np.transpose(np.loadtxt(f, usecols=0, dtype='string', skiprows=1, delimiter=' ; '))
-            self.s = self.c
+            self.s = np.transpose(np.loadtxt(f, usecols=0, dtype='string', skiprows=1, delimiter=' ; '))
+            self.c = self.s.copy()
+            self.n = self.s.copy()
+            for i in range(len(self.s)):
+                rq = nlqs(self.s[i].replace('.', ' '))
+                self.c[i] = nqs(rq).replace(' ', '.').replace('a', '*')
+                self.s[i] = cfgnr(rq).replace(' ', '.')
+                self.n[i] = self.s[i]
             self.ei = 0.0
             self.e0 = self.e[0]
+            self.iu = np.array([0]*len(self.e))
         else:
             r = np.loadtxt(valid_nistlev(f), unpack=1, delimiter=',', dtype=str, ndmin=2)
             r[1] = np.array([str(x).strip() for x in r[1]], dtype='<U128')
@@ -2180,12 +2234,15 @@ class MLEV:
             w0 = np.where(r[1] != 'Limit')
             r = r[:,w0[0]]
             self.c = np.array([str(x).replace('?','').strip() for x in r[0]],dtype='<U128')
+            self.s = self.c.copy()
+            self.n = self.c.copy()
             self.t = np.array([str(x).replace('?','').strip() for x in r[1]])
             self.j = np.array([int(2*eval(x.replace('?','').split('or')[0])) for x in r[2]])
             self.wj = self.j+1
             self.p = np.array([int(len(x)>0 and x[-1]=='*') for x in self.t])        
             self.e = np.array([strnum(x) for x in r[4]])*const.Ryd_eV
             self.e0 = self.e[0]
+            self.iu = np.array([0]*len(self.e))
             self.nele = np.zeros(len(self.c),dtype=np.int32)
             fs = f.split('/')[-1].split('-')
             self.z = fac.ATOMICSYMBOL.index(fs[0])
@@ -2211,10 +2268,11 @@ class MLEV:
                             if (not b[-1].isdigit()):
                                 b += '1'
                             tc += '.'+b
-                self.c[i] = tc[1:]
-                self.c[i] = cfgnr(nlqs(self.c[i].replace('.', ' '))).replace(' ', '.')
-            self.s = self.c
-            
+                rq = nlqs(tc[1:].replace('.', ' '))
+                self.c[i] = nqs(rq).replace(' ', '.').replace('a', '*')
+                self.s[i] = cfgnr(rq).replace(' ', '.')
+                self.n[i] = self.s[i]
+    
 def aflev(d0, d1, a, n):
     if (d0 != None and len(d0) > 0):
         r0 = cflev(d0, a, 0, n)
@@ -2336,20 +2394,23 @@ def EnergyMatch(rg, rn, rv, rg1, rv1):
             ei = rg0.ei + rg0.e[0]
             w = np.where(rg0.e > ei)[0]
             rg0.em[w] = rg0.e[w]-rg0.e0
-
+        w = np.where(rg0.im >= 0)[0]
+        if len(w) > 0:
+            rg0.im[w] = -100-rg0.im[w]
         uc = np.unique(rg0.c)
         for c in uc:
-            w = np.where((rg0.im > 0)&(rg0.c == c)&(rg0.nele == rg0.nele[0]))[0]
+            w = np.where((rg0.im <= -100)&(rg0.c == c)&(rg0.nele == rg0.nele[0]))[0]
             if len(w) > 0:
                 ade = np.median(rg0.em[w]-(rg0.e[w]-rg0.e[0]))
-                w1 = np.where((rg0.im < 0)&(rg0.c == c))[0]
+                w1 = np.where((rg0.im > -100)&(rg0.c == c))[0]
                 if len(w1) > 0:
                     rg0.em[w1] = (rg0.e[w1]-rg0.e0)+ade
+                    rg0.im[w1] = -99
         if rn.ei > 0:
             w = np.where(rg0.nele == rg0.nele[0]-1)[0]
             if len(w) > 0:
                 rg0.em[w] += rn.ei-rg0.em[w[0]]
-        rg0.im[:] = -3
+                rg0.im[w] = -98
         iu = np.array([x.rfind(')') for x in rg0.n])
         w = np.where(iu == -1)[0]
         if len(w) > 0:
@@ -2361,26 +2422,37 @@ def EnergyMatch(rg, rn, rv, rg1, rv1):
 
     rg.match(rv)
     rg.em[0] = rv.e[0] - rg.e[0]
-    w = np.where(rg.nele == opts.k-1)[0]
+    w = np.where(rg.nele == rg.nele[0]-1)[0]
     rg.em[w] = rg.e[w] - rg.e[0]
-    rg.im[w] = -3
+    rg.im[w] = -1
     if (not rg1 is None) and (not rv1 is None):
         rg1.match(rv1)
         w1 = np.where(rg1.im >= 0)[0]
         if len(w1) > 0:
             de = (rv1.e0 - rv.e0)-(rg1.e0 - rg.e0)
             rg.em[w[w1]] += rg1.em[w1]-(rg1.e[w1]-rg1.e[0])
+            rg.im[w[w1]] = -3
     iu = np.array([x.rfind(')') for x in rg.n])
     w = np.where(iu == -1)[0]
     if len(w) > 0:
         rg.im[w] = -1
         rg.em[w] = 0.0
 
+    uc = np.unique(rg.c)
+    for c in uc:
+        w = np.where((rg.im != -1)&(rg.c == c))[0]
+        if len(w) > 0:
+            ade = np.median(rg.em[w]-(rg.e[w]-rg.e[0]))
+            w1 = np.where((rg.im == -1)&(rg.c == c))[0]
+            if len(w1) > 0:
+                rg.em[w1] = (rg.e[w1]-rg.e0)+ade
+                rg.im[w1] = -9
     if not rg0 is None:
-        w = np.where((rg.im == -1)&(rg0.im == -3)&(rg0.em > 0))[0]
+        w = np.where((rg.im == -1)&(rg0.im <= -100)&(rg0.em > 0))[0]
         if len(w) > 0:
             rg.im[w] = rg0.im[w]
             rg.em[w] = rg0.em[w]
+
     return rg
 
 def read_rp(f):
