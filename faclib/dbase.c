@@ -3159,7 +3159,7 @@ int FindNRShells(int nele, EN_RECORD *r, int nm, short *nqc, short *nqs) {
 }
 
 int FillClosedShell(int nele, EN_RECORD *r, char *nc, char *sn, char *nm) {
-  const int nmax=32;
+  const int nmax=128;
   const int nmax2 = (nmax*(nmax+3))/2;
   int ncq[nmax], npq[nmax], nk[nmax];
   int nsq[nmax2], jmq[nmax2], jpq[nmax2];
@@ -3216,6 +3216,7 @@ int FillClosedShell(int nele, EN_RECORD *r, char *nc, char *sn, char *nm) {
     c = nc0[i];
     if (c == '*') {
       n = atoi(&nc0[i0]);
+      if (n > nmax) n = nmax;
       i0 = i+1;
     } else if (c == '.' || c == '\0') {
       nq = atoi(&nc0[i0]);
@@ -3258,11 +3259,13 @@ int FillClosedShell(int nele, EN_RECORD *r, char *nc, char *sn, char *nm) {
     k = GetLFromSymbol(tolower(c));
     if (k >= 0) {
       n = atoi(&sn0[i0]);
+      if (n > nmax) n = nmax;
       kp = k;
       ik = ((n+2)*(n-1))/2 + kp;
       i0 = i+1;
     } else if (c == 'a' || c == 'A') {
       n = atoi(&sn0[i0]);
+      if (n > nmax) n = nmax;
       kp = n;
       ik = ((n+2)*(n-1))/2 + kp;
       i0 = i+1;
@@ -3316,6 +3319,7 @@ int FillClosedShell(int nele, EN_RECORD *r, char *nc, char *sn, char *nm) {
     k = GetLFromSymbol(c0);
     if (k >= 0) {
       n = atoi(&nm0[i0]);
+      if (n > nmax) n = nmax;
       kp = k;
       ik = ((n+2)*(n-1))/2 + kp;
       if (c != c0) {
@@ -3325,6 +3329,7 @@ int FillClosedShell(int nele, EN_RECORD *r, char *nc, char *sn, char *nm) {
       continue;
     } else if (c == 'a' || c == 'A') {
       n = atoi(&nm0[i0]);
+      if (n > nmax) n = nmax;
       kp = n;
       ik = ((n+2)*(n-1))/2 + kp;
       i0 = i+1;
@@ -8825,14 +8830,14 @@ void CombineDBase(char *pref, int k0, int k1, int kic, int nexc0, int ic) {
 	  if (nim != ni0) {
 	    printf("\nionized mismatch: %d %d %d %d %d ... ",
 		   k, nb, ni0, nim, nbs);
-	    Abort(1);
+	    //Abort(1);
 	  }
 	  for (i = 0; i < nim; i++) {
 	    im[ri0[i].ilev] = -10-ri1[i].ilev;
 	  }
+	  nilevs += nim;
 	  free(ri0);
-	  free(ri1);
-	  nilevs += ni0;
+	  if (ri1) free(ri1);
 	} else {
 	  nilevs += h0.nlevels;
 	  FSEEK(f0, h0.length, SEEK_CUR);
