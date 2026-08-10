@@ -2045,7 +2045,7 @@ class FLEV:
                         self.ig[i] = 0
                         break
 
-    def match(self, m, etol0=5.0, etol1=50.0, etol2=0.05, etolm=2.0, mc=1):
+    def match(self, m, etol0=5.0, etol1=50.0, etol2=0.05, etolm=2.0, mc=2):
         self.idx = np.arange(len(self.e))
         self.em = np.zeros(len(self.e), dtype=float)
         self.em[:] = -1.0
@@ -2079,7 +2079,6 @@ class FLEV:
             if mc > 1:
                 cs = ss
                 cs0 = ss0
-                
         uc = np.unique(cs)
         imd = np.zeros(len(m.s),dtype=np.int32)
         js = self.j.copy()
@@ -2098,13 +2097,12 @@ class FLEV:
             ns = len(c)
             for p in [0, 1]:
                 ws = np.where((ps == p)&(cs0==c))[0]
-                wm = np.where((pm == p)&(cs==c))[0]
+                wm = np.where((pm == p)&(cs==c))[0]                
                 if len(ws) == 0 or len(wm) == 0:
                     continue
                 jmin = max(min(js[ws]),min(jm[wm]))
                 jmax = min(max(js[ws]),max(jm[wm]))
                 for j in range(jmin,jmax+1,1):
-                    #print([p,j,c])
                     w0 = np.where((ps == p) &
                                   (js == j) &
                                   (cs0 == c))[0]
@@ -2243,6 +2241,7 @@ class MLEV:
             self.e = np.array([strnum(x) for x in r[4]])*const.Ryd_eV
             self.e0 = self.e[0]
             self.iu = np.array([0]*len(self.e))
+            self.ilev = np.array([int(x.split('.')[-1]) for x in r[-1]])-1
             self.nele = np.zeros(len(self.c),dtype=np.int32)
             fs = f.split('/')[-1].split('-')
             self.z = fac.ATOMICSYMBOL.index(fs[0])
