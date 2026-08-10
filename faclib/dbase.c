@@ -26,6 +26,7 @@
 #include "ionization.h"
 #include "cf77.h"
 #include "global.h"
+#include "init.h"
 
 static char *rcsid="$Id$";
 #if __GNUC__ == 2
@@ -3233,13 +3234,13 @@ int FillClosedShell(int nele, EN_RECORD *r, char *nc, char *sn, char *nm) {
     for (i = 0; i < mi; i++) {
       nst = 0;
       for (k = 0; k < mk; k++) {
-	if ((i & (1<<k)) && ncq[k] == 0) {
+	if (((i+1) & (1<<k)) && ncq[k] == 0) {
 	  nst += 2*(k+1)*(k+1);
 	}
       }
       if (nst == nele-nqt) {
 	for (k = 0; k < mk; k++) {
-	  if ((i & (1<<k)) && ncq[k] == 0) {
+	  if (((i+1) & (1<<k)) && ncq[k] == 0) {
 	    ncq[k] = 2*(k+1)*(k+1);
 	    nqt += ncq[k];
 	  }
@@ -3383,13 +3384,13 @@ int FillClosedShell(int nele, EN_RECORD *r, char *nc, char *sn, char *nm) {
 	for (i = 0; i < mi; i++) {
 	  nst = 0;
 	  for (k = 0; k < mk; k++) {
-	    if (i&(1<<k)) {
+	    if ((i+1)&(1<<k)) {
 	      nst += 2*(2*nk[k]+1);
 	    }
 	  }
 	  if (nst == dq) {
 	    for (k = 0; k < mk; k++) {
-	      if (i&(1<<k)) {
+	      if ((i+1)&(1<<k)) {
 		nsq[nk[k]+i0] = 2*(2*nk[k]+1);
 	      }
 	    }
@@ -11383,10 +11384,11 @@ void InitIdxDat(void *d, int nb) {
 int PreloadEN(char *fn, int i0, int i1, int j0, int j1) {
   FILE *f;
   char buf[2048];
-  int i, im, n, nb;
-  double e, em, de;
+  int i, im, n, nb, nn;
+  double e, em, de, wj;
   IDXDAT d, *ip;
-  
+
+  InitFac1();
   f = fopen(fn, "r");
   if (f == NULL) {
     printf("cannot open file %s\n", fn);
@@ -11402,10 +11404,11 @@ int PreloadEN(char *fn, int i0, int i1, int j0, int j1) {
   _idxmap.im1 = 0;
   _idxmap.jm1 = 0;
 
+  nn = 0;
   while (1) {
     if (NULL == fgets(buf, 2048, f)) break;
-    n = sscanf(buf, "%d %d %lf %lf %lf", &im, &i, &em, &e, &de);
-    if (n != 5) continue;
+    n = sscanf(buf, "%d %d %lf %lf %lf %lf", &im, &i, &em, &e, &de, &wj);
+    if (n != 6) continue;
     nb = strlen(buf);
     if (nb < 2) continue;
     if (buf[nb-1] != '\n') continue;
@@ -11417,11 +11420,38 @@ int PreloadEN(char *fn, int i0, int i1, int j0, int j1) {
     } else {
       d.e = e;
     }
+    d.w = wj;
     if (i > 0 || im == 0) {
       ArraySet(_idxmap.imap, i, &d, InitIdxDat);
       if (_idxmap.i1 < i) _idxmap.i1 = i;
     }
+    if (i <= -100) nn++;
     AddECorrection(0, im, e, 1);
+  }
+  if (_idxmap.i1 == 0) {
+    _idxmap.inist = 0;
+  } else {
+    _idxmap.inist = _idxmap.i1 + 1;
+  }
+  if (nn > 0) {
+    fseek(f, 0, SEEK_SET);
+    while (1) {
+      if (NULL == fgets(buf, 2048, f)) break;
+      n = sscanf(buf, "%d %d %lf %lf %lf %lf", &im, &i, &em, &e, &de, &wj);
+      if (n != 6) continue;
+      nb = strlen(buf);
+      if (nb < 2) continue;
+      if (buf[nb-1] != '\n') continue;
+      if (1+e==1 && im > 0) continue;
+      if (i > -100) continue;
+      e /= HARTREE_EV;
+      i = (-i-100)+_idxmap.inist;
+      d.i = im;
+      d.e = e;
+      d.w = wj;
+      ArraySet(_idxmap.imap, i, &d, InitIdxDat);
+      if (_idxmap.i1 < i) _idxmap.i1 = i;
+    }
   }
   fclose(f);
   _idxmap.j1 = _idxmap.i1;
@@ -11515,14 +11545,19 @@ int PreloadTable(char *tfn, char *sfn, int m) {
   F_HEADER fh;
   int swp, iu0, iu1;
 
+  InitFac1();
   iu0 = iuta;
-  f0 = OpenFileRO(sfn, &fh, &swp);
-  iu1 = iuta;
-  if (f0 == NULL) {
-    printf("cannot open file %s\n", sfn);
-    return -1;
+  if (m <= 0) {
+    f0 = OpenFileRO(sfn, &fh, &swp);
+    iu1 = iuta;
+    if (f0 == NULL) {
+      printf("cannot open file %s\n", sfn);
+      return -1;
+    }
+    FCLOSE(f0);
+  } else {
+    fh.type = DB_TR;
   }
-  FCLOSE(f0);
   iuta = iu0;
   switch(fh.type) {
   case DB_TR:
@@ -11539,31 +11574,43 @@ int PreloadTable(char *tfn, char *sfn, int m) {
 
 int PreloadTR(char *tfn, char *sfn, int m) {
   TFILE *f0, *f1;
-  int ib, i, j, k, t, n, swp, iu0, iu1, utr;
+  FILE *ft;
+  int ib, i, j, k, t, n, swp, iu0, iu1, utr, ns, z, ist;
   float *rt, *et;
+  double aij, fij, aw;
   F_HEADER fh, fh1;
   TR_HEADER h;
   TR_RECORD r;
   TR_EXTRA rx;
   IDXDAT *di, *dj;
+  char buf[2048], *p;
 
   if (_idxmap.nij == 0) {
     printf("index map not loaded\n");
     return -1;
   }
   iu0 = iuta;
-  f0 = OpenFileRO(sfn, &fh, &swp);
-  iu1 = iuta;
-  if (f0 == NULL) {
-    printf("cannot open file %s\n", sfn);
-    return -1;
+  if (m <= 0) {
+    f0 = OpenFileRO(sfn, &fh, &swp);
+    iu1 = iuta;
+    if (f0 == NULL) {
+      printf("cannot open file %s\n", sfn);
+      return -1;
+    }
+    if (fh.type != DB_TR) {
+      printf("file %s is not of type DB_TR\n", sfn);
+      return -1;
+    }
+    fh1.atom = fh.atom;
+    strcpy(fh1.symbol, fh.symbol);
+    z = (int)fh.atom;
+    ist = 0;
+  } else {
+    z = m%1000;
+    ist = m/1000;
+    fh1.atom = z;
+    strcpy(fh1.symbol, &(GetAtomicSymbolTable()[(z-1)*3]));
   }
-  if (fh.type != DB_TR) {
-    printf("file %s is not of type DB_TR\n", sfn);
-    return -1;
-  }
-  fh1.atom = fh.atom;
-  strcpy(fh1.symbol, fh.symbol);
   fh1.type = DB_TR;
   iuta = iu0;
   f1 = OpenFile(tfn, &fh1);
@@ -11572,7 +11619,7 @@ int PreloadTR(char *tfn, char *sfn, int m) {
     FCLOSE(f0);
     return -1;
   }
-  if (m == 0) {
+  if (m >= 0) {
     rt = malloc(sizeof(float)*_idxmap.nij);
     et = malloc(sizeof(float)*_idxmap.nij);
     for (i = 0; i < _idxmap.nij; i++) {
@@ -11583,44 +11630,103 @@ int PreloadTR(char *tfn, char *sfn, int m) {
   rx.energy = 0.0;
   rx.sdev = 0.0;
   rx.sci = 1.0;
-  for (ib = 0; ib < fh.nblocks; ib++) {
-    iuta = iu1;
-    n = ReadTRHeader(f0, &h, swp, &utr);
-    if (n == 0) break;
-    if (m) {
-      iuta = iu0;
-      InitFile(f1, &fh1, &h);
-    }
-    for (k = 0; k < h.ntransitions; k++) {
+  if (m <= 0) {
+    for (ib = 0; ib < fh.nblocks; ib++) {
       iuta = iu1;
-      n = ReadTRRecord(f0, &r, &rx, swp, utr);
-      di = IdxMap(r.lower);
-      dj = IdxMap(r.upper);
-      if (!di || !dj) continue;
-      r.lower = di->i;
-      r.upper = dj->i;      
-      if (SetPreloadedTR(r.lower, r.upper, h.multipole)) {
-	if (m == 0) {
-	  t = (r.upper-_idxmap.jm0)*_idxmap.ni + r.lower-_idxmap.im0;
-	  rt[t] += OscillatorStrength(h.multipole,
-				      dj->e-di->e, r.strength, NULL);
-	  et[t] = dj->e - di->e;
-	  SetPreloadedTR(r.lower, r.upper, 0);
-	} else {
-	  iuta = iu0;
-	  if (iu1 == 0) rx.energy = dj->e - di->e;
-	  WriteTRRecord(f1, &r, &rx, iuta);
+      n = ReadTRHeader(f0, &h, swp, &utr);
+      if (n == 0) break;
+      if (m < 0) {
+	iuta = iu0;
+	InitFile(f1, &fh1, &h);
+      }
+      for (k = 0; k < h.ntransitions; k++) {
+	iuta = iu1;
+	n = ReadTRRecord(f0, &r, &rx, swp, utr);
+	di = IdxMap(r.lower);
+	dj = IdxMap(r.upper);
+	if (!di || !dj) continue;
+	r.lower = di->i;
+	r.upper = dj->i;      
+	if (SetPreloadedTR(r.lower, r.upper, h.multipole)) {
+	  if (m == 0) {
+	    t = (r.upper-_idxmap.jm0)*_idxmap.ni + r.lower-_idxmap.im0;
+	    rt[t] += OscillatorStrength(h.multipole,
+					dj->e-di->e, r.strength, NULL);
+	    et[t] = dj->e - di->e;
+	    SetPreloadedTR(r.lower, r.upper, 0);
+	  } else {
+	    iuta = iu0;
+	    if (iu1 == 0) rx.energy = dj->e - di->e;
+	    WriteTRRecord(f1, &r, &rx, iuta);
+	  }
 	}
       }
+      if (m < 0) {
+	iuta = iu0;
+	DeinitFile(f1, &fh1);
+      }
+    }    
+    FCLOSE(f0);
+  } else {
+    ft = fopen(sfn, "r");
+    if (ft == NULL) {
+      printf("cannot open tr file: %s\n", sfn);
+      return -1;
     }
-    if (m) {
-      iuta = iu0;
-      DeinitFile(f1, &fh1);
+    while(1) {
+      if (NULL == fgets(buf, 2048, ft)) break;
+      ns = StrSplit(buf, ',');
+      if (ns != 5) continue;
+      p = buf;     
+      for (i = 0; i < ns; i++) {
+	if (i == 0) {
+	  j = atoi(p);
+	  if (j != ist) break;
+	} else if (i == 1) {
+	  aij = atof(p);
+	} else if (i == 2) {
+	  fij = atof(p);
+	} else {
+	  while (*p != '.') p++;
+	  p++;
+	  while (*p == '0') p++;
+	  if (i == 3) {
+	    j = atoi(p);
+	  } else {
+	    k = atoi(p);
+	    j += _idxmap.inist-1;
+	    k += _idxmap.inist-1;
+	    di = IdxMap(j);
+	    dj = IdxMap(k);
+	    if (!di || !dj) continue;
+	    r.lower = di->i;
+	    r.upper = dj->i;
+	    if (SetPreloadedTR(r.lower, r.upper, 0)) {
+	      t = (r.upper-_idxmap.jm0)*_idxmap.ni + r.lower-_idxmap.im0;
+	      et[t] = dj->e - di->e;
+	      if (fij > 0) {
+		rt[t] = fij*di->w;
+	      } else if (aij > 0) {
+		aij *= di->w/RATE_AU;
+		aw = FINE_STRUCTURE_CONST*et[t];
+		rt[t] = aij/(2*aw*aw*FINE_STRUCTURE_CONST);
+	      }
+	      SetPreloadedTR(r.lower, r.upper, 0);
+	    }
+	  }
+	}
+	while (*p) p++;
+	p++;
+      }
     }
   }
-  FCLOSE(f0);
-  if (m == 0) {
+  if (m >= 0) {
     h.multipole = 0;
+    h.gauge = 2;
+    h.mode = 1;
+    if (m > 0) {
+      h.nele = z-ist+1;
+    }      
     iuta = iu0;
     InitFile(f1, &fh1, &h);
     for (i = _idxmap.im0; i <= _idxmap.im1; i++) {
