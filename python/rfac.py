@@ -1882,9 +1882,10 @@ class FLEV:
             x = f.readlines()
             for n in range(len(x)):
                 a = x[n]
-                if a[:2] == '-1':
+                if a.strip() == '-1':
                     break
             d = x[:n]
+            d1 = [x[45:].split() for x in d]
             self.z = z
             self.asym = a
             self.ilev = np.array([int(x[:8])-1 for x in d])
@@ -1892,19 +1893,28 @@ class FLEV:
             self.ib[:] = -1
             self.nele = self.ilev.copy()
             self.nele[:] = k
-            self.e = np.array([float(x[73:88]) for x in d])*const.hc*1e-8
-            e1 = np.array([float(x[57:72]) for x in d])
+            self.e = np.array([float(x[4]) for x in d1])*const.hc*1e-8
+            e1 = np.array([float(x[3]) for x in d1])
             w = np.where(e1 > 0)[0]
             if len(w) > 0:
                 self.e[w] = e1[w]*const.hc*1e-8                
-            self.j = np.array([int(float(x[50:57])*2+0.1) for x in d])
-            self.s = np.array([x[12:42].strip() for x in d])
+            self.j = np.array([int(float(x[2])*2+0.1) for x in d1])
+            self.s = np.array([x[12:45].strip() for x in d])
             self.p = self.j.copy()
             for i in range(len(self.s)):
                 x = self.s[i].split(' ')
                 self.p[i] = 0
                 self.s[i] = ''
                 for a in x:
+                    b = a.split('(')
+                    if len(b) > 1:
+                        a = b[0]
+                    else:
+                        b = a.split(')')
+                        if len(b) > 1:
+                            a = b[-1]
+                            if len(a) == 0:
+                                continue
                     na = len(a)
                     for j in range(na):
                         if not a[j].isdigit():
@@ -2064,21 +2074,23 @@ class FLEV:
             self.cm[w] = b'.'
 
         if mc == 0:
-            cs = ['**%d'%k for k in m.nele]
-            cs0 = ['**%d'%k for k in self.nele]            
+            cs = np.array(['**%d'%k for k in m.nele])
+            cs0 = np.array(['**%d'%k for k in self.nele])
         else:  
-            cs = m.c.copy()
-            cs0 = self.c.copy()
-            ss = m.s.copy()
-            ss0 = self.s.copy()
-            
-            for i in range(len(cs)):
-                cs[i],ss[i],nn = fac.FillClosedShell(m.nele[i], m.c[i], m.s[i], m.n[i])
-            for i in range(len(cs0)):
-                cs0[i],ss0[i],nn = fac.FillClosedShell(self.nele[i], self.c[i], self.s[i], self.n[i])
-            if mc > 1:
-                cs = ss
-                cs0 = ss0
+            cs = ['']*len(m.c)
+            cs0 = ['']*len(self.c)
+            if mc == 1:
+                for i in range(len(cs)):
+                    cs[i],ss,nn = fac.FillClosedShell(m.nele[i], m.c[i], m.s[i], m.n[i])
+                for i in range(len(cs0)):
+                    cs0[i],ss0,nn = fac.FillClosedShell(self.nele[i], self.c[i], self.s[i], self.n[i])
+            else:
+                for i in range(len(cs)):
+                    cs[i] = remove_closed(m.s[i])
+                for i in range(len(cs0)):
+                    cs0[i] = remove_closed(self.s[i])
+            cs = np.array(cs)
+            cs0 = np.array(cs0)
         uc = np.unique(cs)
         imd = np.zeros(len(m.s),dtype=np.int32)
         js = self.j.copy()
@@ -2097,7 +2109,8 @@ class FLEV:
             ns = len(c)
             for p in [0, 1]:
                 ws = np.where((ps == p)&(cs0==c))[0]
-                wm = np.where((pm == p)&(cs==c))[0]                
+                wm = np.where((pm == p)&(cs==c))[0]
+                #print([c,p,len(ws),len(wm)])
                 if len(ws) == 0 or len(wm) == 0:
                     continue
                 jmin = max(min(js[ws]),min(jm[wm]))
@@ -2253,9 +2266,13 @@ class MLEV:
                 self.ei = gp[3]
             for i in range(len(self.c)):
                 a = self.c[i].split(" ")
-                a = a[0].split(".")
+                a = a[0].replace('(', '.(')                
+                a = a.replace(')', ').')
+                a = a.split(".")
                 tc = ''
                 for bs in a:
+                    if len(bs) == 0:
+                        continue
                     bs = bs.split('<')
                     for b in bs:
                         if len(b) == 0:

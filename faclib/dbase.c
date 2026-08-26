@@ -3235,15 +3235,24 @@ int FillClosedShell(int nele, EN_RECORD *r, char *nc, char *sn, char *nm) {
       nst = 0;
       for (k = 0; k < mk; k++) {
 	if (((i+1) & (1<<k)) && ncq[k] == 0) {
-	  nst += 2*(k+1)*(k+1);
+	  for (i0 = 0; i0 <= k; i0++) {
+	    nst += 2*(2*i0+1);
+	    if (nst == nele-nqt) break;
+	  }
 	}
+	if (nst == nele-nqt) break;
       }
       if (nst == nele-nqt) {
 	for (k = 0; k < mk; k++) {
 	  if (((i+1) & (1<<k)) && ncq[k] == 0) {
-	    ncq[k] = 2*(k+1)*(k+1);
-	    nqt += ncq[k];
+	    for (i0 = 0; i0 <= k; i0++) {
+	      ns = 2*(2*i0+1);
+	      ncq[k] += ns;
+	      nqt += ns;
+	      if (nqt == nele) break;
+	    }
 	  }
+	  if (nqt == nele) break;
 	}
 	break;
       }
@@ -3420,7 +3429,8 @@ int FillClosedShell(int nele, EN_RECORD *r, char *nc, char *sn, char *nm) {
   for (n = 1; n <= nmax; n++) {
     i0 = ((n+2)*(n-1))/2;
     if (ncq[n-1] > 0) {
-      sprintf(nc, "%s%d*%d.", nc, n, ncq[n-1]);
+      sprintf(nc0, "%d*%d.", n, ncq[n-1]);
+      strcat(nc, nc0);    
     }
     for (k = 0; k < n; k++) {
       if (nsq[i0+k] > 0) {
@@ -3428,32 +3438,36 @@ int FillClosedShell(int nele, EN_RECORD *r, char *nc, char *sn, char *nm) {
 	if (nr[i0+k]) {
 	  ss[0] = toupper(ss[0]);
 	}
-	sprintf(sn, "%s%d%s%d.", sn, n, ss, nsq[i0+k]);
+	sprintf(sn0, "%d%s%d.", n, ss, nsq[i0+k]);
+	strcat(sn, sn0);
 	if (nr[i0+k] == 0) {
 	  if (jmq[i0+k] > 0) {
 	    if (ij) {
-	      sprintf(nm, "%s%d%s-%d(%d)%d.",
-		      nm, n, ss, jmq[i0+k], nmj[i0+k], nmt[i0+k]);
+	      sprintf(nm0, "%d%s-%d(%d)%d.",
+		      n, ss, jmq[i0+k], nmj[i0+k], nmt[i0+k]);
 	    } else {
-	      sprintf(nm, "%s%d%s-%d.", nm, n, ss, jmq[i0+k]);
+	      sprintf(nm0, "%d%s-%d.", n, ss, jmq[i0+k]);
 	    }
 	  }
 	  if (jpq[i0+k] > 0) {
 	    if (ij) {
-	      sprintf(nm, "%s%d%s+%d(%d)%d.",
-		      nm, n, ss, jpq[i0+k], npj[i0+k], npt[i0+k]);
+	      sprintf(nm0, "%d%s+%d(%d)%d.",
+		      n, ss, jpq[i0+k], npj[i0+k], npt[i0+k]);
 	    } else {
-	      sprintf(nm, "%s%d%s+%d.", nm, n, ss, jpq[i0+k]);
+	      sprintf(nm0, "%d%s+%d.", n, ss, jpq[i0+k]);
 	    }
 	  }
 	} else {
-	  sprintf(nm, "%s%d%s%d.", nm, n, ss, nsq[i0+k]);
-	}
+	  sprintf(nm0, "%d%s%d.", n, ss, nsq[i0+k]);
+	}      
+	strcat(nm, nm0);
       }
     }
     if (nsq[i0+n] > 0) {
-      sprintf(sn, "%s%da%d.", sn, n, nsq[i0+n]);
-      sprintf(nm, "%s%da%d.", nm, n, nsq[i0+n]);
+      sprintf(sn0, "%da%d.", n, nsq[i0+n]);
+      strcat(sn, sn0);
+      sprintf(nm0, "%da%d.", n, nsq[i0+n]);
+      strcat(nm, nm0);
     }
   }
   n = strlen(nc);
