@@ -5514,10 +5514,10 @@ static int PFillClosedShell(int argc, char *argv[], int argt[],
   } else {  
     printf("c0: %s\n", argv[1]);
     printf("c1: %s\n", nc);
-    printf("c0: %s\n", argv[2]);
-    printf("c1: %s\n", sn);
-    printf("c0: %s\n", argv[3]);
-    printf("c1: %s\n", nm);
+    printf("s0: %s\n", argv[2]);
+    printf("s1: %s\n", sn);
+    printf("n0: %s\n", argv[3]);
+    printf("n1: %s\n", nm);
   }
   return 0;
 }
