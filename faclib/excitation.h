@@ -148,5 +148,5 @@ int SaveExcitationEBD(int nlow, int *low, int nup, int *up, char *fn);
 void SetOptionExcitation(char *s, char *sp, int ip, double dp);
 void AllocExcDWS(void);
 void PrepCEUTA(int nmin0, int nmax0, int nmin1, int nmax1, int kmin, int kmax);
-
+double RelCrossDelta(double e1, double te, double b);
 #endif

@@ -540,7 +540,7 @@ typedef struct _JJLSJ_ {
 
 typedef struct _IDXDAT_ {
   int i;
-  double e;
+  double e, w;
 } IDXDAT;
 
 typedef struct _IDXMAP_ {
@@ -548,6 +548,7 @@ typedef struct _IDXMAP_ {
   ARRAY *imap;
   int i0, im0, i1, im1;
   int j0, jm0, j1, jm1;
+  int inist;
   int xm[32];
   long *mask;
 } IDXMAP;
