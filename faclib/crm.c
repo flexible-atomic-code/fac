@@ -86,7 +86,8 @@ static double _starkzb = 1.0;
 static double _starkaix = 1.0;
 static double _starksmx = 3.0;
 static double _starkmfs = 1.5;
-static double _starkrij = 0.75;
+static double _starkrij = 1.0;
+static double _starkrij2 = 0.5;
 static double _starkefs = 1.0;
 static double _starkix1 = 1.0;
 static double _starkix2 = 4.0;
@@ -124,6 +125,30 @@ static double _mfd4[10] = {0.75575757,  0.96542404,  1.22862064,
 			   0.03221276,  0.01401347,  0.24654512,
 			   0.95572507,  0.1262922
 };
+
+static double _gff_HummerD[88] = {
+	8.98694018e+00, -4.00951586e+00,  8.80887127e-01,  2.64024511e-02,
+       -4.58064591e-02, -3.56805570e-03,  2.82779807e-03,  3.36586020e-04,
+       -8.00693699e-01,  9.46602170e-01,  9.04340253e-02, -9.60845145e-02,
+       -1.88562986e-02,  1.05031389e-02,  2.80088996e-03, -1.07820920e-03,
+       -3.78130510e-01,  1.10272633e-01, -1.54361918e-02,  8.31056111e-03,
+        2.17962052e-02,  4.25972629e-03, -4.18158879e-03, -1.77020833e-03,
+        1.87721313e-02, -1.00488570e-01, -5.48336638e-02, -4.52015441e-03,
+        8.36653043e-03,  3.70027393e-03,  6.88932042e-04,  9.46031320e-05,
+        7.30015839e-02,  3.57678550e-03, -4.54530702e-03, -1.01796560e-02,
+       -9.53021192e-03, -3.45018616e-03,  1.04048291e-03,  1.40707354e-03,
+       -1.74467155e-03,  2.86401386e-02,  1.90339484e-02,  7.09107449e-03,
+       -9.66837139e-04, -2.99910746e-03, -1.82064223e-03, -3.87408208e-04,
+       -1.70726837e-02, -4.69425478e-03,  1.31169152e-03,  5.31670314e-03,
+        5.17819310e-03,  2.45122893e-03, -2.27732161e-05, -8.18235906e-04,
+        2.56733166e-04, -9.15533997e-03, -6.99747919e-03, -3.57151864e-03,
+       -2.09610104e-04,  1.55382249e-03,  1.50958469e-03,  6.21262784e-04,
+        4.09832253e-03,  1.63521846e-03, -5.91888350e-04, -2.33309105e-03,
+       -2.48413831e-03, -1.35999606e-03, -5.37142615e-05,  5.55354956e-04,
+        3.83756240e-05,  2.93832523e-03,  2.39374706e-03,  1.32883981e-03,
+        9.13501331e-05, -7.13725230e-04, -7.65684816e-04, -3.50468380e-04,
+       -8.49199182e-04, -3.61532773e-04,  3.14801526e-04,  8.90920765e-04,
+        9.86973752e-04,  6.13467118e-04,  1.06888339e-04, -2.04608010e-04};
 
 #pragma omp threadprivate(_ce_data, _rr_data)
 
@@ -1860,20 +1885,29 @@ int InitBlocks(void) {
 	  b = FINE_STRUCTURE_CONST * de;
 	  b *= 2.0*b*FINE_STRUCTURE_CONST;
 	  a /= b;
+	  double zt = z-ion->nele+1.0;
 	  double fij = a/(ion->j[r->f]+1.0);
-	  double eta = de/(3*tea);
-	  double rij = sqrt(fij*1.5*_starkrij/de);
-	  b = _starkrij*StarkFW(eta*rij);
-	  double rdne = 6.25e2*electron_density*a*(b/de)/sqrt(2*tea);
-	  double rupe = rdne*exp(-de/tea)*(ion->j[r->i]+1.0)/(ion->j[r->f]+1.0);
+	  double eta = de/(3*tea*(ion->j[r->i]+1.0));
+	  double za = zt*FINE_STRUCTURE_CONST;
 	  int type = TransitionType(blk1->ncomplex, blk2->ncomplex);
 	  int nlo = type%100;
 	  int nup = (type/100)%100;
-	  double zt = z-ion->nele+1.0;
-	  double za = zt*FINE_STRUCTURE_CONST;
 	  double efs = (_starkefs*0.25*zt*zt/(nup*nup*nup))*(za*za);
-	  de = Max(de, efs);
-	  de *= RATE_AU;
+	  double rde = Max(efs, de);
+	  double rij = sqrt(fij*1.5*_starkrij*(ion->j[r->i]+1.0)/rde);
+	  if (nup == 2 && nlo == 2 && ion->nele == 1) rij *= _starkrij2;
+	  b = zt-1.0;
+	  b = Max(0.05, b);
+	  b = 0.5*b*b/tea;
+	  double wp = 1.364e-7*sqrt(electron_density);
+	  wp = Max(wp, de);
+	  b = GauntHummer(b, wp/tea);
+	  if (ion->nele < z) {
+	    b *= 3/(1+2/(zt*zt*zt));
+	  }	  
+	  double rdne = 3e2*electron_density*a*(b/de)/sqrt(tea);
+	  double rupe = rdne*exp(-de/tea)*(ion->j[r->i]+1.0)/(ion->j[r->f]+1.0);
+	  de = rde*RATE_AU;
 	  double rdn = LimitImpactWidth(rdne, de, 1);
 	  double rup = LimitImpactWidth(rupe, de, 1);
 	  j = ion->ilev[r->i];
@@ -7941,6 +7975,10 @@ void SetOptionCRM(char *s, char *sp, int ip, double dp) {
     _starkrij = dp;
     return;
   }
+  if (0 == strcmp(s, "crm:starkrij2")) {
+    _starkrij2 = dp;
+    return;
+  }
   if (0 == strcmp(s, "crm:starkefs")) {
     _starkefs = dp;
     return;
@@ -9649,3 +9687,43 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
   free(rc.rc);
 }
 
+double GauntHummer(double g2, double u) {
+  double c[8];
+  double xg, xu, tm1, tm2, t, gff;
+  int i, j;
+
+  g2 = Min(1e4, g2);
+  g2 = Max(1e-4, g2);
+  u = Min(100, u);
+  u = Max(5e-5, u);
+  
+  g2 = log10(g2);
+  u = log10(u);
+  
+  xg = g2/3.0;
+  tm1 = xg;
+  tm2 = 1.0;
+  for (j = 0; j < 8; j++) {
+    c[j] = _gff_HummerD[j]*0.5 + _gff_HummerD[8+j]*xg; 
+  }
+  for (i = 2; i < 11; i++) {
+    t = 2*xg*tm1 - tm2;
+    for (j = 0; j < 8; j++) {
+      c[j] += _gff_HummerD[8*i+j]*t;
+    }
+    tm2 = tm1;
+    tm1 = t;
+  }
+
+  xu = (2.0*u + 2.5)/5.5;
+  tm2 = 1.0;
+  tm1 = xu;
+  gff = c[0]*0.5 + c[1]*tm1;
+  for (j = 2; j < 8; j++) {
+    t = 2.0*xu*tm1 - tm2;
+    gff += c[j]*t;
+    tm2 = tm1;
+    tm1 = t;
+  }
+  return gff;
+}

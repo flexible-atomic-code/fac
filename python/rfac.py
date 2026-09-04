@@ -132,7 +132,11 @@ def nlq(s):
     return n,l,q
 
 def nlqs(s):
-    r = np.array([nlq(x) for x in s.split(' ')])    
+    try:
+        i = s.index('.')
+        r = np.array([nlq(x) for x in s.split('.')])
+    except:
+        r = np.array([nlq(x) for x in s.split(' ')])    
     i = np.argsort(r[:,0]*100 + r[:,1])
     a = []
     for x in i:
@@ -145,6 +149,70 @@ def nlqs(s):
     if len(a) == 0:
         a = [(1,0,0)]
     return a
+
+def jenl(c0, c1):
+    r0 = nlqs(c0)
+    r1 = nlqs(c1)
+    n0 = len(r0)
+    n1 = len(r1)
+    i = 0
+    j = 0
+    k = ['', '', 0]
+    ns = [0, 0]
+    while i < n0 or j < n1:
+        if i >= n0:
+            x0 = list(r1[j])
+            x0[2] = 0
+            x1 = r1[j]
+            j+=1
+        elif j >= n1:
+            x0 = r0[i]
+            x1 = list(x1)
+            x1[2] = 0
+            i+=1
+        else:
+            x0 = list(r0[i])
+            x1 = list(r1[j])
+            kd = 0
+            if x0[0] < x1[0]:
+                x1 = x0.copy()
+                x1[2] = 0
+                i+=1
+                kd = 1
+            if x0[0] > x1[0]:
+                x0 = x1.copy()
+                x0[2] = 0
+                j+=1
+                kd = 1
+            if x0[1] < x1[1]:
+                x1 = x0.copy()
+                x1[2] = 0
+                i+=1
+                kd = 1
+            if x0[1] > x1[0]:
+                x1 = x0.copy()
+                x1[2] = 0
+                j+=1
+                kd = 1
+            if kd == 0:
+                i+=1
+                j+=1
+        if x0[2] > x1[2]:
+            if k[0] == '':
+                k[0]='%d%s'%(x0[0],fac.SPECSYMBOL[x0[1]])
+                ns[0] = x0[0]
+        elif x0[2] < x1[2]:
+            if k[1] == '':
+                k[1]='%d%s'%(x0[0],fac.SPECSYMBOL[x0[1]])
+                ns[1] = x0[0]
+    k[2] = 0
+    for i in range(n0):
+        if r0[i][0] > ns[0]:
+            k[2] = r0[i][0]
+    if k[2] > 0 and k[2] != r1[-1][0]:
+        k = ['', '', 0]
+        
+    return k
 
 def nqt(s):
     r = nlqs(s)
@@ -1700,7 +1768,7 @@ def load_atbase(fn, trans=0):
             j[t] = int(2*float(x[4]))
             wj[t] = int(float(x[3]))
             if len(x) == 5:
-                tm[t] = ''
+                tm[t] = b'1S'
                 a = '1s(0)'
             elif len(x) == 7:
                 tm[t] = x[5]
@@ -1718,8 +1786,11 @@ def load_atbase(fn, trans=0):
                 a = ''
                 for c in b:
                     if c[0] == '{':
-                        c = c[4:]                    
-                    kt += ks[c[1:2]]*int(c[2:])
+                        c = c[4:]
+                    ik = 1
+                    while c[ik].isdigit():
+                        ik += 1                        
+                    kt += ks[c[ik]]*int(c[ik+1:])
                     a += '.' + c
                 p[t] = kt%2
                 s[t] = a[1:]
