@@ -460,7 +460,7 @@ int ConstructHamiltonDiagonal(int isym, int k, int *kg, int m) {
   }
   if (!(h->basis)) goto ERROR;
 
-  h->msize = h->dim*h->n_basis + h->dim;
+  h->msize = (size_t)h->dim * (size_t)h->n_basis + h->dim;
   if (h->hamilton == NULL) {
     h->hsize0 = h->hsize;
     h->hamilton = (double *) malloc(sizeof(double)*h->hsize);
@@ -7090,7 +7090,7 @@ int AllocHamMem(HAMILTON *h, int hdim, int nbasis) {
   h->iham = nhams;
   h->n_basis = nbasis;
 
-  h->msize = h->dim * h->n_basis + h->dim;
+  h->msize = (size_t)h->dim * (size_t)h->n_basis + (size_t)h->dim;
   if (h->mixing == NULL) {
     h->msize0 = h->msize;
     h->mixing = (double *) malloc(sizeof(double)*(size_t)h->msize);
@@ -7127,10 +7127,10 @@ int AllocHamMem(HAMILTON *h, int hdim, int nbasis) {
     return 0;
   }
   
-  t = hdim*(hdim+1)/2;
+  t = (size_t)hdim * (size_t)(hdim+1)/2;
   h->dsize = t;
   h->dsize2 = t*2;
-  h->hsize = t + hdim*jp + jp;
+  h->hsize = t + (size_t)hdim*(size_t)jp + jp;
   if (h->hamilton == NULL) {
     h->hsize0 = h->hsize;
     h->hamilton = (double *) malloc(sizeof(double)*(size_t)h->hsize);
@@ -7147,7 +7147,7 @@ int AllocHamMem(HAMILTON *h, int hdim, int nbasis) {
   size_t wl = 3*t;
   size_t wi = 0;
   if (nbasis > hdim) {
-    wl += t + hdim*(nbasis-hdim);
+    wl += t + (size_t)hdim*(size_t)(nbasis-hdim);
     wi += nbasis-hdim;
   }
   if (h->work == NULL) {
