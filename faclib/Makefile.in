@@ -26,7 +26,7 @@ endif
 
 faclib: ${OBJS}
 ifdef F2C
-	$(FC) -c -o f2c.o f2c.f90
+	$(FC) $(FFLAGS) -c -o f2c.o f2c.f90
 endif
 	ar r ${TOPDIR}/libfac.a ${OBJS} ${FOBJ}
 
