@@ -4545,12 +4545,21 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
 		int n0 = type%100;
 		int n1 = (type/100)%100;
 		int dn = abs(n0-n1)%2;
+		int n2 = type/10000;
 		wi0 = malloc(sizeof(double)*_starknp);
 		we0 = r.trate;
 		for (ip = 0; ip < _starknp; ip++) {
 		  wi0[ip] = iblk->rc2[(ion->ilev[rt->i]*_starknp+ip)];
 		  wi0[ip] += fblk->rc2[(ion->ilev[rt->f]*_starknp+ip)];
 		  wi0[ip] *= WCOEF;
+		}
+		if (n2 > n1) {
+		  double fns = (n2-n1+1.0);
+		  fns *= sqrt(fns);
+		  we0 /= fns;
+		  for (ip = 0; ip < _starknp; ip++) {
+		    wi0[ip] /= fns;
+		  }
 		}
 		r.wstk = CalcStarkQC(&we0, wi0, _stark_wd, ion->nele);
 		r.wimp = we0;
