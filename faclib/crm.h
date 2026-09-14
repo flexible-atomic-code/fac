@@ -237,6 +237,7 @@ double DRSupFactor(double z0, double d0, double t0);
 void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap,
 		      int nt, double t0, double t1,
 		      int nd, double d0, double d1, int md);
+double GauntHummer(double g2, double u);
 ARRAY* _GetIons();  // Add an access to ions for testing purpose
 #endif
 

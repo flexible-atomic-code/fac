@@ -4415,9 +4415,9 @@ void SetPotentialIPS(POTENTIAL *pot, int iter) {
       double xd = x/pot->dps;
       double xdd = xd/pot->dps;
       if (_debye_mode == 0) {
-	pot->ZPS[i] = pot->zps*(x-1.0);
-	pot->dZPS[i] = -pot->zps*xd;
-	pot->dZPS2[i] = pot->zps*xdd;
+	pot->ZPS[i] = -pot->zps*(x-1.0);
+	pot->dZPS[i] = pot->zps*xd;
+	pot->dZPS2[i] = -pot->zps*xdd;
       } else if (_debye_mode == 1) {
 	pot->ZPS[i] = pot->Z[i]*(x-1.0);
 	double xd = x/pot->dps;
