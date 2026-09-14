@@ -7130,7 +7130,7 @@ int AllocHamMem(HAMILTON *h, int hdim, int nbasis) {
   t = (size_t)hdim * (size_t)(hdim+1)/2;
   h->dsize = t;
   h->dsize2 = t*2;
-  h->hsize = t + (size_t)hdim*(size_t)jp + jp;
+  h->hsize = t + (size_t)hdim*(size_t)jp + (size_t)jp;
   if (h->hamilton == NULL) {
     h->hsize0 = h->hsize;
     h->hamilton = (double *) malloc(sizeof(double)*(size_t)h->hsize);

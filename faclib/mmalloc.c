@@ -29,12 +29,12 @@ double dmsize() {
 
 void *mmalloc(size_t size) {
   size_t *p = NULL;
-  int ns = size + sizeof(size_t);
+  size_t ns = size + sizeof(size_t);
   p = (size_t *) malloc(ns);
   if (p == NULL) {
-    printf("malloc error: %zu %zu\n", size, _tsize);
-    int *ix = 0;
-    *ix = 0;
+    printf("malloc error: requested %zu bytes, current total %zu\n", size, _tsize);
+    fflush(stdout);
+    exit(1);
   }
   *p = ns;
 #pragma omp atomic
@@ -50,6 +50,7 @@ void *mcalloc(size_t n, size_t size) {
   p = (size_t *) calloc(ns, 1);
   if (p == NULL) {
     printf("calloc error: %zu %zu %zu\n", n, size, _tsize);
+    fflush(stdout);
     exit(1);
   }
   *p = ns;
@@ -61,8 +62,8 @@ void *mcalloc(size_t n, size_t size) {
 
 void *mrealloc(void *p, size_t size) {
   size_t *ps;
-  int ns = size+sizeof(size_t);
-  int ns0 = 0;
+  size_t ns = size+sizeof(size_t);
+  size_t ns0 = 0;
   
   if (p) {
     ps = (size_t *) p;
@@ -72,13 +73,18 @@ void *mrealloc(void *p, size_t size) {
   ps = (size_t *) realloc(ps, ns);
   if (ps == NULL) {
     printf("realloc error: %zu %zu\n", size, _tsize);
+    fflush(stdout);
     exit(1);
   }
   *ps = ns;
 
-  ns -= ns0;
+  if (ns >= ns0) {
 #pragma omp atomic
-  _tsize += ns;
+    _tsize += (ns - ns0);
+  } else {
+#pragma omp atomic
+    _tsize -= (ns0 - ns);
+  }
 
   return &ps[1];
 }
