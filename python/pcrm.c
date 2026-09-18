@@ -1797,12 +1797,14 @@ static PyObject *PRateCoefficients(PyObject *self, PyObject *args) {
   return Py_None;
 }
 
-static PyObject *PGauntHummer(PyObject *self, PyObject *args) {
+static PyObject *PGauntFF(PyObject *self, PyObject *args) {
   double g2, u;
+  int m;
 
-  if (!PyArg_ParseTuple(args, "dd", &g2, &u)) return NULL;
+  m = 5;
+  if (!PyArg_ParseTuple(args, "dd|i", &g2, &u, &m)) return NULL;
 
-  return Py_BuildValue("d", GauntHummer(g2, u));
+  return Py_BuildValue("d", GauntFF(g2, u, m));
 }
 
 static struct PyMethodDef crm_methods[] = {
@@ -1832,7 +1834,7 @@ static struct PyMethodDef crm_methods[] = {
   {"SetRateAccuracy", PSetRateAccuracy, METH_VARARGS},
   {"SetBlocks", PSetBlocks, METH_VARARGS},
   {"RateTable", PRateTable, METH_VARARGS},
-  {"GauntHummer", PGauntHummer, METH_VARARGS},
+  {"GauntFF", PGauntFF, METH_VARARGS},
   {"AddIon", PAddIon, METH_VARARGS},
   {"SetCERates", PSetCERates, METH_VARARGS},
   {"SetCXRates", PSetCXRates, METH_VARARGS},
