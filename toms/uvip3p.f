@@ -505,8 +505,8 @@ C Error exit
       GO TO 99
  92   WRITE (*,99092) ID,XD(ID-1),XD(ID)
  99   WRITE (*,99099)
-      XD(ND+1000000) = 0.0
-      STOP
+      YI(1) = 1d31
+      stop
       RETURN
 C Format statements for error messages
 99090 FORMAT (1X/ ' ***   Insufficient data points.'

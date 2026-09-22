@@ -59,5 +59,8 @@ rate = spm.get_complexes(nele)
 RateTable(p+'b.rt', rate)
 PrintTable(p+'b.rt', p+'a.rt', 1)
 
+for m in [0,1,3]:
+    DumpRates(p+'a.r%d'%m, -1, m, -1, 1)
+    
 if use_openmp:
     FinalizeMPI()

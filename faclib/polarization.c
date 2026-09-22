@@ -639,9 +639,9 @@ int SetMCERates(char *fn) {
   int n, k, m, t, p, i, q;
   int m1, m2, j1, j2, i0;
   int swp, ncs;
-  double data[2+(1+MAXNUSR)*4];
+  double data[4+(1+MAXNUSR)*4];
   double *cs1, *cs2;
-  double e1, e2, e, a, v, ratio;
+  double e1, e2, e, a, v, cs, ratio;
   double esigma, energy;
   double egrid[NEINT], rint[NEINT], fint[NEINT];
   
@@ -702,7 +702,6 @@ int SetMCERates(char *fn) {
   while (1) {
     n = ReadCEHeader(f, &h, swp);
     if (n == 0) break;
-    PrepCECrossHeader(&h, data);
     for (i = 0; i < h.ntransitions; i++) {
       n = ReadCERecord(f, &r, swp, &h);
       e = levels[r.upper].energy - levels[r.lower].energy;
@@ -714,17 +713,14 @@ int SetMCERates(char *fn) {
 	cs2 = cs1 + ncs;
       }
       for (k = 0; k < r.nsub; k++) {
-	PrepCECrossRecord(k, &r, &h, data);
+	PrepCECrossRecord(k, &r, &h, data, fh.atom);
 	if (esigma > 0 && params.idr < 0) {
 	  i0 = -1;
 	  for (q = 0; q < NEINT; q++) {
 	    e2 = egrid[q] - e;
 	    if (e2 >= 0) {
-	      rint[q] = InterpolateCECross(e2, &r, &h, data, &ratio);
-	      a = egrid[q]/HARTREE_EV;
-	      a *= (1.0 + 0.5*FINE_STRUCTURE_CONST2*a);
-	      a = PI*AREA_AU20/(2.0*a);
-	      rint[q] *= a*fint[q];
+	      cs = InterpolateCECross(e2, &r, &h, data, &a, &ratio);
+	      rint[q] = a*fint[q];
 	      if (i0 < 0) i0 = q;
 	    }
 	  }
@@ -736,26 +732,17 @@ int SetMCERates(char *fn) {
 	  }
 	  for (q = 0; q < NEINT; q++) {
 	    e2 = egrid[q];
-	    rint[q] = InterpolateCECross(e2, &r, &h, data, &ratio);
-	    a = e2/HARTREE_EV;
-	    a *= (1.0 + 0.5*FINE_STRUCTURE_CONST2*a);
-	    a = PI*AREA_AU20/(2.0*a);
-	    rint[q] *= a*fint[q];
+	    cs = InterpolateCECross(e2, &r, &h, data, &a, &ratio);
+	    rint[q] = a*fint[q];
 	  }
 	  cs2[k] = Simpson(rint, 0, NEINT-1)*(egrid[1]-egrid[0]);
 	} else {
 	  e2 = e1 - e;
-	  cs1[k] = InterpolateCECross(e2, &r, &h, data, &ratio);
-	  a = e1/HARTREE_EV;
-	  a *= (1.0 + 0.5*FINE_STRUCTURE_CONST2*a);
-	  a = PI*AREA_AU20/(2.0*a);
-	  cs1[k] *= a*v;
+	  cs = InterpolateCECross(e2, &r, &h, data, &a, &ratio);
+	  cs1[k] = a*v;
 	  e2 = e1;
-	  cs2[k] = InterpolateCECross(e2, &r, &h, data, &ratio);
-	  a = e2/HARTREE_EV;
-	  a *= (1.0 + 0.5*FINE_STRUCTURE_CONST2*a);
-	  a = PI*AREA_AU20/(2.0*a);
-	  cs2[k] *= a*v;
+	  cs = InterpolateCECross(e2, &r, &h, data, &a, &ratio);
+	  cs2[k] = a*v;
 	}
       }
       ce_rates[t].lower = r.lower;

@@ -65,20 +65,20 @@ double MaxwellRC(double x, double t);
 int NewtonCotes(double *r, double *x, int i0, int i1, int m, int id);
 int NewtonCotesIP(double *r, double *x, int i0, int i1, int m, int id);
 double RRCrossHn(double z, double e, int n);
-void PrepCECrossHeader(CE_HEADER *h, double *data);
+void PrepCECrossData(int m, double *data);
+double InterpCECrossData(int m, double *data, double e, double *cx, double *r);
 void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
-		       double *data);
+		       double *data, double z);
 double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
-			  double *data, double *ratio);
+			  double *data, double *cx, double *ratio);
 int CECross(char *ifn, char *ofn, int i0, int i1, 
 	    int negy, double *egy, int mp);
 int CEMaxwell(char *ifn, char *ofn, int i0, int i1, 
 	      int nt, double *temp);
-void PrepCEFCrossHeader(CEF_HEADER *h, double *data);
 void PrepCEFCrossRecord(CEF_RECORD *r, CEF_HEADER *h,
-			double *data);
+			double *data, double z);
 double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
-			   double *data);
+			   double *data, double *cx);
 int CEFCross(char *ifn, char *ofn, int i0, int i1, 
 	     int negy, double *egy, int mp);
 int CEFMaxwell(char *ifn, char *ofn, int i0, int i1, 

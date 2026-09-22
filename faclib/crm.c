@@ -70,7 +70,7 @@ static int _sp_trm = 1;
 static int _rates_block = RATES_BLOCK;
 static int _lblock_block = LBLOCK_BLOCK;
 
-static double _ce_data[2+(1+MAXNUSR)*2];
+static double _ce_data[4+(1+MAXNUSR)*4];
 static double _rr_data[1+MAXNUSR*4];
 static int _ce_bethe = 0;
 
@@ -125,30 +125,6 @@ static double _mfd4[10] = {0.75575757,  0.96542404,  1.22862064,
 			   0.03221276,  0.01401347,  0.24654512,
 			   0.95572507,  0.1262922
 };
-
-static double _gff_HummerD[88] = {
-	8.98694018e+00, -4.00951586e+00,  8.80887127e-01,  2.64024511e-02,
-       -4.58064591e-02, -3.56805570e-03,  2.82779807e-03,  3.36586020e-04,
-       -8.00693699e-01,  9.46602170e-01,  9.04340253e-02, -9.60845145e-02,
-       -1.88562986e-02,  1.05031389e-02,  2.80088996e-03, -1.07820920e-03,
-       -3.78130510e-01,  1.10272633e-01, -1.54361918e-02,  8.31056111e-03,
-        2.17962052e-02,  4.25972629e-03, -4.18158879e-03, -1.77020833e-03,
-        1.87721313e-02, -1.00488570e-01, -5.48336638e-02, -4.52015441e-03,
-        8.36653043e-03,  3.70027393e-03,  6.88932042e-04,  9.46031320e-05,
-        7.30015839e-02,  3.57678550e-03, -4.54530702e-03, -1.01796560e-02,
-       -9.53021192e-03, -3.45018616e-03,  1.04048291e-03,  1.40707354e-03,
-       -1.74467155e-03,  2.86401386e-02,  1.90339484e-02,  7.09107449e-03,
-       -9.66837139e-04, -2.99910746e-03, -1.82064223e-03, -3.87408208e-04,
-       -1.70726837e-02, -4.69425478e-03,  1.31169152e-03,  5.31670314e-03,
-        5.17819310e-03,  2.45122893e-03, -2.27732161e-05, -8.18235906e-04,
-        2.56733166e-04, -9.15533997e-03, -6.99747919e-03, -3.57151864e-03,
-       -2.09610104e-04,  1.55382249e-03,  1.50958469e-03,  6.21262784e-04,
-        4.09832253e-03,  1.63521846e-03, -5.91888350e-04, -2.33309105e-03,
-       -2.48413831e-03, -1.35999606e-03, -5.37142615e-05,  5.55354956e-04,
-        3.83756240e-05,  2.93832523e-03,  2.39374706e-03,  1.32883981e-03,
-        9.13501331e-05, -7.13725230e-04, -7.65684816e-04, -3.50468380e-04,
-       -8.49199182e-04, -3.61532773e-04,  3.14801526e-04,  8.90920765e-04,
-        9.86973752e-04,  6.13467118e-04,  1.06888339e-04, -2.04608010e-04};
 
 #pragma omp threadprivate(_ce_data, _rr_data)
 
@@ -4447,6 +4423,7 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
       r.rrate = ion->j[m]+1.0;
       r.trate = blk->total_rate[p];
       r.wstk = 0.0;
+      r.wimp = 0.0;
       rx.sdev = 0.0;
       r.strength = blk->n[p];
       WriteSPRecord(f, &r, &rx, iuta);
@@ -5772,35 +5749,17 @@ int SetCERates(int inv) {
       }
       m = h.n_usr;
       m1 = m + 1;
-#pragma omp parallel default(shared) private(x, y, data, j)
-      {
-	data = _ce_data;
-	y = data + 2;
-	x = y + m1;
-	if (h.tegrid[0] < 0) {
-	  data[0] = -1.0;
-	  for (j = 0; j < m; j++) {
-	    x[j] = log(1 + eusr[j]);
-	  }
-	  x[m] = eusr[m-1]/(1+eusr[m-1]);
-	} else {
-	  data[0] = (h.te0*HARTREE_EV + bte)/bms;
-	  for (j = 0; j < m; j++) {
-	    x[j] = log((data[0] + eusr[j]*HARTREE_EV)/data[0]);
-	  }	  
-	  x[m] = eusr[m-1]/(data[0]/HARTREE_EV+eusr[m-1]);
-	}
-      }
       nrb = Min(NRTB, h.ntransitions);
       jb = 0;
       for (i = 0; i < h.ntransitions; i++) {
 	n = ReadCERecord(f, &r[jb++], swp, &h);
 	if (jb == nrb) {
 	  ResetWidMPI();
-#pragma omp parallel default(shared) private(ib, j1, j2, e, cs, j, data, y)
+#pragma omp parallel default(shared) private(ib, j1, j2, e, cs, j, data, x, y)
 	  {
 	  data = _ce_data;
-	  y = data + 2;
+	  y = data + 4;
+	  x = y + m1;
 	  double b, c;
 	  int w = 0;
 	  for (ib = 0; ib < nrb; ib++) {
@@ -5817,12 +5776,26 @@ int SetCERates(int inv) {
 	    j1 = ion->j[r[ib].lower];
 	    j2 = ion->j[r[ib].upper];
 	    e = ion->energy[r[ib].upper] - ion->energy[r[ib].lower];
+	    data[0] = (e+bte)/bms;
 	    data[1] = r[ib].bethe;
+	    data[2] = e;
+	    data[3] = fh.atom-h.nele;
 	    cs = r[ib].strength;
 	    y[m] = r[ib].born[0];
-	    for (j = 0; j < m; j++) {
-	      y[j] = cs[j];
+	    if (h.tegrid[0] < 0) {
+	      for (j = 0; j < m; j++) {
+		y[j] = cs[j];
+		x[j] = eusr[j]*e;
+	      }
+	      x[m] = r[ib].born[1];
+	    } else {
+	      for (j = 0; j < m; j++) {
+		y[j] = cs[j];
+		x[j] = eusr[j];
+	      }
+	      x[m] = r[ib].born[1];
 	    }
+	    PrepCECrossData(m, data);
 	    CERate(&(rt[ib].dir), &(rt[ib].inv), inv, j1, j2, e, m,
 		   data, rt[ib].i, rt[ib].f);
 	    if (ion->ace > 0) {
@@ -5864,35 +5837,17 @@ int SetCERates(int inv) {
 	}
 	m = h.n_usr;
 	m1 = m + 1;
-#pragma omp parallel default(shared) private(x, y, data, j)
-	{
-	  data = _ce_data;
-	  y = data + 2;
-	  x = y + m1;
-	  if (h.tegrid[0] < 0) {
-	    data[0] = -1.0;
-	    for (j = 0; j < m; j++) {
-	      x[j] = log(1 + eusr[j]);
-	    }
-	    x[m] = eusr[m-1]/(1+eusr[m-1]);
-	  } else {
-	    data[0] = (h.te0*HARTREE_EV + bte)/bms;
-	    for (j = 0; j < m; j++) {
-	      x[j] = log((data[0] + eusr[j]*HARTREE_EV)/data[0]);
-	    }	  
-	    x[m] = eusr[m-1]/(data[0]/HARTREE_EV+eusr[m-1]);
-	  }
-	}
 	nrb = Min(NRTB, h.ntransitions);
 	jb = 0;
 	for (i = 0; i < h.ntransitions; i++) {
 	  n = ReadCERecord(f, &r[jb++], swp, &h);
 	  if (jb == nrb) {
 	    ResetWidMPI();
-#pragma omp parallel default(shared) private(ib, j1, j2, e, cs, j, p, q, data, y)
+#pragma omp parallel default(shared) private(ib, j1, j2, e, cs, j, p, q, data, x, y)
 	    {	    
 	    data = _ce_data;
-	    y = data + 2;
+	    y = data + 4;
+	    x = y + m1;
 	    double b, c;
 	    int w = 0;
 	    for (ib = 0; ib < nrb; ib++) {
@@ -5925,12 +5880,26 @@ int SetCERates(int inv) {
 	      j1 = ion->j[rt[ib].i];
 	      j2 = ion->j[rt[ib].f];
 	      e = ion0.energy[q] - ion0.energy[p];
-	      data[1] = r[ib].bethe;	
+	      data[0] = (e+bte)/bms;
+	      data[1] = r[ib].bethe;
+	      data[2] = e;
+	      data[3] = fh.atom - h.nele;
 	      cs = r[ib].strength;
 	      y[m] = r[ib].born[0];
-	      for (j = 0; j < m; j++) {
-		y[j] = cs[j];
+	      if (h.tegrid[0] < 0) {
+		for (j = 0; j < m; j++) {
+		  y[j] = cs[j];
+		  x[j] = eusr[j]*e;
+		}
+		x[m] = r[ib].born[1];
+	      } else {
+		for (j = 0; j < m; j++) {
+		  y[j] = cs[j];
+		  x[j] = eusr[j];
+		}
+		x[m] = r[ib].born[1];
 	      }
+	      PrepCECrossData(m, data);
 	      CERate(&(rt[ib].dir), &(rt[ib].inv), inv, j1, j2, e, m,
 		     data, rt[ib].i, rt[ib].f);
 	      if (ion0.ace > 0) {
@@ -6054,8 +6023,10 @@ int SetTRRates(int inv) {
 		if (_ce_bethe > 0 &&
 		    (h.multipole == -1 || h.multipole == 0)) {
 		  data = _ce_data;
-		  data[0] = (e*HARTREE_EV + bte)/bms;
+		  data[0] = (e + bte)/bms;
 		  data[1] = 2*gf/e;
+		  data[2] = e;
+		  data[3] = fh.atom - h.nele;
 		  rtx[jb].dir = 0.0;
 		  rtx[jb].inv = 0.0;
 		  rtx[jb].i = r[jb].lower;
@@ -9694,129 +9665,4 @@ void RateCoefficients(char *ofn, int k0, int k1, int nexc, int ncap0,
   
   CloseFile(f, &fh);
   free(rc.rc);
-}
-
-double GauntHummer(double g2, double u) {
-  double c[8];
-  double xg, xu, tm1, tm2, t, gff;
-  int i, j;
-
-  g2 = Min(1e3, g2);
-  g2 = Max(1e-3, g2);
-  u = Min(31.6227766, u);
-  u = Max(1e-4, u);
-  
-  g2 = log10(g2);
-  u = log10(u);
-  
-  xg = g2/3.0;
-  tm1 = xg;
-  tm2 = 1.0;
-  for (j = 0; j < 8; j++) {
-    c[j] = _gff_HummerD[j]*0.5 + _gff_HummerD[8+j]*xg; 
-  }
-  for (i = 2; i < 11; i++) {
-    t = 2*xg*tm1 - tm2;
-    for (j = 0; j < 8; j++) {
-      c[j] += _gff_HummerD[8*i+j]*t;
-    }
-    tm2 = tm1;
-    tm1 = t;
-  }
-
-  xu = (2.0*u + 2.5)/5.5;
-  tm2 = 1.0;
-  tm1 = xu;
-  gff = c[0]*0.5 + c[1]*tm1;
-  for (j = 2; j < 8; j++) {
-    t = 2.0*xu*tm1 - tm2;
-    gff += c[j]*t;
-    tm2 = tm1;
-    tm1 = t;
-  }
-  return gff;
-}
-
-double GauntFF(double g2, double u, int m) {
-  double r, r0;
-  
-  if (m == 0) {
-    r = GauntHummer(g2, u);
-  } else if (m == 1) {
-    r = -0.55133*(0.5*log(g2) + log(u) + 0.056745);
-  } else if (m == 2) {
-    r = 0.5*log(g2) + 0.056745;
-    if (r < -0.80888) r = -0.80888;
-    r += log(u);
-    r *= -0.55133;    
-  } else if (m == 3) {
-    r = pow(u/g2, 1./3);
-    r = 1+0.1728*r*(1+2/u)-0.0496*r*r*(1+2./(3*u)+4./(3*u*u));
-  } else if (m == 4) {
-    double xg = log10(g2);
-    double xu1 = 0.5-0.667*xg;
-    double u1 = pow(10, xu1);
-    double xu0 = xu1-3.0;
-    double u0 = pow(10, xu0);
-    if (u >= u1*1.00001) {
-      r = pow(u/g2, 1./3);
-      r = 1+0.1728*r*(1+2/u)-0.0496*r*r*(1+2./(3*u)+4./(3*u*u));
-    } else if (u <= u0*0.99999) {
-      r = GauntFF(g2, u, 2);
-    } else {
-      double r1 = pow(u1/g2, 1./3);
-      double r2 = r1*r1;
-      double u2 = u1*u1;
-      double u3 = u2*u1;
-      double k1 = 0.1728*((1+2/u1)/(g2*r2*3)-r1*2/u2);
-      k1 -= 0.0496*(2*(1+2/(3*u1)+4/(3*u2))/(3*g2*r1)-(2/(3*u2)+8/(3*u3))*r2);
-      k1 *= u1;
-      r1 = 1+0.1728*r1*(1+2/u1)-0.0496*r2*(1+2./(3*u1)+4./(3*u2));
-      /*
-      double ud = u1*1.05;
-      double rd = pow(ud/g2, 1./3);
-      rd = 1+0.1728*rd*(1+2/ud)-0.0496*rd*rd*(1+2./(3*ud)+4./(3*ud*ud));
-      double k1 = (rd-r1)/log(ud/u1);
-      */
-      double k0 = -0.55133;
-      r0 = GauntFF(g2, u0, 2);
-      xu0 = log(u0);
-      xu1 = log(u1);
-      double u02 = xu0*xu0;
-      double u12 = xu1*xu1;
-      double u03 = u02*xu0;
-      double u13 = u12*xu1;
-      double u0u1 = xu0*xu1;
-      double u01 = xu0+xu1;
-      double uxd = xu1-xu0;
-      double a = 0.5*(k1-k0)/uxd;
-      double c = (u13-u03)/3.0-u01*(u12-u02)/2.0+u0u1*uxd;
-      double b = (r1-r0-k0*uxd-a*uxd*uxd)/c;
-      double xu = log(u);
-      uxd = xu-xu0;
-      u12 = xu*xu;
-      u13 = u12*xu;
-      c = (u13-u03)/3.0-u01*(u12-u02)/2.0+u0u1*uxd;
-      r = r0 + k0*uxd + a*uxd*uxd + b*c;
-    }
-  } else {
-    if (g2 > 1e3) {
-      r = GauntFF(g2, u, 4);
-      r0 = GauntFF(1e3, u, 4);
-      r = (r/r0)*GauntFF(1e3, u, 5);
-    } else if (u < 1e-4) {
-      r = GauntFF(g2, u, 4);
-      r0 = GauntFF(g2, 1e-4, 4);
-      r = (r/r0)*GauntHummer(g2, 1e-4);      
-    } else {
-      r0 = 31.6227766;
-      if (u < r0) {
-	r = GauntHummer(g2, u);
-      } else {
-	r = GauntFF(g2, u, 4)*GauntHummer(g2,r0)/GauntFF(g2,r0,4);
-      }
-    }
-  }
-  if (r < 0) r = 0.0;
-  return r;
 }
