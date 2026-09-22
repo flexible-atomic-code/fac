@@ -10059,7 +10059,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
   LEVGRP *rg[N_ELEMENTS1];
   EN_RECORD *ra[N_ELEMENTS1];  
   TFILE *f0, *f1[7];
-  double ei, des, te, e, cs, des0, des1, egrd[N_ELEMENTS1];
+  double ei, des, te, e, cs, cx, des0, des1, egrd[N_ELEMENTS1];
   float fte;
   int *im, tlevs, nt0, nt1, nt2, minlevs, maxlevs;
   double wt0, wt1, tt0, tt1;
@@ -10622,7 +10622,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
     if (f1[2]) {
       CE_RECORD **rt;
       CE_HEADER ht;
-      double data[2+(1+MAXNUSR)*3], ratio;
+      double data[4+(1+MAXNUSR)*4], ratio;
       int neg = 6;
       SetCEEGridType(1);
       SetUsrCEEGridType(1);
@@ -10655,7 +10655,6 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	    free(h2.usr_egrid);
 	    continue;
 	  }
-	  PrepCECrossHeader(&h2, data);
 	  for (i = 0; i < h2.ntransitions; i++) {
 	    n = ReadCERecord(f0, &r2, swp, &h2);
 	    if (n == 0) break;
@@ -10676,11 +10675,11 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 		rt[j]->lower = rg[k][ilo].r.ilev;
 		rt[j]->upper = rg[k][iup].r.ilev;
 	      }
-	      PrepCECrossRecord(0, &r2, &h2, data);
+	      PrepCECrossRecord(0, &r2, &h2, data, fh.atom);
 	      te = mem_en_table[r2.upper].energy - mem_en_table[r2.lower].energy;
 	      for (t = 0; t < neg; t++) {
 		e = te*ht.egrid[t]*HARTREE_EV;
-		cs = InterpolateCECross(e, &r2, &h2, data, &ratio);
+		cs = InterpolateCECross(e, &r2, &h2, data, &cx, &ratio);
 		rt[j]->strength[t] += cs;	      
 	      }
 	      if (r2.bethe >= 0.0) {

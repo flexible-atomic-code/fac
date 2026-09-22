@@ -1038,7 +1038,7 @@ double GauntEFF(double xni2, double x) {
   double c1 = pow(PI,-2./3.);
   double c2 = 1.781;
 
-  if (x < 1e-10) {
+  if (x < EPS7) {
     r = 4.0/x;
   } else {
     xe = sqrt(1-x);

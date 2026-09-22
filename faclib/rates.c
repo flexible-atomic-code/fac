@@ -499,206 +499,34 @@ int CXRate(double *dir, int *ip, int i0, int f0) {
 }
 
 double CERate1E(double e1, double eth0, int np, void *p) {
-  double *x, *y;
-  int m1, n, one;
-  double *dp, a, x0, y0;
-  double e0, d, c, b, b0, b1;
-  double bte, bms, eth, e, et0;
-
-  BornFormFactorTE(&bte);
-  bms = BornMass();  
-  eth = (eth0 + bte*HARTREE_EV)/bms;
-  e = e1/bms;
-
-  if (e < eth) return 0.0;
+  double *dp, a, b, e0, bms, eth;
 
   dp = (double *) p;
+  bms = BornMass();
+  e0 = e1/bms/HARTREE_EV;
+  eth = dp[0];
+  if (e0 < eth) return 0.0;
 
-  if (np == 0) {
-    e0 = e/HARTREE_EV;
-    d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-    c = FINE_STRUCTURE_CONST2*d;
-    b = log(1.05*d*HARTREE_EV/eth0) - c/(1.0+c);
-    b = Max(0.0, b);
-    a = dp[1]*b*(1+c);
-    /*
-    b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
-    b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
-    a *= b0*b1;    
-    */
-  } else {
-    if (dp[0] > 0) et0 = dp[0];
-    else et0 = eth;
-    m1 = np + 1;
-    y = dp+2;
-    x0 = (et0+e-eth)/et0;
-    x0 = Max(1e-10, x0);
-    x0 = log(x0);
-    x = y + m1;
-    if (x0 <= x[np-1]) {
-      n = 2;
-      one = 1;
-      if (fabs(bms-1.0) < EPS3 || x0 >= x[0]) {
-	UVIP3P(n, np, x, y, one, &x0, &a);
-	if (a < 0.0) a = 0.0;
-      } else {
-	a = y[0] * pow(exp(x0-x[0]), 2.5);
-      }
-    } else {
-      x0 = (e-eth)/(et0+e-eth);
-      y0 = y[np-1];
-      if (dp[1] > -EPS10) {
-	if (XCEMode() == 1) {
-	  e0 = (x[np]*et0/(1.0-x[np]) + eth)/HARTREE_EV;
-	  d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-	  c = FINE_STRUCTURE_CONST2*d;
-	  b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);
-	  y0 = y0/(1+c) - dp[1]*b;
-	  a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
-	  e0 = e/HARTREE_EV;
-	  d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-	  c = FINE_STRUCTURE_CONST2*d;
-	  b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);
-	  a = (a + dp[1]*b)*(1+c);
-	} else {
-	  e0 = (x[np]*et0/(1.0-x[np]) + eth);
-	  b = log(e0/eth0);
-	  y0 -= dp[1]*b;
-	  a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
-	  b = log(e/eth0);
-	  a += dp[1]*b;
-	}
-      } else {
-	a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
-      }
-    }
-  }
+  b = InterpCECrossData(np, dp, e0-eth, &a, NULL);
   if (a <= 0.0) {
     a = 0.0;
     return a;
-  }
-  
-  e0 = e/HARTREE_EV;
-  b = 2.0*e0;
-  if (XCEMode() == 1) {
-    b *= (1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-  }
-  a *= PI*AREA_AU20/b;
+  }  
   a *= VelocityFromE(e1, bms);
   return a;
 }
 
 double DERate1E(double e1, double eth0, int np, void *p) {
-  double a, x0, y0, *x, *y;
-  double *dp;
-  int m1, n, one;
-  double e0, d, c, b, b0, b1;
-  double bte, bms, eth, e, et0;
+  double *dp, a, b, e0, bms;
 
-  BornFormFactorTE(&bte);
+  if (e1 < 0) return 0.0;
   bms = BornMass();
-  eth = (eth0 + bte*HARTREE_EV)/bms;
-  e = e1/bms;
-
+  e0 = e1/bms/HARTREE_EV;
   dp = (double *) p;
-
-  if (np == 0) {
-    e0 = (e + eth)/HARTREE_EV;
-    d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-    c = FINE_STRUCTURE_CONST2*d;
-    b = log(1.05*d*HARTREE_EV/eth0) - c/(1.0+c);
-    b = Max(0.0, b);
-    a = dp[1]*b*(1+c);
-  } else {
-    if (dp[0] > 0) {
-      et0 = dp[0];
-    } else {
-      et0 = eth;
-    }
-    m1 = np + 1;
-    x0 = log((et0+e)/et0);
-    y = dp+2;
-    x = y + m1;
-
-    if (x0 <= x[np-1]) {
-      n = 2;
-      one = 1;
-      if (fabs(bms-1.0) < EPS3 || x0 >= x[0]) {
-	UVIP3P(n, np, x, y, one, &x0, &a);
-	if (a < 0.0) a = 0.0;
-      } else {
-	a = y[0] * pow(exp(x0-x[0]), 2.5);
-      }
-    } else {
-      x0 = e/(et0+e);
-      y0 = y[np-1]; 
-      if (dp[1] > -EPS10) {
-	if (XCEMode() == 1) {
-	  e0 = (x[np]*et0/(1.0-x[np]) + eth)/HARTREE_EV;
-	  d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-	  c = FINE_STRUCTURE_CONST2*d;
-	  b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);
-	  y0 = y0/(1+c) - dp[1]*b;
-	  a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
-	  e0 = (e+eth)/HARTREE_EV;
-	  d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-	  c = FINE_STRUCTURE_CONST2*d;
-	  b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);
-	  a = (a + dp[1]*b)*(1+c);
-	} else {
-	  e0 = (x[np]*et0/(1.0-x[np]) + eth);
-	  b = log(e0/eth0);
-	  y0 -= dp[1]*b;
-	  a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
-	  b = log((e+eth)/eth0);
-	  a += dp[1]*b;
-	}
-	/*
-	e0 = (x[np]*et0/(1.0-x[np]) + eth)/HARTREE_EV;
-	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
-	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
-	y0 /= b0*b1;
-	d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-	c = FINE_STRUCTURE_CONST2*d;
-	b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);  
-	y0 -= dp[1]*b;
-	a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
-	e0 = (e + eth)/HARTREE_EV;
-	d = 2.0*e0*(1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-	c = FINE_STRUCTURE_CONST2*d;
-	b = log(0.5*d*HARTREE_EV/eth0) - c/(1.0+c);  
-	a += dp[1]*b;
-	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
-	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
-	a *= b0*b1;
-      } else if (dp[1] + 1.0 == 1.0) {
-	e0 = (x[np]*et0/(1.0-x[np]) + eth)/HARTREE_EV;
-	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
-	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
-	y0 /= b0*b1;
-	a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
-	e0 = (e + eth)/HARTREE_EV;
-	b0 = 1.0 + FINE_STRUCTURE_CONST2*e0;
-	b1 = 1.0 + FINE_STRUCTURE_CONST2*(e0-eth/HARTREE_EV);
-	a *= b0*b1;
-	*/
-      } else {
-	a = y[np] + (x0-1.0)*(y0-y[np])/(x[np]-1.0);
-      }
-    }
-  }
-  if (a <= 0.0) {
-    a = 0.0;
-    return a;
-  }
-
-  e0 = e/HARTREE_EV;
-  b = 2.0*e0;
-  if (XCEMode() == 1) {
-    b *= (1.0+0.5*FINE_STRUCTURE_CONST2*e0);
-  }
-  a *= PI*AREA_AU20/b;
+  
+  b = InterpCECrossData(np, dp, e0, &a, NULL);
   a *= VelocityFromE(e1, bms);
+  
   return a;
 }
   

@@ -160,6 +160,7 @@ real(c_double) :: a3(*)
 integer(c_int), value :: a4
 real(c_double) :: a5(*)
 real(c_double) :: a6(*)
+real(c_double),dimension(:),allocatable :: t
 call UVIP3P(a0,a1,a2,a3,a4,&
             a5,a6)
 end subroutine

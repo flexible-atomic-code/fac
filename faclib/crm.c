@@ -70,7 +70,7 @@ static int _sp_trm = 1;
 static int _rates_block = RATES_BLOCK;
 static int _lblock_block = LBLOCK_BLOCK;
 
-static double _ce_data[2+(1+MAXNUSR)*2];
+static double _ce_data[4+(1+MAXNUSR)*4];
 static double _rr_data[1+MAXNUSR*4];
 static int _ce_bethe = 0;
 
@@ -4423,6 +4423,7 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
       r.rrate = ion->j[m]+1.0;
       r.trate = blk->total_rate[p];
       r.wstk = 0.0;
+      r.wimp = 0.0;
       rx.sdev = 0.0;
       r.strength = blk->n[p];
       WriteSPRecord(f, &r, &rx, iuta);
@@ -5748,35 +5749,17 @@ int SetCERates(int inv) {
       }
       m = h.n_usr;
       m1 = m + 1;
-#pragma omp parallel default(shared) private(x, y, data, j)
-      {
-	data = _ce_data;
-	y = data + 2;
-	x = y + m1;
-	if (h.tegrid[0] < 0) {
-	  data[0] = -1.0;
-	  for (j = 0; j < m; j++) {
-	    x[j] = log(1 + eusr[j]);
-	  }
-	  x[m] = eusr[m-1]/(1+eusr[m-1]);
-	} else {
-	  data[0] = (h.te0*HARTREE_EV + bte)/bms;
-	  for (j = 0; j < m; j++) {
-	    x[j] = log((data[0] + eusr[j]*HARTREE_EV)/data[0]);
-	  }	  
-	  x[m] = eusr[m-1]/(data[0]/HARTREE_EV+eusr[m-1]);
-	}
-      }
       nrb = Min(NRTB, h.ntransitions);
       jb = 0;
       for (i = 0; i < h.ntransitions; i++) {
 	n = ReadCERecord(f, &r[jb++], swp, &h);
 	if (jb == nrb) {
 	  ResetWidMPI();
-#pragma omp parallel default(shared) private(ib, j1, j2, e, cs, j, data, y)
+#pragma omp parallel default(shared) private(ib, j1, j2, e, cs, j, data, x, y)
 	  {
 	  data = _ce_data;
-	  y = data + 2;
+	  y = data + 4;
+	  x = y + m1;
 	  double b, c;
 	  int w = 0;
 	  for (ib = 0; ib < nrb; ib++) {
@@ -5793,12 +5776,26 @@ int SetCERates(int inv) {
 	    j1 = ion->j[r[ib].lower];
 	    j2 = ion->j[r[ib].upper];
 	    e = ion->energy[r[ib].upper] - ion->energy[r[ib].lower];
+	    data[0] = (e+bte)/bms;
 	    data[1] = r[ib].bethe;
+	    data[2] = e;
+	    data[3] = fh.atom-h.nele;
 	    cs = r[ib].strength;
 	    y[m] = r[ib].born[0];
-	    for (j = 0; j < m; j++) {
-	      y[j] = cs[j];
+	    if (h.tegrid[0] < 0) {
+	      for (j = 0; j < m; j++) {
+		y[j] = cs[j];
+		x[j] = eusr[j]*e;
+	      }
+	      x[m] = r[ib].born[1];
+	    } else {
+	      for (j = 0; j < m; j++) {
+		y[j] = cs[j];
+		x[j] = eusr[j];
+	      }
+	      x[m] = r[ib].born[1];
 	    }
+	    PrepCECrossData(m, data);
 	    CERate(&(rt[ib].dir), &(rt[ib].inv), inv, j1, j2, e, m,
 		   data, rt[ib].i, rt[ib].f);
 	    if (ion->ace > 0) {
@@ -5840,35 +5837,17 @@ int SetCERates(int inv) {
 	}
 	m = h.n_usr;
 	m1 = m + 1;
-#pragma omp parallel default(shared) private(x, y, data, j)
-	{
-	  data = _ce_data;
-	  y = data + 2;
-	  x = y + m1;
-	  if (h.tegrid[0] < 0) {
-	    data[0] = -1.0;
-	    for (j = 0; j < m; j++) {
-	      x[j] = log(1 + eusr[j]);
-	    }
-	    x[m] = eusr[m-1]/(1+eusr[m-1]);
-	  } else {
-	    data[0] = (h.te0*HARTREE_EV + bte)/bms;
-	    for (j = 0; j < m; j++) {
-	      x[j] = log((data[0] + eusr[j]*HARTREE_EV)/data[0]);
-	    }	  
-	    x[m] = eusr[m-1]/(data[0]/HARTREE_EV+eusr[m-1]);
-	  }
-	}
 	nrb = Min(NRTB, h.ntransitions);
 	jb = 0;
 	for (i = 0; i < h.ntransitions; i++) {
 	  n = ReadCERecord(f, &r[jb++], swp, &h);
 	  if (jb == nrb) {
 	    ResetWidMPI();
-#pragma omp parallel default(shared) private(ib, j1, j2, e, cs, j, p, q, data, y)
+#pragma omp parallel default(shared) private(ib, j1, j2, e, cs, j, p, q, data, x, y)
 	    {	    
 	    data = _ce_data;
-	    y = data + 2;
+	    y = data + 4;
+	    x = y + m1;
 	    double b, c;
 	    int w = 0;
 	    for (ib = 0; ib < nrb; ib++) {
@@ -5901,12 +5880,26 @@ int SetCERates(int inv) {
 	      j1 = ion->j[rt[ib].i];
 	      j2 = ion->j[rt[ib].f];
 	      e = ion0.energy[q] - ion0.energy[p];
-	      data[1] = r[ib].bethe;	
+	      data[0] = (e+bte)/bms;
+	      data[1] = r[ib].bethe;
+	      data[2] = e;
+	      data[3] = fh.atom - h.nele;
 	      cs = r[ib].strength;
 	      y[m] = r[ib].born[0];
-	      for (j = 0; j < m; j++) {
-		y[j] = cs[j];
+	      if (h.tegrid[0] < 0) {
+		for (j = 0; j < m; j++) {
+		  y[j] = cs[j];
+		  x[j] = eusr[j]*e;
+		}
+		x[m] = r[ib].born[1];
+	      } else {
+		for (j = 0; j < m; j++) {
+		  y[j] = cs[j];
+		  x[j] = eusr[j];
+		}
+		x[m] = r[ib].born[1];
 	      }
+	      PrepCECrossData(m, data);
 	      CERate(&(rt[ib].dir), &(rt[ib].inv), inv, j1, j2, e, m,
 		     data, rt[ib].i, rt[ib].f);
 	      if (ion0.ace > 0) {
@@ -6030,8 +6023,10 @@ int SetTRRates(int inv) {
 		if (_ce_bethe > 0 &&
 		    (h.multipole == -1 || h.multipole == 0)) {
 		  data = _ce_data;
-		  data[0] = (e*HARTREE_EV + bte)/bms;
+		  data[0] = (e + bte)/bms;
 		  data[1] = 2*gf/e;
+		  data[2] = e;
+		  data[3] = fh.atom - h.nele;
 		  rtx[jb].dir = 0.0;
 		  rtx[jb].inv = 0.0;
 		  rtx[jb].i = r[jb].lower;
