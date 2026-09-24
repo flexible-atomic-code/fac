@@ -2074,7 +2074,7 @@ int InitBlocks(void) {
       m = blk1->iion;
     }
   }
-      
+  
   return 0;
 }
 
@@ -3117,7 +3117,7 @@ int RateTable(char *fn, int nc, char *sc[], int md) {
   return 0;
 }
 
-void FixNorm(int m) {
+void FixNorm(int miter) {
   LBLOCK *blk1;
   ION *ion;
   int k0, k1, iion, k, p, i, n;
@@ -3126,26 +3126,9 @@ void FixNorm(int m) {
   n = blocks->dim;
   x = bmatrix + n*n;
   for (i = 0; i < n; i++) x[i] = 0.0;
-
-  if (norm_mode == 3) {
-    x[0] = 1.0;
-    p = 0;
-    for (k = 0; k < n; k++) {
-      bmatrix[p] = 1.0;
-      p += n;
-    }
-    for (k = 0; k < ions->dim; k++) {
-      ion = (ION *) ArrayGet(ions, k);
-      den = ion->n0;
-      if (den+1 != 1) {
-	blk1 = ion->iblock[0];
-	if (blk1 != NULL) {
-	  p = blk1->ib;
-	  x[p] = den;
-	}
-      }
-    }
-  } else if (norm_mode == 2) {
+  
+  if (norm_mode == 2) {
+    //normalize to sum of all ions 
     den = 0.0;
     if (ion0.n0 > 0) den += ion0.n0;
     for (i = 0; i < ions->dim; i++) {
@@ -3177,7 +3160,7 @@ void FixNorm(int m) {
 	    x[k0] = den;
 	    p = k0;
 	    for (k = 0; k < n; k++) {
-	      if (norm_mode == 1) {
+	      if (norm_mode > 0) {
 		if (k < k1 && k >= k0) bmatrix[p] = 1.0;
 		else bmatrix[p] = 0.0;
 	      } else {
@@ -3201,7 +3184,7 @@ void FixNorm(int m) {
       x[k0] = den;
       p = k0;
       for (k = 0; k < n; k++) {
-	if (norm_mode == 1) {
+	if (norm_mode > 0) {
 	  if (k < k1 && k >= k0) bmatrix[p] = 1.0;
 	  else bmatrix[p] = 0.0;
 	} else {       
@@ -3210,7 +3193,20 @@ void FixNorm(int m) {
 	}
 	p += n;
       }
-    } 
+    }
+    if (norm_mode > 1) {
+      // norm_mode=3, same as 1, but first eq. normalize sum of all ions
+      den = 0.0;
+      for (i = 0; i < n; i++) {
+	den += x[i];
+      }
+      x[0] = den;
+      p = 0;
+      for (k = 0; k < n; k++) {
+	bmatrix[p] = 1.0;
+	p += n;
+      }
+    }
   }
 }
 
@@ -3710,6 +3706,7 @@ int BlockPopulation(int miter) {
 
     if (info != 0) {
       printf("Error in solving BlockMatrix: %d\n", info);
+      DumpRates("error.bm", 0, 0, -1, 1);
       exit(1);
     }
 
