@@ -70,7 +70,7 @@ double InterpCECrossData(int m, double *data, double e, double *cx, double *r);
 void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
 		       double *data, double z);
 double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
-			  double *data, double *cx, double *ratio);
+			  double *data, double *cx, double *ratio, int md);
 int CECross(char *ifn, char *ofn, int i0, int i1, 
 	    int negy, double *egy, int mp);
 int CEMaxwell(char *ifn, char *ofn, int i0, int i1, 
@@ -78,7 +78,7 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
 void PrepCEFCrossRecord(CEF_RECORD *r, CEF_HEADER *h,
 			double *data, double z);
 double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
-			   double *data, double *cx);
+			   double *data, double *cx, int md);
 int CEFCross(char *ifn, char *ofn, int i0, int i1, 
 	     int negy, double *egy, int mp);
 int CEFMaxwell(char *ifn, char *ofn, int i0, int i1, 

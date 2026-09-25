@@ -639,7 +639,7 @@ int SetMCERates(char *fn) {
   int n, k, m, t, p, i, q;
   int m1, m2, j1, j2, i0;
   int swp, ncs;
-  double data[4+(1+MAXNUSR)*4];
+  double data[4+(2+MAXNUSR)*4];
   double *cs1, *cs2;
   double e1, e2, e, a, v, cs, ratio;
   double esigma, energy;
@@ -719,7 +719,7 @@ int SetMCERates(char *fn) {
 	  for (q = 0; q < NEINT; q++) {
 	    e2 = egrid[q] - e;
 	    if (e2 >= 0) {
-	      cs = InterpolateCECross(e2, &r, &h, data, &a, &ratio);
+	      cs = InterpolateCECross(e2, &r, &h, data, &a, &ratio, 1);
 	      rint[q] = a*fint[q];
 	      if (i0 < 0) i0 = q;
 	    }
@@ -732,16 +732,16 @@ int SetMCERates(char *fn) {
 	  }
 	  for (q = 0; q < NEINT; q++) {
 	    e2 = egrid[q];
-	    cs = InterpolateCECross(e2, &r, &h, data, &a, &ratio);
+	    cs = InterpolateCECross(e2, &r, &h, data, &a, &ratio, 1);
 	    rint[q] = a*fint[q];
 	  }
 	  cs2[k] = Simpson(rint, 0, NEINT-1)*(egrid[1]-egrid[0]);
 	} else {
 	  e2 = e1 - e;
-	  cs = InterpolateCECross(e2, &r, &h, data, &a, &ratio);
+	  cs = InterpolateCECross(e2, &r, &h, data, &a, &ratio, 1);
 	  cs1[k] = a*v;
 	  e2 = e1;
-	  cs = InterpolateCECross(e2, &r, &h, data, &a, &ratio);
+	  cs = InterpolateCECross(e2, &r, &h, data, &a, &ratio, 1);
 	  cs2[k] = a*v;
 	}
       }

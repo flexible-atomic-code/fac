@@ -676,18 +676,19 @@ int NewtonCotesIP(double *r, double *x, int i0, int i1, int m, int id) {
 }
 
 void PrepCECrossData(int m, double *data) {
-  int j, m1;
+  int j, m1, m2;
   double x0, e0, eth, eth1, bethe, *y, *x;
   double z2, g2, u, gff;
 
   m1 = m+1;
+  m2 = m+2;
   y = data + 4;
-  x = y+m1;
+  x = y+m2;
   eth1 = data[0];
   bethe = data[1];
   eth = data[2];
   z2 = data[3]*data[3];
-  for (j = 0; j <= m; j++) {
+  for (j = 0; j < m2; j++) {
     e0 = eth1+x[j];
     if (x[j] > 0) {
       x[j] = eth1/e0;
@@ -700,7 +701,7 @@ void PrepCECrossData(int m, double *data) {
       x[j] = x[j]/(x[j]+2);
     }
     if (bethe > 0) {
-      if (j == m) {
+      if (j >= m) {
 	y[j] += bethe*log(e0/eth);
       }
       g2 = 0.5*z2/e0;
@@ -714,21 +715,24 @@ void PrepCECrossData(int m, double *data) {
   }
   if (y[m] > 0) {
     y[m] = log(y[m]);
+    y[m1] = log(y[m1]);
   } else {
-    x[m] = x[m-1]+5;
+    x[m] = x[m-1]+2.5;
+    x[m1] = x[m]+2.5;
     double a = (y[m-1]-y[m-2])/(x[m-1]-x[m-2]);
     if (a > -1.0) a = -1.0;
     y[m] = y[m-1] + a*(x[m]-x[m-1]);
+    y[m1] = y[m-1] + a*(x[m1]-x[m-1]);
   }
 }
 
 double InterpCECrossData(int m, double *data, double e, double *cx, double *r) {
-  int n, m1, one;
+  int n, m1, m2, one;
   double x0, e0, eth, eth1, bethe, a, b, c, d, c0;
   double *x, *y, *w, z2, g2, u, gff;
 
   *cx = 0.0;
-  if (r) *r = 1.0;
+  if (r && m > 0) *r = 1.0;
   if (e < 0) return 0.0;
   
   eth1 = data[0];
@@ -739,9 +743,10 @@ double InterpCECrossData(int m, double *data, double e, double *cx, double *r) {
 
   if (m > 0) {
     m1 = m+1;
+    m2 = m+2;
     y = data + 4;
-    x = y+m1;
-    w = x+m1;
+    x = y+m2;
+    w = x+m2;
     
     x0 = eth1/e0;
     if (x0 < EPS7) {
@@ -756,11 +761,11 @@ double InterpCECrossData(int m, double *data, double e, double *cx, double *r) {
     } else {
       n = 2;
       one = 1;
-      UVIP3P(n, m1, x, y, one, &x0, &a);
+      UVIP3P(n, m2, x, y, one, &x0, &a);
       a = exp(a);
     }
     if (r) {
-      UVIP3P(n, m1, x, w, one, &x0, r);
+      UVIP3P(n, m2, x, w, one, &x0, r);
       if (*r < 0) *r = 0.0;
     }
   } else {
@@ -812,7 +817,7 @@ void PrepCEFCrossRecord(CEF_RECORD *r, CEF_HEADER *h, double *data, double z) {
   double *eusr, *x, *y, b, c, bms, bte;
   double eth, eth1, d;
   float *cs;
-  int m, m1, j;
+  int m, m1, m2, j;
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
 
@@ -821,8 +826,9 @@ void PrepCEFCrossRecord(CEF_RECORD *r, CEF_HEADER *h, double *data, double z) {
   eusr = h->egrid;
   m = h->n_egrid;
   m1 = m + 1;
+  m2 = m + 2;
   y = data + 4;
-  x = y + m1;
+  x = y + m2;
   eth = mem_en_table[r->upper].energy - mem_en_table[r->lower].energy;
   BornFormFactorTE(&bte);
   bms = BornMass();
@@ -835,11 +841,15 @@ void PrepCEFCrossRecord(CEF_RECORD *r, CEF_HEADER *h, double *data, double z) {
   for (j = 0; j < m; j++) {
     y[j] = Max(MINCS,cs[j]);
   }
-  x[m] = r->born[1];
-  y[m] = r->born[0];
   for (j = 0; j < m; j++) {
     x[j] = eusr[j];
   }
+  x[m1] = r->born[1];
+  y[m1] = r->born[0];
+  if (x[m1] > x[m-1]) {
+    x[m] = pow(x[m-1],0.25)*pow(x[m1],0.75);
+  }
+  y[m] = r->born[0];
   PrepCECrossData(m, data);
 }
 
@@ -848,7 +858,7 @@ void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
   double *eusr, *x, *y, *u, *w, b, c, bms, bte;
   double eth, eth1, d;
   float *cs;
-  int m, m1, j, t;
+  int m, m1, m2, j, t;
   int j1, j2, t1, t2;
   EN_SRECORD *mem_en_table;
   int mem_en_table_size;
@@ -856,10 +866,11 @@ void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
   eusr = h->usr_egrid;
   m = h->n_usr;
   m1 = m + 1;
+  m2 = m + 2;
   y = data + 4;
-  x = y + m1;
-  w = x + m1;
-  u = w + m1;
+  x = y + m2;
+  w = x + m2;
+  u = w + m2;
   cs = r->strength;
   if (k == 0) {
     mem_en_table = GetMemENTable(&mem_en_table_size);
@@ -897,22 +908,26 @@ void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
       y[j] = Max(MINCS, y[j]);
     }
     y[m] = r->born[0];
+    y[m1] = r->born[0];
     if (h->msub) {
       for (j = 0; j < m; j++) {
 	u[j] = y[j];
       }
       u[m] = 0.0;
+      u[m1] = 0.0;
     }
     if (h->tegrid[0] < 0) {
       for (j = 0; j < m; j++) {
 	x[j] = eusr[j]*eth;
       }
-      x[m] = r->born[1];
     } else {
       for (j = 0; j < m; j++) {
 	x[j] = eusr[j];
       }
-      x[m] = r->born[1];
+    }
+    x[m1] = r->born[1];
+    if (x[m1] > x[m-1]) {
+      x[m] = pow(x[m-1],0.25)*pow(x[m1],0.75);
     }
     PrepCECrossData(m, data);
   }
@@ -926,36 +941,46 @@ void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
       }
     }
     if (r->bethe < 0) {
-      w[j] = w[j-1];
+      w[m] = w[j-1];
+      w[m1] = w[m];
     } else {
-      w[j] = r->params[k];
+      w[m] = r->params[k];
+      w[m1] = w[m];
     }
   }
 }
 
 double InterpolateCEFCross(double e, CEF_RECORD *r, CEF_HEADER *h,
-			   double *data, double *cx) {
+			   double *data, double *cx, int md) {
   int m;
   double a;
 
   a = 0.0;
   if (e <= 0.0) return a;
   e /= HARTREE_EV;
-  m = h->n_egrid;
+  if (md == 0) {
+    m = 0;
+  } else {
+    m = h->n_egrid;
+  }
   a = InterpCECrossData(m, data, e, cx, NULL);
 
   return a;
 }
 
 double InterpolateCECross(double e, CE_RECORD *r, CE_HEADER *h,
-			  double *data, double *cx, double *ratio) {
+			  double *data, double *cx, double *ratio, int md) {
   int m, m1;
   double a, *ra;
 
   a = 0.0;
   if (e < 0.0) return a;  
   e /= HARTREE_EV;
-  m = h->n_usr;
+  if (md == 0) {
+    m = 0;
+  } else {
+    m = h->n_usr;
+  }
   if (h->msub) {
     ra = ratio;
   } else {
@@ -979,7 +1004,7 @@ int CEMFCross(char *ifn, char *ofn, int i0, int i1,
   CEMF_HEADER mh;
   CEMF_RECORD mr;
   int i, t, m, ith, iph;
-  double data[4+(1+MAXNE)*4], e, cs, a;
+  double data[4+(2+MAXNE)*4], e, cs, a;
   double eth, a1, cs1, k2, rp, e1, e0;
   double bte, bms, be;
   EN_SRECORD *mem_en_table;
@@ -1038,26 +1063,8 @@ int CEMFCross(char *ifn, char *ofn, int i0, int i1,
 		e0 = e1 + be;
 	      }
 	      if (e1 > 0) {
-		cs = InterpolateCEFCross(e1, &r, &h, data, &a);
-		if (data[1] > -EPS10) {
-		  cs1 = data[1]*log(e0/e) + r.born[0];
-		  if (XCEMode() == 1) {
-		    k2 = e0/HARTREE_EV;
-		    k2 = 2.0*k2*(1.0+0.5*FINE_STRUCTURE_CONST2*k2);
-		    a1 = FINE_STRUCTURE_CONST2*k2;
-		    cs1 = data[1]*(log(0.5*k2/eth) - a1/(1+a1));
-		    cs1 += r.born[0];
-		    cs1 *= 1+a1;
-		  }
-		  a1 = e0/HARTREE_EV;
-		  if (XCEMode() == 1) {
-		    a1 *= (1.0+0.5*FINE_STRUCTURE_CONST2*a);
-		  }
-		  a1 = PI*AREA_AU20*cs1/(2.0*a1);
-		} else {
-		  cs1 = cs;
-		  a1 = a;
-		}
+		cs = InterpolateCEFCross(e1, &r, &h, data, &a, 1);
+		cs1 = InterpolateCEFCross(e1, &r, &h, data, &a1, 0);
 	      } else {
 		cs = 0.0;
 		a = 0.0;
@@ -1114,7 +1121,7 @@ int CEFCross(char *ifn, char *ofn, int i0, int i1,
   CEF_HEADER h;
   CEF_RECORD r;
   int i, t, m;
-  double data[4+(1+MAXNE)*4], e, cs, a;
+  double data[4+(2+MAXNE)*4], e, cs, a;
   double eth, a1, cs1, k2, rp, e1, e0;
   double bte, bms, be;
   EN_SRECORD *mem_en_table;
@@ -1174,26 +1181,8 @@ int CEFCross(char *ifn, char *ofn, int i0, int i1,
 	    e0 = e1 + be;
 	  }
 	  if (e1 > 0) {
-	    cs = InterpolateCEFCross(e1, &r, &h, data, &a);
-	    if (data[1] > -EPS10) {
-	      cs1 = data[1]*log(e0/e) + r.born[0];
-	      if (XCEMode() == 1) {
-		k2 = e0/HARTREE_EV;
-		k2 = 2.0*k2*(1.0+0.5*FINE_STRUCTURE_CONST2*k2);
-		a1 = FINE_STRUCTURE_CONST2*k2;
-		cs1 = data[1]*(log(0.5*k2/eth) - a1/(1+a1));
-		cs1 += r.born[0];
-		cs1 *= 1+a1;
-	      }
-	      a1 = e0/HARTREE_EV;
-	      if (XCEMode() == 1) {
-		a1 *= (1.0+0.5*FINE_STRUCTURE_CONST2*a);
-	      }
-	      a1 = PI*AREA_AU20*cs1/(2.0*a1);
-	    } else {
-	      cs1 = cs;
-	      a1 = a;
-	    }
+	    cs = InterpolateCEFCross(e1, &r, &h, data, &a, 1);
+	    cs1 = InterpolateCEFCross(e1, &r, &h, data, &a1, 0);
 	  } else {
 	    cs = 0.0;
 	    a = 0.0;
@@ -1240,7 +1229,7 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
   CE_HEADER h;
   CE_RECORD r;
   int i, t, m, k;
-  double data[4+(1+MAXNUSR)*4], e, cs, a, ratio;
+  double data[4+(2+MAXNUSR)*4], e, cs, a, ratio;
   double eth, a1, cs1, k2, rp, e1, e0;
   double bte, bms, be;
   EN_SRECORD *mem_en_table;
@@ -1301,31 +1290,12 @@ int CECross(char *ifn, char *ofn, int i0, int i1,
 	      e0 = e1 + be;
 	    }
 	    if (e1 > 0) {
-	      cs = InterpolateCECross(e1, &r, &h, data, &a, &ratio);
-	      if (!h.msub) a /= (mem_en_table[r.lower].j+1.0);
-	      if (data[1] > -EPS10) {
-		cs1 = data[1]*log(e0/e) + r.born[0];
-		if (XCEMode() == 1) {
-		  k2 = e0/HARTREE_EV;
-		  k2 = 2.0*k2*(1.0+0.5*FINE_STRUCTURE_CONST2*k2);
-		  a1 = FINE_STRUCTURE_CONST2*k2;
-		  cs1 = data[1]*(log(0.5*k2/eth) - a1/(1+a1));
-		  cs1 += r.born[0];
-		  cs1 *= 1+a1;
-		}
-		a1 = e0/HARTREE_EV;
-		if (XCEMode() == 1) {
-		  a1 *= (1.0+0.5*FINE_STRUCTURE_CONST2*a);
-		}
-		a1 = PI*AREA_AU20*cs1/(2.0*a1);
-	      } else {
-		cs1 = cs;
-		a1 = a;
-	      }
-	      if (!h.msub) a1 /= (mem_en_table[r.lower].j+1.0);
-	      else {
-		cs1 *= ratio;
-		a1 *= ratio;
+	      ratio = 1.0;
+	      cs = InterpolateCECross(e1, &r, &h, data, &a, &ratio, 1);
+	      cs1 = InterpolateCECross(e1, &r, &h, data, &a1, &ratio, 0);
+	      if (!h.msub) {
+		a /= (mem_en_table[r.lower].j+1.0);
+		a1 /= (mem_en_table[r.lower].j+1.0);
 	      }
 	    } else {
 	      cs = 0.0;
@@ -1380,7 +1350,7 @@ int CEMFMaxwell(char *ifn, char *ofn, int i0, int i1,
   CEMF_HEADER mh;
   CEMF_RECORD mr;
   int i, t, m, p, ith, iph;
-  double data[4+(1+MAXNE)*4], e, cs, a, c, b, cx;
+  double data[4+(2+MAXNE)*4], e, cs, a, cs1, a1, c, c1, b, cx, cx1;
   double *xg = gauss_xw[0];
   double *wg = gauss_xw[1];
   EN_SRECORD *mem_en_table;
@@ -1431,11 +1401,13 @@ int CEMFMaxwell(char *ifn, char *ofn, int i0, int i1,
 	    PrepCEFCrossRecord(&r, &h, data, fh.atom);
 	    for (t = 0; t < nt; t++) {
 	      cs = 0.0;
+	      cs1 = 0.0;
 	      tms = temp[t]/bms;
 	      theta = FINE_STRUCTURE_CONST2*tms/HARTREE_EV;
 	      for (p = 0; p < 15; p++) {
 		a = tms*xg[p];
-		c = InterpolateCEFCross(a, &r, &h, data, &cx);
+		c = InterpolateCEFCross(a, &r, &h, data, &cx, 1);
+		c1 = InterpolateCEFCross(a, &r, &h, data, &cx1, 0);
 		b = (a + e/bms)/HARTREE_EV;
 		b = FINE_STRUCTURE_CONST2*b;
 		a = 1+0.5*b;
@@ -1445,11 +1417,14 @@ int CEMFMaxwell(char *ifn, char *ofn, int i0, int i1,
 		}
 		b *= MaxwellRC(e/temp[t]+xg[p],theta);
 		cs += wg[p]*c*b;
+		cs1 += wg[p]*c1*b;
 	      }
 	      a = 217.16*sqrt(HARTREE_EV/(2.0*tms));
-	      a *= cs*exp(-e/temp[t]);
-	      fprintf(f2, "%11.4E\t%11.4E\t%11.4E\n",
-		      temp[t], cs, a);
+	      a *= exp(-e/temp[t]);
+	      a1 = a*cs1;
+	      a *= cs;
+	      fprintf(f2, "%11.4E\t%11.4E\t%11.4E\t%11.4E\t%11.4E\n",
+		      temp[t], cs, a, cs1, a1);
 	    }
 	    fprintf(f2, "\n\n");
 	  }
@@ -1498,7 +1473,7 @@ int CEFMaxwell(char *ifn, char *ofn, int i0, int i1,
   CEF_HEADER h;
   CEF_RECORD r;
   int i, t, m, p;
-  double data[4+(1+MAXNE)*4], e, cs, a, b, c, cx;
+  double data[4+(2+MAXNE)*4], e, cs, a, cs1, a1, b, c, c1, cx, cx1;
   double *xg = gauss_xw[0];
   double *wg = gauss_xw[1];
   EN_SRECORD *mem_en_table;
@@ -1551,11 +1526,13 @@ int CEFMaxwell(char *ifn, char *ofn, int i0, int i1,
 	PrepCEFCrossRecord(&r, &h, data, fh.atom);
 	for (t = 0; t < nt; t++) {
 	  cs = 0.0;
+	  cs1 = 0.0;
 	  tms = temp[t]/bms;
 	  theta = FINE_STRUCTURE_CONST2*tms/HARTREE_EV;
 	  for (p = 0; p < 15; p++) {
 	    a = tms*xg[p];
-	    c = InterpolateCEFCross(a, &r, &h, data, &cx);
+	    c = InterpolateCEFCross(a, &r, &h, data, &cx, 1);
+	    c1 = InterpolateCEFCross(a, &r, &h, data, &cx1, 0);
 	    b = (a + e/bms)/HARTREE_EV;
 	    b = FINE_STRUCTURE_CONST2*b;
 	    a = 1+0.5*b;
@@ -1565,11 +1542,14 @@ int CEFMaxwell(char *ifn, char *ofn, int i0, int i1,
 	    }
 	    b *= MaxwellRC(e/temp[t]+xg[p], theta);
 	    cs += wg[p]*c*b;
+	    cs1 += wg[p]*c1*b;
 	  }
 	  a = 217.16*sqrt(HARTREE_EV/(2.0*tms));
-	  a *= cs*exp(-e/temp[t]);
-	  fprintf(f2, "%11.4E\t%11.4E\t%11.4E\n",
-		  temp[t], cs, a);
+	  a *= exp(-e/temp[t]);
+	  a1 = a*cs1;
+	  a *= cs;
+	  fprintf(f2, "%11.4E\t%11.4E\t%11.4E\t%11.4E\t%11.4E\n",
+		  temp[t], cs, a, cs1, a1);
 	}
 	fprintf(f2, "\n\n");
 	if (i0 >= 0 && i1 >= 0) {
@@ -1608,7 +1588,8 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
   CE_HEADER h;
   CE_RECORD r;
   int i, t, m, k, p;
-  double data[4+(1+MAXNUSR)*4], e, cs, a, c, b, d, cx, ratio;
+  double data[4+(2+MAXNUSR)*4], e, cs, a, cs1, a1, c;
+  double c1, b, d, cx, cx1, ratio;
   double *xg = gauss_xw[0];
   double *wg = gauss_xw[1];
   EN_SRECORD *mem_en_table;
@@ -1663,9 +1644,11 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
 	    tms = temp[t]/bms;
 	    theta = FINE_STRUCTURE_CONST2*tms/HARTREE_EV;
 	    cs = 0.0;
+	    cs1 = 0.0;
 	    for (p = 0; p < 15; p++) {
 	      a = tms*xg[p];
-	      c = InterpolateCECross(a, &r, &h, data, &cx, &ratio);
+	      c = InterpolateCECross(a, &r, &h, data, &cx, &ratio, 1);
+	      c1 = InterpolateCECross(a, &r, &h, data, &cx1, &ratio, 0);
 	      b = (a + e/bms)/HARTREE_EV;
 	      b = FINE_STRUCTURE_CONST2*b;
 	      a = 1+0.5*b;
@@ -1674,13 +1657,20 @@ int CEMaxwell(char *ifn, char *ofn, int i0, int i1,
 		b /= a;
 	      }
 	      d = MaxwellRC(e/temp[t]+xg[p],theta);
-	      cs += wg[p]*c*b*d;
+	      d *= b;
+	      cs += wg[p]*c*d;
+	      cs1 += wg[p]*c1*d;
 	    }
 	    a = 217.16*sqrt(HARTREE_EV/(2.0*tms));
-	    a *= cs*exp(-e/temp[t]);
-	    if (!h.msub) a /= (mem_en_table[r.lower].j+1.0);
-	    fprintf(f2, "%11.4E\t%11.4E\t%11.4E\n",
-		    temp[t], cs, a);
+	    a *= exp(-e/temp[t]);
+	    a1 = a*cs1;
+	    a *= cs;
+	    if (!h.msub) {
+	      a /= (mem_en_table[r.lower].j+1.0);
+	      a1 /= (mem_en_table[r.lower].j+1.0);
+	    }
+	    fprintf(f2, "%11.4E\t%11.4E\t%11.4E\t%11.4E\t%11.4E\n",
+		    temp[t], cs, a, cs1, a1);
 	  }
 	  fprintf(f2, "\n\n");
 	}
@@ -3407,7 +3397,7 @@ void ModifyCE(int nc, MOD_RECORD *mr, int nr, MOD_RECORD *pr,
   CE_HEADER h, *h0;
   CE_RECORD r, *r0;
   MOD_RECORD mr0;
-  double a, cx, data[4+(1+MAXNUSR)*4];
+  double a, cx, data[4+(2+MAXNUSR)*4];
 
   if (GetMemENTable(&n) == NULL) {
     printf("must build the in-memory enegy table for CE modification\n");
@@ -3475,7 +3465,7 @@ void ModifyCE(int nc, MOD_RECORD *mr, int nr, MOD_RECORD *pr,
 		PrepCECrossRecord(j, r0, h0, data, fh->atom);
 		for (t = 0; t < h.n_usr; t++) {
 		  r.strength[p] = InterpolateCECross(h.usr_egrid[t]*HARTREE_EV,
-						     r0, h0, data, &cx, &a);
+						     r0, h0, data, &cx, &a, 1);
 		  p++;
 		}
 	      }

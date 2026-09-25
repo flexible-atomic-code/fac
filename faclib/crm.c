@@ -70,7 +70,7 @@ static int _sp_trm = 1;
 static int _rates_block = RATES_BLOCK;
 static int _lblock_block = LBLOCK_BLOCK;
 
-static double _ce_data[4+(1+MAXNUSR)*4];
+static double _ce_data[4+(2+MAXNUSR)*4];
 static double _rr_data[1+MAXNUSR*4];
 static int _ce_bethe = 0;
 
@@ -5698,7 +5698,7 @@ int SetCXRates(int m0, char *tgt) {
 
 int SetCERates(int inv) {
   int nb, i, j, ib, jb, nrb;
-  int n, m, m1, k;
+  int n, m, m1, m2, k;
   int j1, j2;
   int p, q;
   ION *ion;
@@ -5746,6 +5746,7 @@ int SetCERates(int inv) {
       }
       m = h.n_usr;
       m1 = m + 1;
+      m2 = m + 2;
       nrb = Min(NRTB, h.ntransitions);
       jb = 0;
       for (i = 0; i < h.ntransitions; i++) {
@@ -5756,7 +5757,7 @@ int SetCERates(int inv) {
 	  {
 	  data = _ce_data;
 	  y = data + 4;
-	  x = y + m1;
+	  x = y + m2;
 	  double b, c;
 	  int w = 0;
 	  for (ib = 0; ib < nrb; ib++) {
@@ -5779,18 +5780,21 @@ int SetCERates(int inv) {
 	    data[3] = fh.atom-h.nele;
 	    cs = r[ib].strength;
 	    y[m] = r[ib].born[0];
+	    y[m1] = y[m];
 	    if (h.tegrid[0] < 0) {
 	      for (j = 0; j < m; j++) {
 		y[j] = cs[j];
 		x[j] = eusr[j]*e;
 	      }
-	      x[m] = r[ib].born[1];
 	    } else {
 	      for (j = 0; j < m; j++) {
 		y[j] = cs[j];
 		x[j] = eusr[j];
 	      }
-	      x[m] = r[ib].born[1];
+	    }
+	    x[m1] = r[ib].born[1];
+	    if (x[m1] > x[m-1]) {
+	      x[m] = pow(x[m-1],0.25)*pow(x[m1],0.75);
 	    }
 	    PrepCECrossData(m, data);
 	    CERate(&(rt[ib].dir), &(rt[ib].inv), inv, j1, j2, e, m,
@@ -5834,6 +5838,7 @@ int SetCERates(int inv) {
 	}
 	m = h.n_usr;
 	m1 = m + 1;
+	m2 = m + 2;
 	nrb = Min(NRTB, h.ntransitions);
 	jb = 0;
 	for (i = 0; i < h.ntransitions; i++) {
@@ -5844,7 +5849,7 @@ int SetCERates(int inv) {
 	    {	    
 	    data = _ce_data;
 	    y = data + 4;
-	    x = y + m1;
+	    x = y + m2;
 	    double b, c;
 	    int w = 0;
 	    for (ib = 0; ib < nrb; ib++) {
@@ -5883,18 +5888,21 @@ int SetCERates(int inv) {
 	      data[3] = fh.atom - h.nele;
 	      cs = r[ib].strength;
 	      y[m] = r[ib].born[0];
+	      y[m1] = y[m];
 	      if (h.tegrid[0] < 0) {
 		for (j = 0; j < m; j++) {
 		  y[j] = cs[j];
 		  x[j] = eusr[j]*e;
 		}
-		x[m] = r[ib].born[1];
 	      } else {
 		for (j = 0; j < m; j++) {
 		  y[j] = cs[j];
 		  x[j] = eusr[j];
 		}
-		x[m] = r[ib].born[1];
+	      }
+	      x[m1] = r[ib].born[1];
+	      if (x[m1] > x[m-1]) {
+		x[m] = pow(x[m-1],0.25)*pow(x[m1],0.75);
 	      }
 	      PrepCECrossData(m, data);
 	      CERate(&(rt[ib].dir), &(rt[ib].inv), inv, j1, j2, e, m,
