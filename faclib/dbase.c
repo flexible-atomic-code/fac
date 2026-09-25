@@ -10622,7 +10622,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
     if (f1[2]) {
       CE_RECORD **rt;
       CE_HEADER ht;
-      double data[4+(1+MAXNUSR)*4], ratio;
+      double data[4+(2+MAXNUSR)*4], ratio;
       int neg = 6;
       SetCEEGridType(1);
       SetUsrCEEGridType(1);
@@ -10679,7 +10679,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	      te = mem_en_table[r2.upper].energy - mem_en_table[r2.lower].energy;
 	      for (t = 0; t < neg; t++) {
 		e = te*ht.egrid[t]*HARTREE_EV;
-		cs = InterpolateCECross(e, &r2, &h2, data, &cx, &ratio);
+		cs = InterpolateCECross(e, &r2, &h2, data, &cx, &ratio, 1);
 		rt[j]->strength[t] += cs;	      
 	      }
 	      if (r2.bethe >= 0.0) {
