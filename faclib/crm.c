@@ -1863,7 +1863,6 @@ int InitBlocks(void) {
 	  a /= b;
 	  double zt = z-ion->nele+1.0;
 	  double fij = a/(ion->j[r->f]+1.0);
-	  double eta = de/(3*tea*(ion->j[r->i]+1.0));
 	  double za = zt*FINE_STRUCTURE_CONST;
 	  int type = TransitionType(blk1->ncomplex, blk2->ncomplex);
 	  int nlo = type%100;
@@ -1873,7 +1872,7 @@ int InitBlocks(void) {
 	  double rij = sqrt(fij*1.5*_starkrij*(ion->j[r->i]+1.0)/rde);
 	  if (nup == 2 && nlo == 2 && ion->nele == 1) rij *= _starkrij2;
 	  b = zt-1.0;
-	  b = Max(0.05, b);
+	  b = Max(0.01, b);
 	  b = 0.5*b*b/tea;
 	  double wp = 1.364e-7*sqrt(electron_density);
 	  wp = Max(wp, de);
@@ -1905,8 +1904,8 @@ int InitBlocks(void) {
 #pragma omp atomic
 	    blk2->rc1[kf] += rup;
 	  }
-	  //if (r->i == 6) {
-	  //  printf("ri: %d %d %g %g %g %g %g %g %g %g %g %g %g\n", r->f, nup, zt, fij, eta, rij, de, rdne, rdn, ri0, ri1, blk1->rc1[j], blk1->rc2[j]);	    
+	  //if (r->i == 1 && r->f == 0) {
+	  //  printf("ri: %d %d %g %g %g %g %g %g %g %g %g %g %g\n", r->f, nup, zt, a, b, rij, de, rdne, rdn, ri0, ri1, blk1->rc1[j], blk1->rc2[j]);	    
 	  //}
 	}
       }
@@ -4537,8 +4536,8 @@ int SpecTable(char *fn, int rrc, double strength_threshold) {
 		}
 		r.wstk = CalcStarkQC(&we0, wi0, _stark_wd, ion->nele);
 		r.wimp = we0;
-		//if (r.upper == 6 && r.lower == 0) {
-		//  printf("ws: %g %g %g %g %g\n", r.trate, wi0[0], _stark_wd, r.wimp, r.wstk);
+		//if (r.upper == 1 && r.lower == 0) {
+		//  printf("ws: %g %g %g %g %g %g %g\n", r.trate, wi0[0], _stark_wd, r.wimp, r.wstk, iblk->rc1[ion->ilev[rt->i]],fblk->rc1[ion->ilev[rt->f]]);
 		//}
 		free(wi0);
 	      } else {
