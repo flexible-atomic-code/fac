@@ -1117,16 +1117,17 @@ double GauntFF(double g2, double u, int m) {
   if (m < 0 || m >= 10) {
     r = GauntEFF(g2, u);
   } else if (m == 9) {
-    double *xg, *wg, e1, e0, de, t;
+    double *xg, *wg, e1, e0, de, t, z2;
     int n = GaussXW(&xg, &wg);
     int i;
-    t = 1.0/g2;
-    de = u*t;
+    de = 1.0;
+    t = de/u;
+    z2 = g2*t;
     r = 0.0;
     for (i = 0; i < n; i++) {
       e1 = t*xg[i];
       e0 = e1 + de;
-      r0 = GauntEFF(1/e0, de/e0);
+      r0 = GauntEFF(z2/e0, de/e0);
       r += r0*wg[i];
     }
   } else if (m == 0) {
