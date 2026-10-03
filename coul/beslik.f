@@ -35,6 +35,7 @@ c      zlmin = dcmplx(0.0, lambda)
       call coulcc(x, eta, zlmin, k, fc, gc, fcp, gcp, sig, 
      +            mode, kfn, ierr)
       dk = dble(gc(k))
+
       if (abs(mode) .eq. 1) dkp = dble(gcp(k))
 
       end

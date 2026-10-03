@@ -97,7 +97,8 @@ int     CoulombBethe(char *s, double z, double te, double e1);
 int     InitCoulomb(void);
 void InitHydrogenicDipole(int n);
 double GauntHummer(double g2, double u);
-double GauntFF(double g2, double u, int m);
+double GauntIFF(double z2, double t, double de, double msg, double ne, int m);
+double GauntTFF(double g2, double u, int m);
 double GauntEFF(double g2, double u);
 
 #endif
