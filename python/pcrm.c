@@ -1798,20 +1798,27 @@ static PyObject *PRateCoefficients(PyObject *self, PyObject *args) {
 }
 
 static PyObject *PGauntFF(PyObject *self, PyObject *args) {
-  double g2, u, z, r;
+  double z, t, de, msg, ne, r, z2, g2, u;
   int m;
 
   z = -1.0;
-  m = 5;
-  if (!PyArg_ParseTuple(args, "dd|id", &g2, &u, &m, &z)) return NULL;
-  if (z >= 0) {
-    if (m == 11) {
-      g2 += u;
+  m = 0;
+  msg = 0.0;
+  ne = 0.0;
+  if (!PyArg_ParseTuple(args, "dd|iddd", &t, &de, &m, &z, &msg, &ne)) return NULL;
+  if (m < 10) {
+    if (z >= 0) {
+      z2 = z*z;
+      g2 = z2*RYDBERG_EV/t;
+      u = de/t;
+    } else {
+      g2 = t;
+      u = de;
     }
-    u = u/g2;
-    g2 = HARTREE_EV*z*z/(2*g2);
+    r = GauntTFF(g2, u, m);
+  } else {
+    r = GauntIFF(z*z*RYDBERG_EV, t, de, msg, ne, m-10);
   }
-  r = GauntFF(g2, u, m);
   return Py_BuildValue("d", r);
 }
 

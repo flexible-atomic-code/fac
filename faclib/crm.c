@@ -1876,7 +1876,7 @@ int InitBlocks(void) {
 	  b = 0.5*b*b/tea;
 	  double wp = 1.364e-7*sqrt(electron_density);
 	  wp = Max(wp, de);
-	  b = GauntFF(b, wp/tea, 5);
+	  b = GauntTFF(b, wp/tea, 6);
 	  if (ion->nele < z) {
 	    b *= 3/(1+2/(zt*zt*zt));
 	  }	  
