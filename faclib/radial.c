@@ -2386,6 +2386,7 @@ int PotentialHX1(AVERAGE_CONFIG *acfg, int iter, int md) {
     SetPotentialPS(potential, iter);
   }
 
+  jmaxk = 0;
   if (!(potential->mps == 1 ||
 	(potential->mps == 0 && potential->tps <= 0))) {
     if (_scpot.md != 1 && _scpot.md != 3) {      
