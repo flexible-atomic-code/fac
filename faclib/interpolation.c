@@ -717,8 +717,8 @@ void PrepCECrossData(int m, double *data) {
     y[m] = log(y[m]);
     y[m1] = log(y[m1]);
   } else {
-    x[m] = x[m-1]+2.5;
-    x[m1] = x[m]+2.5;
+    x[m1] = 1.0;
+    x[m] = 0.5*(x[m-1]+x[m1]);
     double a = (y[m-1]-y[m-2])/(x[m-1]-x[m-2]);
     if (a > -1.0) a = -1.0;
     y[m] = y[m-1] + a*(x[m]-x[m-1]);
