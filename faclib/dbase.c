@@ -10624,12 +10624,14 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
       CE_HEADER ht;
       double data[4+(2+MAXNUSR)*4], ratio;
       int neg = 6;
+      int xce = XCEMode();
       SetCEEGridType(1);
       SetUsrCEEGridType(1);
       SetCEPWGridType(0);
       SetCETEGrid(-1, 0.0, 0.0);
       SetCEEGrid(neg, 0.05, 25.0, 1.0);
       SetUsrCEEGrid(neg, 0.05, 25.0, 1.0);
+      SetXCEMode(0);
       for (k = z; k >= 0; k--) {
 	if (ngrp[k] == 0) continue;
 	wt0 = WallTime();
@@ -10682,10 +10684,14 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 		cs = InterpolateCECross(e, &r2, &h2, data, &cx, &ratio, 1);
 		rt[j]->strength[t] += cs;	      
 	      }
-	      if (r2.bethe >= 0.0) {
+	      if (r2.born[1] > EPS30) {
+		if (rt[j]->born[1] < EPS30) {
+		  rt[j]->born[1] = r2.born[1];
+		}
 		rt[j]->bethe += r2.bethe;
-		rt[j]->born[0] += r2.born[0];
-		rt[j]->born[1] += r2.born[1]*r2.born[0];
+		e = rt[j]->born[1]*HARTREE_EV;
+		cs = InterpolateCECross(e, &r2, &h2, data, &cx, &ratio, 1);
+		rt[j]->born[0] += cs;		
 	      }
 	    }
 	    free(r2.strength);
@@ -10708,8 +10714,12 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	    }
 	  }
 	  if (t) {
-	    if (rt[i]->born[0] > 0) {
-	      rt[i]->born[1] /= rt[i]->born[0];
+	    if (rt[i]->born[1] > 0) {
+	      if (rt[i]->bethe > 0) {
+		e = rt[i]->born[1];
+		te = ra[k][rt[i]->upper].energy-ra[k][rt[i]->lower].energy;
+		rt[i]->born[0] -= rt[i]->bethe*log(1+e/te);
+	      }
 	    } else {
 	      rt[i]->bethe = -1.0;
 	    }
@@ -10724,6 +10734,7 @@ void CollapseDBase(char *ipr, char *opr, int k0, int k1,
 	wt1 = WallTime();
 	printf(" %d %d %.3e\n", nt0, nt1, wt1-wt0);
       }
+      SetXCEMode(xce);
     }
 
     if (f1[3]) {

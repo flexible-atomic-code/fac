@@ -343,6 +343,10 @@ int RelativisticMaxwell(void) {
   return _maxwell_rc;
 }
 
+void SetXCEMode(int xce) {
+  _xce_mode = xce;
+}
+
 int XCEMode(void) {
   return _xce_mode;
 }
