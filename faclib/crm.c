@@ -5757,7 +5757,7 @@ int SetCERates(int inv) {
 	  data = _ce_data;
 	  y = data + 4;
 	  x = y + m2;
-	  double b, c;
+	  double a, b, c;
 	  int w = 0;
 	  for (ib = 0; ib < nrb; ib++) {
 	    int skip = SkipWMPI(w++);
@@ -5792,8 +5792,13 @@ int SetCERates(int inv) {
 	      }
 	    }
 	    x[m1] = r[ib].born[1];
-	    if (x[m1] > x[m-1]) {
+	    if (x[m1] > 0) {
+	      if (x[m1] < x[m-1]*2) x[m1] = x[m-1]*2;
 	      x[m] = pow(x[m-1],0.25)*pow(x[m1],0.75);
+	      b = log(x[m1]/x[m-1]);
+	      a = y[m-1] - r[ib].bethe*log(1+x[m-1]/e);
+	      c = (y[m1]-a)/b;
+	      y[m] = y[m1] + c*log(x[m]/x[m1]);
 	    }
 	    PrepCECrossData(m, data);
 	    CERate(&(rt[ib].dir), &(rt[ib].inv), inv, j1, j2, e, m,
@@ -5849,7 +5854,7 @@ int SetCERates(int inv) {
 	    data = _ce_data;
 	    y = data + 4;
 	    x = y + m2;
-	    double b, c;
+	    double a, b, c;
 	    int w = 0;
 	    for (ib = 0; ib < nrb; ib++) {
 	      int skip = SkipWMPI(w++);
@@ -5900,8 +5905,13 @@ int SetCERates(int inv) {
 		}
 	      }
 	      x[m1] = r[ib].born[1];
-	      if (x[m1] > x[m-1]) {
+	      if (x[m1] > 0) {
+		if (x[m1] < x[m-1]*2) x[m1] = x[m-1]*2;
 		x[m] = pow(x[m-1],0.25)*pow(x[m1],0.75);
+		b = log(x[m1]/x[m-1]);
+		a = y[m-1] - r[ib].bethe*log(1+x[m-1]/e);
+		c = (y[m1]-a)/b;
+		y[m] = y[m1] + c*log(x[m]/x[m1]);
 	      }
 	      PrepCECrossData(m, data);
 	      CERate(&(rt[ib].dir), &(rt[ib].inv), inv, j1, j2, e, m,

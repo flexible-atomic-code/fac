@@ -678,7 +678,7 @@ int NewtonCotesIP(double *r, double *x, int i0, int i1, int m, int id) {
 void PrepCECrossData(int m, double *data) {
   int j, m1, m2;
   double x0, e0, eth, eth1, bethe, *y, *x;
-  double z2, g2, u, gff;
+  double z2, g2, u, gff, b;
 
   m1 = m+1;
   m2 = m+2;
@@ -688,6 +688,8 @@ void PrepCECrossData(int m, double *data) {
   bethe = data[1];
   eth = data[2];
   z2 = data[3]*data[3];
+  b = y[m-1]*1e-3;
+  if (b < 1e-15) b = 1e-15;
   for (j = 0; j < m2; j++) {
     e0 = eth1+x[j];
     if (x[j] > 0) {
@@ -702,7 +704,8 @@ void PrepCECrossData(int m, double *data) {
     }
     if (bethe > 0) {
       if (j >= m) {
-	y[j] += bethe*log(e0/eth);
+	y[j] += bethe*log(e0/eth);      
+	if (bethe > 0 && y[j] < b) y[j] = b;
       }
       g2 = 0.5*z2/e0;
       u = eth/e0;
@@ -711,6 +714,7 @@ void PrepCECrossData(int m, double *data) {
     }
   }
   for (j = 0; j < m; j++) {
+    if (y[j] < 1e-35) y[j] = 1e-35;
     y[j] = log(y[j]);
   }
   if (y[m] > 0) {
@@ -814,7 +818,7 @@ double InterpCECrossData(int m, double *data, double e, double *cx, double *r) {
 }
 
 void PrepCEFCrossRecord(CEF_RECORD *r, CEF_HEADER *h, double *data, double z) {
-  double *eusr, *x, *y, b, c, bms, bte;
+  double *eusr, *x, *y, a, b, c, bms, bte;
   double eth, eth1, d;
   float *cs;
   int m, m1, m2, j;
@@ -844,18 +848,24 @@ void PrepCEFCrossRecord(CEF_RECORD *r, CEF_HEADER *h, double *data, double z) {
   for (j = 0; j < m; j++) {
     x[j] = eusr[j];
   }
+
   x[m1] = r->born[1];
   y[m1] = r->born[0];
-  if (x[m1] > x[m-1]) {
-    x[m] = pow(x[m-1],0.25)*pow(x[m1],0.75);
-  }
   y[m] = r->born[0];
+  if (r->born[1] > 0) {
+    if (x[m1] < x[m-1]*2) x[m1] = x[m-1]*2;
+    x[m] = pow(x[m-1],0.25)*pow(x[m1],0.75);
+    b = log(x[m1]/x[m-1]);
+    a = y[m-1] - r->bethe*log(1+x[m-1]/eth);
+    c = (y[m1]-a)/b;
+    y[m] = y[m1] + c*log(x[m]/x[m1]);
+  }
   PrepCECrossData(m, data);
 }
 
 void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
 		       double *data, double z) {
-  double *eusr, *x, *y, *u, *w, b, c, bms, bte;
+  double *eusr, *x, *y, *u, *w, a, b, c, bms, bte;
   double eth, eth1, d;
   float *cs;
   int m, m1, m2, j, t;
@@ -925,9 +935,14 @@ void PrepCECrossRecord(int k, CE_RECORD *r, CE_HEADER *h,
 	x[j] = eusr[j];
       }
     }
-    x[m1] = r->born[1];
-    if (x[m1] > x[m-1]) {
+    x[m1] = r->born[1];    
+    if (r->born[1] > 0) {
+      if (x[m1] < x[m-1]*2) x[m1] = x[m-1]*2;
       x[m] = pow(x[m-1],0.25)*pow(x[m1],0.75);
+      b = log(x[m1]/x[m-1]);
+      a = y[m-1] - r->bethe*log(1+x[m-1]/eth);
+      c = (y[m1]-a)/b;
+      y[m] = y[m1] + c*log(x[m]/x[m1]);
     }
     PrepCECrossData(m, data);
   }
